@@ -37,6 +37,7 @@ export default async function MorePage() {
         </div>
       )}
 
+      <Link href="/balance" className="flex min-h-12 items-center justify-between rounded-card border border-border bg-surface px-4">Balance y saldar deudas<span aria-hidden className="text-ink-3">›</span></Link>
       <h2 className="mt-2 text-lg font-semibold">Burbujas</h2>
       <ul className="flex flex-col gap-2">
         {spaces.filter((s) => s.kind !== "personal").map((s) => (
