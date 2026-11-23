@@ -2,7 +2,7 @@
 
 
 import { useTx } from "@/i18n/tx-client";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { SpendChart } from "@/components/charts/SpendChart";
 import { Keypad } from "@/components/expense/Keypad";
 import { DEMO_BUBBLES, type DemoBubble, type DemoExpense } from "@/lib/demo-data";
@@ -19,6 +19,8 @@ export function DemoApp() {
   const [tab, setTab] = useState<Tab>("inicio");
   const [extra, setExtra] = useState<Record<string, DemoExpense[]>>({});
   const [sheet, setSheet] = useState(false);
+  const [toast, setToast] = useState<{ bubbleId: string; id: string; text: string } | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bubble = DEMO_BUBBLES.find((b) => b.id === bubbleId)!;
   const expenses = useMemo(() => [...(extra[bubble.id] ?? []), ...bubble.expenses], [extra, bubble]);
   const accent = ACCENT[bubble.kind];
@@ -56,7 +58,22 @@ export function DemoApp() {
         </div>
       </nav>
 
-      {sheet && <DemoSheet b={bubble} onClose={() => setSheet(false)} onSave={(x) => { setExtra((p) => ({ ...p, [bubble.id]: [x, ...(p[bubble.id] ?? [])] })); setSheet(false); }} />}
+      {sheet && (
+        <DemoSheet bubbles={DEMO_BUBBLES} initialId={bubble.id} onClose={() => setSheet(false)}
+          onSave={(bid, ex) => {
+            setExtra((p) => ({ ...p, [bid]: [ex, ...(p[bid] ?? [])] }));
+            setBubbleId(bid); setSheet(false);
+            setToast({ bubbleId: bid, id: ex.id, text: DEMO_BUBBLES.find((v) => v.id === bid)!.name });
+            if (timer.current) clearTimeout(timer.current);
+            timer.current = setTimeout(() => setToast(null), 5000);
+          }} />
+      )}
+      {toast && (
+        <div role="status" className="anim-fade fixed inset-x-4 bottom-28 z-50 mx-auto flex max-w-md items-center justify-between gap-3 rounded-card border border-border bg-surface-2 px-4 py-3 shadow-lg">
+          <span className="text-sm">{x("Guardado en ")}{toast.text}</span>
+          <button type="button" className="min-h-11 px-3 text-sm font-semibold" onClick={() => { setExtra((p) => ({ ...p, [toast.bubbleId]: (p[toast.bubbleId] ?? []).filter((e) => e.id !== toast.id) })); setToast(null); }}>{x("Deshacer")}</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -166,22 +183,82 @@ function Plan({ b }: { b: DemoBubble }) {
   );
 }
 
-function DemoSheet({ b, onClose, onSave }: { b: DemoBubble; onClose: () => void; onSave: (x: DemoExpense) => void }) {
+/** Hoja de nuevo gasto de la demo: misma estructura que la real (burbujas, fondos, pagó, reparto y "tu parte" en directo). */
+function DemoSheet({ bubbles, initialId, onClose, onSave }: { bubbles: DemoBubble[]; initialId: string; onClose: () => void; onSave: (bubbleId: string, e: DemoExpense) => void }) {
   const x = useTx();
+  const [bid, setBid] = useState(initialId);
+  const b = bubbles.find((v) => v.id === bid)!;
+  const isGroup = b.kind !== "personal";
+  const chips = b.kind === "group" ? ["Alojamiento", "Comida", "Transporte", "Ocio", "Otros"] : b.funds.map((f) => f.name);
   const [amount, setAmount] = useState("");
   const [text, setText] = useState("");
+  const [chip, setChip] = useState(chips[0]!);
+  const [payer, setPayer] = useState(b.members[0]!);
+  const [mode, setMode] = useState<"default" | "equal">("default");
+  const [included, setIncluded] = useState<string[]>(b.members);
   const cents = parseToCents(amount) ?? 0;
-  const share = b.kind === "personal" ? cents : buildSplits(Math.max(cents, 1), "equal", b.members.map((m) => ({ memberId: m, defaultBp: null })))[0]!.amountCents * (cents ? 1 : 0);
+  const accent = ACCENT[b.kind];
+
+  const pick = (id: string) => {
+    const nb = bubbles.find((v) => v.id === id)!;
+    setBid(id);
+    setChip(nb.kind === "group" ? "Alojamiento" : nb.funds[0]!.name);
+    setPayer(nb.members[0]!); setIncluded(nb.members); setMode("default");
+  };
+  const share = (() => {
+    if (cents <= 0) return 0;
+    if (!isGroup) return cents;
+    if (included.length === 0) return 0;
+    const weights = b.kind === "household" ? [6000, 4000] : null; // reparto por defecto ficticio del hogar
+    const parts = included.map((m) => ({ memberId: m, defaultBp: mode === "default" && weights ? (weights[b.members.indexOf(m)] ?? 0) : null }));
+    return buildSplits(cents, mode === "equal" || !weights ? "equal" : "default", parts).find((p) => p.memberId === b.members[0])?.amountCents ?? 0;
+  })();
+  const chipCls = (on: boolean) => `min-h-11 whitespace-nowrap rounded-full border px-4 text-sm font-medium ${on ? "text-on-accent" : "border-border text-ink-2"}`;
+
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/60" onClick={onClose}>
       <div role="dialog" aria-modal="true" aria-label={x("Nuevo gasto")} onClick={(ev) => ev.stopPropagation()} className="anim-sheet max-h-[94dvh] w-full max-w-md overflow-y-auto rounded-t-[24px] border border-border bg-surface-2 p-4">
-        <h2 className="mb-2 text-lg font-bold">{x("Nuevo gasto en")}{" "}{b.name}</h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-lg font-bold">{x("Nuevo gasto")}</h2>
+          <button type="button" onClick={onClose} aria-label={x("Cerrar")} className="grid min-h-11 min-w-11 place-items-center text-ink-2">✕</button>
+        </div>
+        <p className="mb-1 text-xs text-ink-3">{x("¿Dónde lo apunto?")}</p>
+        <div className="mb-4 flex gap-2 overflow-x-auto [scrollbar-width:none]">
+          {bubbles.map((v) => (
+            <button key={v.id} type="button" aria-pressed={v.id === bid} onClick={() => pick(v.id)} className={chipCls(v.id === bid)} style={v.id === bid ? { background: ACCENT[v.kind], borderColor: ACCENT[v.kind] } : undefined}>{v.name}</button>
+          ))}
+        </div>
         <output className="mb-2 block text-center font-mono text-5xl font-semibold">{amount || "0"} <span className="text-3xl text-ink-3">€</span></output>
         <input value={text} onChange={(e) => setText(e.target.value)} maxLength={60} placeholder={x("Concepto")} aria-label={x("Concepto")} className="mb-3 min-h-12 w-full rounded-card border border-border bg-surface px-4 text-ink" />
+        <div className="mb-3 flex gap-2 overflow-x-auto [scrollbar-width:none]" role="group" aria-label={x("Categoría")}>
+          {chips.map((c) => <button key={c} type="button" aria-pressed={c === chip} onClick={() => setChip(c)} className={chipCls(c === chip)} style={c === chip ? { background: accent, borderColor: accent } : undefined}>{c}</button>)}
+        </div>
         <Keypad value={amount} onChange={setAmount} />
-        <p className="mt-3 flex justify-between text-sm text-ink-2"><span>{b.kind === "personal" ? x("Solo lo ves tú") : x("Tu parte")}</span><span className="money font-mono text-lg text-ink">{formatMoney(share, "EUR", x.locale)}</span></p>
-        <button disabled={cents <= 0 || !text.trim()} onClick={() => onSave({ id: crypto.randomUUID(), text: text.trim(), cents, category: "Demo", day: 23, payer: b.members[0]!, participants: b.members })}
-          className="mt-3 min-h-14 w-full rounded-full font-semibold text-on-accent disabled:opacity-50" style={{ background: ACCENT[b.kind] }}>{x("Guardar en")}{" "}{b.name}</button>
+        {isGroup ? (
+          <div className="mt-4 flex flex-col gap-3 rounded-card border border-border bg-surface p-3">
+            <label className="flex items-center justify-between gap-3 text-sm text-ink-2">{x("Pagó")}
+              <select value={payer} onChange={(e) => setPayer(e.target.value)} className="min-h-11 rounded-card border border-border bg-surface-2 px-3 text-ink">
+                {b.members.map((m) => <option key={m} value={m}>{m === b.members[0] ? x("Yo") : m}</option>)}
+              </select>
+            </label>
+            {b.kind === "household" && (
+              <div role="group" aria-label={x("Reparto")} className="flex gap-2">
+                {([["default", "Por defecto"], ["equal", "Iguales"]] as const).map(([m, l]) => (
+                  <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)} className={chipCls(mode === m)} style={mode === m ? { background: accent, borderColor: accent } : undefined}>{x(l)}</button>
+                ))}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2" role="group" aria-label={x("Quién participa")}>
+              {b.members.map((m) => {
+                const on = included.includes(m);
+                return <button key={m} type="button" aria-pressed={on} onClick={() => setIncluded(on ? included.filter((i) => i !== m) : [...included, m])} className={chipCls(on)} style={on ? { background: "var(--track)", color: "var(--text)", borderColor: "var(--track)" } : undefined}>{on ? "✓ " : ""}{m === b.members[0] ? x("Yo") : m}</button>;
+              })}
+            </div>
+          </div>
+        ) : <p className="mt-4 text-sm text-ink-3">{x("Solo lo ves tú.")}</p>}
+        <p className="mt-3 flex items-baseline justify-between text-sm text-ink-2" aria-live="polite"><span>{x("Tu parte")}</span><span className="money font-mono text-lg text-ink">{formatMoney(share, "EUR", x.locale)}</span></p>
+        <button disabled={cents <= 0 || !text.trim() || (isGroup && included.length === 0)} onClick={() => onSave(bid, { id: crypto.randomUUID(), text: text.trim(), cents, category: chip, day: 23, payer, participants: isGroup ? included : b.members })}
+          className="mt-3 min-h-14 w-full rounded-full font-semibold text-on-accent disabled:opacity-50" style={{ background: accent }}>{x("Guardar en")} {b.kind === "personal" ? x("Personal") : b.name}</button>
       </div>
     </div>
   );
