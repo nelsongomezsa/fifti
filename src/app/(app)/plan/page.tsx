@@ -33,11 +33,12 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
   const expectedTotal = Object.values(d.expected).reduce((a, b) => a + b, 0);
   const actualTotal = Object.values(d.actual).reduce((a, b) => a + b, 0);
 
-  const [{ data: recurring }, { data: cats }, { data: rule }, { data: contribs }] = await Promise.all([
+  const [{ data: recurring }, { data: cats }, { data: rule }, { data: contribs }, { data: goals }] = await Promise.all([
     supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, next_run, active, category_id, paid_from").eq("space_id", active.id).order("next_run"),
     supabase.from("categories").select("id, name").eq("space_id", active.id).order("name"),
     active.kind === "household" ? supabase.from("contribution_rules").select("mode, monthly_target_cents, values").eq("space_id", active.id).maybeSingle() : Promise.resolve({ data: null }),
     active.kind === "household" ? supabase.from("contributions").select("id, member_id, expected_cents, paid_cents").eq("space_id", active.id).eq("month", month) : Promise.resolve({ data: [] }),
+    supabase.from("savings_goals").select("id, name").eq("space_id", active.id),
   ]);
   const nm = (id: string) => d.members.find((m) => m.id === id)?.display_name ?? "—";
   const myRecurring = recurring ?? [];
@@ -147,7 +148,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
                 <label key={f.id} className="flex items-center justify-between gap-3 text-sm text-ink-2">
                   <span>{f.name} <span className="money font-mono text-ink">{formatMoney(left)}</span></span>
                   <select name={`act_${f.id}`} defaultValue={f.rollover ? "rollover" : "free"} disabled={left <= 0} aria-label={`Qué hacer con el sobrante de ${f.name}`} className="min-h-11 rounded-card border border-border bg-surface-2 px-2 text-ink">
-                    <option value="rollover">Pasa al mes siguiente</option><option value="free">Queda libre</option>
+                    <option value="rollover">Pasa al mes siguiente</option><option value="free">Queda libre</option>{goals?.map((g) => <option key={g.id} value={`goal:${g.id}`}>A la meta: {g.name}</option>)}
                   </select>
                 </label>
               );

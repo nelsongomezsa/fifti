@@ -6,3 +6,4 @@ export * from "./expense";
 export * from "./balance";
 export * from "./plan";
 export * from "./insights";
+export * from "./savings";

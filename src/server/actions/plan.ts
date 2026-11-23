@@ -184,8 +184,10 @@ export async function closePlan(_prev: FormState, fd: FormData): Promise<FormSta
   const decisions = plan.funds.map((f) => {
     const a = plan.allocations[f.id];
     const leftover = fundLeftover(a?.planned ?? 0, a?.carry ?? 0, plan.spentByFund[f.id] ?? 0);
-    const action = field(fd, `act_${f.id}`) === "rollover" ? "rollover" : "free";
-    return { fund_id: f.id, action, goal_id: null, leftover_cents: leftover };
+    const raw = field(fd, `act_${f.id}`);
+    const goal = raw.startsWith("goal:") ? uuidSchema.safeParse(raw.slice(5)) : null;
+    const action = goal?.success ? "goal" : raw === "rollover" ? "rollover" : "free";
+    return { fund_id: f.id, action, goal_id: goal?.success ? goal.data : null, leftover_cents: leftover };
   });
   const { error } = await supabase.rpc("close_plan", { p_space: spaceId.data, p_month: m.data, p_decisions: decisions });
   if (error) return { error: rpcMessage(error) };
