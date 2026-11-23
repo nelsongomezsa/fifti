@@ -33,3 +33,4 @@ supabase/.temp/
 *.log
 .vercel/
 scripts/.logo-*
+DECISIONES.local.md
