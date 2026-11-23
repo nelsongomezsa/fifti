@@ -1,0 +1,35 @@
+# secretos
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# herramientas locales
+CLAUDE.md
+AGENTS.md
+.claude/
+.codex/
+
+# dependencias y build
+node_modules/
+.next/
+out/
+build/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# PWA generado
+public/sw.js
+public/sw.js.map
+public/swe-worker-*.js
+
+# supabase local
+supabase/.branches/
+supabase/.temp/
+
+# sistema
+.DS_Store
+*.log
+.vercel/
+scripts/.logo-*

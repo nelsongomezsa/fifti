@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+/* Tokens de Fifti. Oscuro por defecto; claro con data-theme="light". */
+:root {
+  --bg: #0b0d10;
+  --surface: #15181d;
+  --surface-2: #1a1e24;
+  --border: #22262d;
+  --track: #2a2f37;
+  --text: #f2f4f7;
+  --text-2: #d0d5dd;
+  --text-3: #9aa3af;
+
+  --lime: #c6f432;
+  --lilac: #a78bfa;
+  --tangerine: #ff9f43;
+  --info: #7dd3fc;
+  --over: #ff6b6b;
+  --over-text: #ff8a8a;
+  --on-accent: #0b0d10;
+
+  /* acento de la burbuja activa (se cambia con data-bubble) */
+  --accent: var(--lime);
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  --bg: #f6f7f2;
+  --surface: #ffffff;
+  --surface-2: #eef0e8;
+  --border: #dfe2d8;
+  --track: #e3e6dc;
+  --text: #0b0d10;
+  --text-2: #2b3038;
+  --text-3: #5b6470;
+  --over-text: #b42323;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f6f7f2; --surface: #ffffff; --surface-2: #eef0e8; --border: #dfe2d8; --track: #e3e6dc;
+    --text: #0b0d10; --text-2: #2b3038; --text-3: #5b6470; --over-text: #b42323;
+    color-scheme: light;
+  }
+}
+[data-bubble="personal"] { --accent: var(--lilac); }
+[data-bubble="household"] { --accent: var(--lime); }
+[data-bubble="group"] { --accent: var(--tangerine); }
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-track: var(--track);
+  --color-ink: var(--text);
+  --color-ink-2: var(--text-2);
+  --color-ink-3: var(--text-3);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-lime: var(--lime);
+  --color-lilac: var(--lilac);
+  --color-tangerine: var(--tangerine);
+  --color-info: var(--info);
+  --color-over: var(--over);
+  --color-over-text: var(--over-text);
+  --font-sans: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --radius-card: 14px;
+  --radius-sheet: 24px;
+}
+
+html { background: var(--bg); }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.num, .font-mono { font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* modo discreto (fase 11): oculta cifras */
+[data-discreet="true"] .money { filter: blur(8px); user-select: none; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
