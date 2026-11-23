@@ -1,10 +1,21 @@
-/* Service worker de Fifti: shell offline, estáticos en caché y lectura offline de las páginas ya visitadas.
-   Nunca intercepta POST (server actions, escrituras) ni guarda páginas con tokens en la URL. */
-const VERSION = "v1";
-const STATIC = `fifti-static-${VERSION}`;
-const PAGES = `fifti-pages-${VERSION}`;
-const PRECACHE = ["/offline", "/icons/icon-192.png", "/icons/icon-512.png", "/brand/logo-dark.svg"];
-const NEVER_CACHE = ["/auth/", "/unirse/", "/reclamar/", "/resumen/", "/login", "/registro", "/recuperar", "/restablecer"];
+/**
+ * Código del service worker. Se genera con la versión del despliegue (`version`), de modo que cada despliegue cambia
+ * los bytes de /sw.js: el navegador instala el nuevo, y al activarse borra todas las cachés de versiones anteriores.
+ *
+ * Reglas (verificadas en tests/unit/service-worker.test.ts):
+ * - Navegaciones (HTML): SIEMPRE a la red primero (network-first). La caché solo se usa si no hay red.
+ * - Solo se cachean con política cache-first los assets con hash de /_next/static (y solo respuestas 200 que no sean HTML).
+ * - Nada más se cachea: ni iconos sin hash, ni peticiones /api, ni POST (server actions), ni otros orígenes.
+ * - Nunca se guardan páginas con tokens en la URL ni de autenticación.
+ * - Las cachés llevan la versión en el nombre y en `activate` se eliminan las que no son de esta versión.
+ */
+export function serviceWorkerSource(version: string): string {
+  return `/* Fifti service worker · versión ${version.replace(/[^\w.-]/g, "")} */
+const VERSION = ${JSON.stringify(version)};
+const STATIC = "fifti-static-" + VERSION;
+const PAGES = "fifti-pages-" + VERSION;
+const PRECACHE = ["/offline"];
+const NEVER_CACHE = ["/auth/", "/unirse/", "/reclamar/", "/resumen/", "/login", "/registro", "/recuperar", "/restablecer", "/api/"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(STATIC).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting()));
@@ -13,7 +24,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => ![STATIC, PAGES].includes(k)).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k !== STATIC && k !== PAGES).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
 });
@@ -29,16 +40,22 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/icons/") || url.pathname.startsWith("/brand/")) {
+  // Assets con hash: cache-first. Si el archivo ya no existe (despliegue nuevo) la respuesta de error pasa tal cual y no se guarda.
+  if (url.pathname.startsWith("/_next/static/")) {
     event.respondWith(
       caches.match(req).then((hit) => hit || fetch(req).then((res) => {
-        if (res.ok) { const copy = res.clone(); caches.open(STATIC).then((c) => c.put(req, copy)); }
+        const type = res.headers.get("content-type") || "";
+        if (res.status === 200 && !type.includes("text/html") && !type.includes("text/plain")) {
+          const copy = res.clone();
+          caches.open(STATIC).then((c) => c.put(req, copy));
+        }
         return res;
       })),
     );
     return;
   }
 
+  // HTML: red primero; la caché solo como respaldo sin conexión.
   if (req.mode === "navigate") {
     const cacheable = !NEVER_CACHE.some((p) => url.pathname.startsWith(p));
     event.respondWith(
@@ -70,3 +87,5 @@ self.addEventListener("notificationclick", (event) => {
     return self.clients.openWindow(url);
   }));
 });
+`;
+}

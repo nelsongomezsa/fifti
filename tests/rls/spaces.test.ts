@@ -125,14 +125,14 @@ describe.skipIf(!rlsConfigured)("RLS fase 2: espacios, invitaciones e invitados"
   });
 
   it("reclamar perfil: solo con token válido, de un solo uso", async () => {
-    const { data: vid } = await ana.client.rpc("add_virtual_member", { p_space: groupId, p_name: "Carla" });
+    const { data: vid } = await ana.client.rpc("add_virtual_member", { p_space: groupId, p_name: "Marta" });
     const token = newToken();
     const hash = await sha256(token);
     expect((await ana.client.rpc("create_claim_link", { p_member: vid, p_token_hash: hash, p_ttl_seconds: 3600 })).error).toBeNull();
     expect((await eva.client.rpc("claim_member", { p_token_hash: await sha256(newToken()) })).error).not.toBeNull();
     expect((await eva.client.rpc("claim_member", { p_token_hash: hash })).error).toBeNull();
     const { data } = await eva.client.from("space_members").select("display_name").eq("space_id", groupId).eq("user_id", eva.id);
-    expect(data).toEqual([{ display_name: "Carla" }]);
+    expect(data).toEqual([{ display_name: "Marta" }]);
     expect((await leo.client.rpc("claim_member", { p_token_hash: hash })).error).not.toBeNull();
   });
 
