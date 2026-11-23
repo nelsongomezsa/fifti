@@ -28,7 +28,7 @@ export function PlanBubbles({ funds, currency }: { funds: BubbleFund[]; currency
       {leaves.map((l, i) => {
         const f = l.data as unknown as BubbleFund;
         const used = f.planned > 0 ? f.spent / f.planned : f.spent > 0 ? 1.2 : 0;
-        const fill = used >= 1 ? "var(--over)" : used >= 0.8 ? "var(--tangerine)" : f.color;
+        const fill = used >= 1 ? "var(--over)" : used >= 0.8 ? "var(--warn)" : f.color;
         const h = Math.min(1, used) * l.r * 2;
         return (
           <g key={f.id}>

@@ -88,7 +88,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
                 <span className={`money font-mono text-sm ${over ? "text-over-text" : "text-ink-2"}`}>{Math.round(row.usedBp / 100)} %</span>
               </p>
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-track" role="progressbar" aria-valuenow={Math.min(100, Math.round(row.usedBp / 100))} aria-valuemin={0} aria-valuemax={100} aria-label={`Uso de ${f.name}`}>
-                <div className="h-full rounded-full" style={{ width: `${Math.min(100, row.usedBp / 100)}%`, background: over ? "var(--over)" : row.status === "warn" ? "var(--tangerine)" : f.color }} />
+                <div className="h-full rounded-full" style={{ width: `${Math.min(100, row.usedBp / 100)}%`, background: over ? "var(--over)" : row.status === "warn" ? "var(--warn)" : f.color }} />
               </div>
               <p className="money mt-2 flex justify-between font-mono text-xs text-ink-3">
                 <span>{x("Gastado")}{" "}{formatMoney(row.spent, "EUR", x.locale)}</span><span>{x("Previsto")}{" "}{formatMoney(row.planned, "EUR", x.locale)}</span>

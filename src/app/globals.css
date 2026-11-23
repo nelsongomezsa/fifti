@@ -16,6 +16,8 @@
   --tangerine: #ff9f43;
   --info: #7dd3fc;
   --over: #ff6b6b;
+  /* aviso del 80 %: ámbar, distinto de la mandarina de los planes espontáneos */
+  --warn: #f5c542;
   --over-text: #ff8a8a;
   --on-accent: #0b0d10;
 
@@ -33,12 +35,16 @@
   --text-2: #2b3038;
   --text-3: #5b6470;
   --over-text: #b42323;
+  /* en claro, relleno más oscuro para llegar a 3:1 sobre la pista de barra */
+  --warn: #a87400;
+  --over: #d93636;
   color-scheme: light;
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
     --bg: #f6f7f2; --surface: #ffffff; --surface-2: #eef0e8; --border: #dfe2d8; --track: #e3e6dc;
     --text: #0b0d10; --text-2: #2b3038; --text-3: #5b6470; --over-text: #b42323;
+    --warn: #a87400; --over: #d93636;
     color-scheme: light;
   }
 }
@@ -62,6 +68,7 @@
   --color-tangerine: var(--tangerine);
   --color-info: var(--info);
   --color-over: var(--over);
+  --color-warn: var(--warn);
   --color-over-text: var(--over-text);
   --font-sans: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, monospace;

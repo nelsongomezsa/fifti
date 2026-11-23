@@ -147,7 +147,7 @@ function FundTable({ b }: { b: DemoBubble }) {
           return (
             <tr key={f.name} className="border-t border-border first:border-t-0">
               <td className="px-4 py-3"><span className="flex items-center gap-2"><span aria-hidden className="size-2.5 rounded-full" style={{ background: f.color }} />{f.name}</span>
-                <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-track"><span className="block h-full rounded-full" style={{ width: `${Math.min(100, r.usedBp / 100)}%`, background: r.status === "over" ? "var(--over)" : r.status === "warn" ? "var(--tangerine)" : f.color }} /></span></td>
+                <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-track"><span className="block h-full rounded-full" style={{ width: `${Math.min(100, r.usedBp / 100)}%`, background: r.status === "over" ? "var(--over)" : r.status === "warn" ? "var(--warn)" : f.color }} /></span></td>
               <td className={`money px-4 py-3 text-right font-mono ${r.status === "over" ? "text-over-text" : "text-ink-2"}`}>{Math.round(r.usedBp / 100)} %</td>
             </tr>
           );

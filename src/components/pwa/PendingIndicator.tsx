@@ -60,7 +60,7 @@ export function PendingIndicator() {
     <div className="px-4">
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
         className="flex min-h-11 w-full items-center gap-2 rounded-card border border-border bg-surface px-4 text-left text-sm text-ink-2">
-        <span aria-hidden className="size-2 rounded-full" style={{ background: online ? "var(--tangerine)" : "var(--over)" }} />
+        <span aria-hidden className="size-2 rounded-full" style={{ background: online ? "var(--warn)" : "var(--over)" }} />
         {!online ? x("Sin conexión. ") : ""}
         {pending.length > 0 && `${pending.length} ${pending.length === 1 ? "gasto pendiente" : "gastos pendientes"} de subir`}
         {failed.length > 0 && ` · ${failed.length} con error`}
