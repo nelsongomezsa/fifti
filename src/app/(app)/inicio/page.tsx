@@ -74,9 +74,9 @@ export default async function HomePage() {
 
       <dl className="grid grid-cols-3 gap-2">
         {[[t("income"), formatMoney(o.income, "EUR", locale)], [t("savingsRate"), pctText(o.savingsBp)], [t("forecast"), formatMoney(o.forecastLeftover, "EUR", locale)]].map(([k, v]) => (
-          <div key={k} className="rounded-card border border-border bg-surface p-3">
+          <div key={k} className="@container min-w-0 rounded-card border border-border bg-surface p-3">
             <dt className="text-xs text-ink-3">{k}</dt>
-            <dd className="money mt-1 font-mono text-base">{v}</dd>
+            <dd className="money mt-1 whitespace-nowrap font-mono" style={{ fontSize: "clamp(0.68rem, 15cqw, 1rem)" }}>{v}</dd>
           </div>
         ))}
       </dl>

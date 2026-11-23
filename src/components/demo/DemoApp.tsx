@@ -127,7 +127,7 @@ function Home({ b, expenses }: { b: DemoBubble; expenses: DemoExpense[] }) {
       </div>
       <dl className="grid grid-cols-3 gap-2">
         {[["Ingresos", formatMoney(b.income, "EUR", x.locale)], ["Tasa de ahorro", `${Math.round(savingsRateBp(b.income, fundsSpent) / 100)} %`], ["Previsión día 30", formatMoney(leftover - 4000, "EUR", x.locale)]].map(([k, v]) => (
-          <div key={k} className="rounded-card border border-border bg-surface p-3"><dt className="text-xs text-ink-3">{k}</dt><dd className="money mt-1 font-mono text-base">{v}</dd></div>
+          <div key={k} className="@container min-w-0 rounded-card border border-border bg-surface p-3"><dt className="text-xs text-ink-3">{k}</dt><dd className="money mt-1 whitespace-nowrap font-mono" style={{ fontSize: "clamp(0.68rem, 15cqw, 1rem)" }}>{v}</dd></div>
         ))}
       </dl>
       <div className="rounded-card border border-border bg-surface p-4"><h2 className="mb-2 text-sm text-ink-3">{x("Gasto de los últimos 6 meses")}</h2><SpendChart data={series} currency="EUR" /></div>
