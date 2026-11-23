@@ -11,6 +11,10 @@ export const RULES = {
   signup: { action: "signup", limit: 5, windowSeconds: 3600 },
   recover: { action: "recover", limit: 5, windowSeconds: 3600 },
   recoverEmail: { action: "recover-email", limit: 3, windowSeconds: 3600 },
+  createLink: { action: "create-link", limit: 20, windowSeconds: 3600 },
+  invite: { action: "invite", limit: 20, windowSeconds: 3600 },
+  guestJoin: { action: "guest-join", limit: 15, windowSeconds: 3600 },
+  claim: { action: "claim", limit: 10, windowSeconds: 3600 },
   passwordChange: { action: "password-change", limit: 5, windowSeconds: 3600 },
 } as const satisfies Record<string, RateRule>;
 
@@ -30,6 +34,7 @@ export async function hit(rule: RateRule, subject: string): Promise<boolean> {
   }
 }
 
+/** Rate limit por usuario autenticado (o IP si no hay sesión). */
 export async function hitIp(rule: RateRule): Promise<boolean> {
   return hit(rule, `ip:${await clientIp()}`);
 }

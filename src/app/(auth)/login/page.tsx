@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthForm } from "@/components/ui/AuthForm";
+import { safeNext } from "@/lib/validation/auth";
 import { logIn } from "@/server/actions/auth";
 
 export const metadata: Metadata = { title: "Entrar" };
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const { error } = await searchParams;
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; next?: string }> }) {
+  const { error, next } = await searchParams;
+  const safe = safeNext(next);
   return (
     <>
       <h1 className="text-2xl font-bold">Entrar</h1>
@@ -15,6 +17,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       )}
       <AuthForm
         action={logIn}
+        next={safe}
         submit="Entrar"
         fields={[
           { name: "email", label: "Email", type: "email", autoComplete: "email" },

@@ -5,9 +5,9 @@ import { publicEnv } from "@/lib/env";
 import { hit, hitIp, RULES } from "@/lib/security/rate-limit";
 import { pwnedCount } from "@/lib/security/hibp";
 import { createClient } from "@/lib/supabase/server";
-import { loginSchema, recoverSchema, resetSchema, signUpSchema } from "@/lib/validation/auth";
+import { loginSchema, recoverSchema, resetSchema, safeNext, signUpSchema } from "@/lib/validation/auth";
 
-export type FormState = { ok?: boolean; error?: string; message?: string };
+export type FormState = { ok?: boolean; error?: string; message?: string; link?: string };
 
 const TOO_MANY = "Demasiados intentos. Espera un rato e inténtalo de nuevo.";
 const GENERIC = "No hemos podido completar la operación. Inténtalo de nuevo.";
@@ -39,7 +39,7 @@ export async function signUp(_prev: FormState, fd: FormData): Promise<FormState>
       password,
       options: {
         data: { display_name: displayName },
-        emailRedirectTo: `${publicEnv().NEXT_PUBLIC_SITE_URL}/auth/callback?next=/inicio`,
+        emailRedirectTo: `${publicEnv().NEXT_PUBLIC_SITE_URL}/auth/callback?next=${encodeURIComponent(safeNext(field(fd, "next")))}`,
       },
     });
     if (error && error.status !== 422 && error.status !== 400) throw error;
@@ -65,7 +65,7 @@ export async function logIn(_prev: FormState, fd: FormData): Promise<FormState> 
     if (error.code === "email_not_confirmed") return { error: "Confirma tu email antes de entrar. Revisa tu bandeja." };
     return { error: "Email o contraseña incorrectos." };
   }
-  redirect("/inicio");
+  redirect(safeNext(field(fd, "next")));
 }
 
 export async function requestPasswordReset(_prev: FormState, fd: FormData): Promise<FormState> {
@@ -113,4 +113,22 @@ export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/login");
+}
+
+/** Un invitado se crea cuenta conservando su historial (la sesión anónima pasa a permanente). */
+export async function upgradeGuest(_prev: FormState, fd: FormData): Promise<FormState> {
+  const parsed = signUpSchema.omit({ displayName: true }).safeParse({ email: field(fd, "email"), password: field(fd, "password") });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? GENERIC };
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  if (!data.user || !data.user.is_anonymous) return { error: GENERIC };
+  if (!(await hit(RULES.signup, `user:${data.user.id}`)) || !(await hitIp(RULES.signup))) return { error: TOO_MANY };
+  const count = await pwnedCount(parsed.data.password);
+  if (count !== null && count > 0) return { error: PWNED };
+  const { error } = await supabase.auth.updateUser({ email: parsed.data.email, password: parsed.data.password });
+  if (error) {
+    console.error("[upgradeGuest]", error.message);
+    return { error: GENERIC };
+  }
+  return { ok: true, message: "Te hemos enviado un email para confirmar tu cuenta. Tu historial se conserva." };
 }

@@ -1,16 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthForm } from "@/components/ui/AuthForm";
+import { safeNext } from "@/lib/validation/auth";
 import { signUp } from "@/server/actions/auth";
 
 export const metadata: Metadata = { title: "Crear cuenta" };
 
-export default function SignUpPage() {
+export default async function SignUpPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+  const safe = safeNext((await searchParams).next);
   return (
     <>
       <h1 className="text-2xl font-bold">Crear cuenta</h1>
       <AuthForm
         action={signUp}
+        next={safe}
         submit="Crear cuenta"
         fields={[
           { name: "displayName", label: "Tu nombre", type: "text", autoComplete: "given-name", maxLength: 40 },

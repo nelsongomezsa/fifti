@@ -31,3 +31,17 @@ export async function createUser(name: string): Promise<{ id: string; client: Su
 }
 
 export const anonClient = () => createClient(url!, anon!, opts);
+
+/** Sesión de invitado (usuario anónimo) con su propio cliente. */
+export async function createGuest(): Promise<{ id: string; client: SupabaseClient }> {
+  const client = createClient(url!, anon!, opts);
+  const { data, error } = await client.auth.signInAnonymously();
+  if (error || !data.user) throw error ?? new Error("no se pudo crear el invitado");
+  return { id: data.user.id, client };
+}
+
+export const sha256 = async (s: string) =>
+  Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s))))
+    .map((b) => b.toString(16).padStart(2, "0")).join("");
+
+export const newToken = () => Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");

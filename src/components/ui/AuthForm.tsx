@@ -9,10 +9,12 @@ export function AuthForm({
   action,
   fields,
   submit,
+  next,
 }: {
   action: (prev: FormState, fd: FormData) => Promise<FormState>;
   fields: Field[];
   submit: string;
+  next?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
 
@@ -26,6 +28,7 @@ export function AuthForm({
 
   return (
     <form action={formAction} className="flex flex-col gap-4" noValidate>
+      {next && <input type="hidden" name="next" value={next} />}
       {fields.map((f) => (
         <label key={f.name} className="flex flex-col gap-1.5 text-sm text-ink-2">
           {f.label}

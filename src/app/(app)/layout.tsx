@@ -5,7 +5,7 @@ import { BubbleSwitcher } from "@/components/nav/BubbleSwitcher";
 import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  await requireUser();
+  const user = await requireUser();
   const spaces = await listMySpaces();
   const active = await getActiveSpace(spaces);
 
@@ -21,7 +21,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </svg>
         </Link>
       </header>
-      {active && <BubbleSwitcher spaces={spaces} activeId={active.id} />}
+      {active && <BubbleSwitcher spaces={spaces} activeId={active.id} canCreate={!user.is_anonymous} />}
       <main className="px-4">{children}</main>
       <BottomNav />
     </div>
