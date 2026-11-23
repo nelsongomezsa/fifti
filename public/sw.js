@@ -51,3 +51,22 @@ self.addEventListener("fetch", (event) => {
     );
   }
 });
+
+// Notificaciones push: texto genérico (sin importes); al pulsar se abre una ruta interna de la app.
+self.addEventListener("push", (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch { /* sin datos */ }
+  const title = typeof data.title === "string" ? data.title.slice(0, 80) : "Fifti";
+  const body = typeof data.body === "string" ? data.body.slice(0, 160) : "";
+  const url = typeof data.url === "string" && data.url.startsWith("/") && !data.url.startsWith("//") ? data.url : "/inicio";
+  event.waitUntil(self.registration.showNotification(title, { body, icon: "/icons/icon-192.png", badge: "/favicon-32.png", data: { url } }));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = event.notification.data && event.notification.data.url ? event.notification.data.url : "/inicio";
+  event.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+    for (const c of list) if ("focus" in c) { c.navigate(url); return c.focus(); }
+    return self.clients.openWindow(url);
+  }));
+});

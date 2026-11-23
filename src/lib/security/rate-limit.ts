@@ -18,6 +18,7 @@ export const RULES = {
   comment: { action: "comment", limit: 30, windowSeconds: 600 },
   importCsv: { action: "import-csv", limit: 5, windowSeconds: 3600 },
   publicSummary: { action: "public-summary", limit: 60, windowSeconds: 600 },
+  upload: { action: "upload", limit: 30, windowSeconds: 3600 },
   passwordChange: { action: "password-change", limit: 5, windowSeconds: 3600 },
 } as const satisfies Record<string, RateRule>;
 

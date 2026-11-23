@@ -29,3 +29,4 @@ supabase/.temp/
 .vercel/
 scripts/.logo-*
 DECISIONES.local.md
+public/tesseract/

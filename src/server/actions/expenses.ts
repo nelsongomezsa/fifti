@@ -12,6 +12,7 @@ import { uuidSchema } from "@/lib/validation/spaces";
 import { rpcMessage } from "@/server/rpc-error";
 import type { FormState } from "./auth";
 import { resolveFx } from "@/server/fx";
+import { notify } from "@/server/push";
 
 export type SaveResult = { ok: true; id: string; shareCents: number } | { ok: false; error: string };
 
@@ -29,7 +30,7 @@ export async function saveExpense(input: unknown): Promise<SaveResult> {
   const { supabase, user } = await ctx();
   if (!user) return { ok: false, error: "Sesión caducada." };
 
-  const { data: space } = await supabase.from("spaces").select("id, kind, base_currency").eq("id", v.spaceId).maybeSingle();
+  const { data: space } = await supabase.from("spaces").select("id, name, kind, base_currency").eq("id", v.spaceId).maybeSingle();
   if (!space) return { ok: false, error: "No encontramos esa burbuja." };
   const { data: members } = await supabase.from("space_members").select("id, user_id, default_share_bp").eq("space_id", v.spaceId);
   const me = members?.find((m) => m.user_id === user.id);
@@ -68,6 +69,10 @@ export async function saveExpense(input: unknown): Promise<SaveResult> {
     });
     if (error) return { ok: false, error: rpcMessage(error) };
     revalidatePath("/", "layout");
+    if (!v.id && !personal) {
+      const others = (await supabase.from("space_members").select("user_id").eq("space_id", v.spaceId).not("user_id", "is", null)).data ?? [];
+      await notify(others.map((m) => m.user_id as string).filter((u) => u !== user.id), "new_expense", { title: space.name, body: "Hay un gasto nuevo.", url: "/movimientos" });
+    }
     return { ok: true, id: data as string, shareCents: yourShare(splits, me.id) };
   } catch (err) {
     if (err instanceof RangeError) return { ok: false, error: err.message };

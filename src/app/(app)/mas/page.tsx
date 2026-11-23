@@ -6,6 +6,9 @@ import { formatMoney } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 import { addFavoriteForm, deleteFavorite } from "@/server/actions/expenses";
 import { setMirrorPref } from "@/server/actions/plan";
+import { PushSettings } from "@/components/pwa/PushSettings";
+import { vapidPublicKey } from "@/lib/vapid";
+import { savePrefs } from "@/server/actions/push";
 import { requireUser, listMySpaces } from "@/server/spaces";
 import { signOut, upgradeGuest } from "@/server/actions/auth";
 
@@ -19,6 +22,7 @@ export default async function MorePage() {
   const { data: pFunds } = pf?.[0] ? await supabase.from("funds").select("id, name").eq("space_id", pf[0].id).order("position") : { data: [] };
   const { data: prefs } = await supabase.from("mirror_prefs").select("space_id, enabled, fund_id");
   const { data: archived } = await supabase.from("spaces").select("id, name").eq("kind", "group").not("archived_at", "is", null).order("archived_at", { ascending: false });
+  const { data: prefRow } = user.is_anonymous ? { data: null } : await supabase.from("notification_prefs").select("*").maybeSingle();
   const { data: favs } = await supabase.from("favorites").select("id, label, amount_cents").order("label");
   return (
     <section className="flex flex-col gap-4 pt-2">
@@ -42,6 +46,9 @@ export default async function MorePage() {
         </div>
       )}
 
+      {[["/calendario", "Calendario de pagos"], ["/resumen-mensual", "Resumen del mes"], ["/tu-ano", "Tu año en Fifti"], ["/csv", "Importar y exportar CSV"]].map(([href, label]) => (
+        <Link key={href} href={href!} className="flex min-h-12 items-center justify-between rounded-card border border-border bg-surface px-4">{label}<span aria-hidden className="text-ink-3">›</span></Link>
+      ))}
       <Link href="/balance" className="flex min-h-12 items-center justify-between rounded-card border border-border bg-surface px-4">Balance y saldar deudas<span aria-hidden className="text-ink-3">›</span></Link>
       <h2 className="mt-2 text-lg font-semibold">Burbujas</h2>
       <ul className="flex flex-col gap-2">
@@ -78,6 +85,17 @@ export default async function MorePage() {
               </ActionForm>
             );
           })}
+        </>
+      )}
+      {!user.is_anonymous && (
+        <>
+          <h2 className="mt-2 text-lg font-semibold">Notificaciones</h2>
+          <PushSettings publicKey={vapidPublicKey} />
+          <ActionForm action={savePrefs} submit="Guardar preferencias" tone="plain" className="flex flex-col gap-1 rounded-card border border-border bg-surface p-3">
+            {([["new_expense", "Gasto nuevo"], ["fixed_tomorrow", "Gasto fijo mañana"], ["fund_threshold", "Fondo al 80 % / 100 %"], ["goal_reached", "Meta alcanzada"], ["monthly_summary", "Resumen mensual"], ["contribution_pending", "Aportación pendiente"], ["offset_proposal", "Propuesta de compensación"]] as const).map(([k, l]) => (
+              <label key={k} className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" name={k} defaultChecked={(prefRow as Record<string, boolean> | null)?.[k] ?? true} /> {l}</label>
+            ))}
+          </ActionForm>
         </>
       )}
       <h2 className="mt-2 text-lg font-semibold">Favoritos</h2>

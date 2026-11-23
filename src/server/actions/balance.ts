@@ -9,6 +9,7 @@ import { RULES } from "@/lib/security/rate-limit";
 import { allow } from "@/lib/security/user-limit";
 import { uuidSchema } from "@/lib/validation/spaces";
 import { loadSpaceBalance } from "@/server/balance";
+import { notify } from "@/server/push";
 import { rpcMessage } from "@/server/rpc-error";
 import type { FormState } from "./auth";
 
@@ -95,6 +96,7 @@ export async function proposeOffsetAction(_prev: FormState, fd: FormData): Promi
     p_other: other.data, p_lines: p.lines.map((l) => ({ space_id: l.spaceId, from_member: l.fromMemberId, to_member: l.toMemberId, amount_cents: l.amountCents })),
   });
   if (error) return { error: rpcMessage(error) };
+  await notify([other.data], "offset_proposal", { title: "Fifti", body: "Tienes una propuesta de compensación.", url: "/balance" });
   revalidatePath("/balance");
   return { ok: true, message: "Propuesta enviada. Se aplicará cuando la otra persona la confirme." };
 }

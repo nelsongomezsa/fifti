@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EditExpenseButton } from "@/components/expense/EditExpenseButton";
+import { ReceiptUploader } from "@/components/expense/ReceiptUploader";
 import { ActionForm, inputClass } from "@/components/ui/ActionForm";
 import { formatMoney } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
@@ -26,7 +27,7 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
       supabase.from("space_members").select("id, user_id, display_name, role").eq("space_id", e.space_id),
       supabase.from("expense_splits").select("member_id, amount_cents, share_bp").eq("expense_id", id),
       supabase.from("expense_payers").select("member_id, amount_cents").eq("expense_id", id),
-      supabase.from("expense_private_details").select("description, category_id").eq("expense_id", id).maybeSingle(),
+      supabase.from("expense_private_details").select("description, category_id, receipt_path").eq("expense_id", id).maybeSingle(),
       supabase.from("expense_comments").select("id, member_id, body, created_at").eq("expense_id", id).order("created_at"),
       supabase.from("expense_reactions").select("member_id, emoji").eq("expense_id", id),
       supabase.from("audit_log").select("id, action, at, actor").eq("row_id", id).eq("table_name", "expenses").order("at", { ascending: false }).limit(20),
@@ -39,6 +40,10 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
   const title = e.is_private ? (priv?.description ?? "Gasto privado") : e.description;
   const tags = ((tagRows as unknown as { tags: { name: string } | null }[]) ?? []).map((t) => t.tags?.name).filter(Boolean) as string[];
   const counts = REACTIONS.map((emoji) => ({ emoji, n: reactions?.filter((r) => r.emoji === emoji).length ?? 0, mine: !!reactions?.some((r) => r.emoji === emoji && r.member_id === me?.id) }));
+
+  // Ticket: bucket privado; se sirve solo con URL firmada de 5 minutos
+  const receiptPath = e.is_private ? priv?.receipt_path : e.receipt_path;
+  const receiptUrl = receiptPath ? (await supabase.storage.from("receipts").createSignedUrl(receiptPath, 300)).data?.signedUrl : null;
 
   async function remove() {
     "use server";
@@ -74,6 +79,12 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
           </p>
         ))}
       </div>
+
+      {receiptUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={receiptUrl} alt="Foto del ticket" className="max-h-96 w-full rounded-card border border-border object-contain" referrerPolicy="no-referrer" />
+      )}
+      {canEdit && <ReceiptUploader expenseId={id} hasReceipt={!!receiptPath} />}
 
       <div className="flex flex-wrap gap-2" role="group" aria-label="Reacciones">
         {counts.map((c) => (

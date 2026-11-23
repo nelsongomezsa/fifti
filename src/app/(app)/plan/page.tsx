@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ActionForm, inputClass } from "@/components/ui/ActionForm";
 import { PlanBubbles } from "@/components/charts/PlanBubbles";
+import { detectSubscriptions } from "@/lib/detect";
 import { addMonths, formatMoney, forecastMonthEnd, fundLeftover, isMonthStart, monthStart, summarizeFund } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 import { closePlan, copyPreviousPlan, deleteRecurring, generateContributions, markContributionPaid, reopenPlan, saveContributionRule, savePlan, saveRecurring } from "@/server/actions/plan";
@@ -40,6 +41,8 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
     active.kind === "household" ? supabase.from("contributions").select("id, member_id, expected_cents, paid_cents").eq("space_id", active.id).eq("month", month) : Promise.resolve({ data: [] }),
     supabase.from("savings_goals").select("id, name").eq("space_id", active.id),
   ]);
+  const { data: hist } = await supabase.from("expenses").select("description, amount_base_cents, spent_at").eq("space_id", active.id).eq("is_private", false).is("recurring_id", null).gte("spent_at", addMonths(month, -6)).limit(2000);
+  const subs = detectSubscriptions((hist ?? []).map((h) => ({ description: h.description, amountCents: h.amount_base_cents, spentAt: h.spent_at })), (recurring ?? []).map((r) => r.description)).slice(0, 3);
   const nm = (id: string) => d.members.find((m) => m.id === id)?.display_name ?? "—";
   const myRecurring = recurring ?? [];
 
@@ -156,6 +159,18 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
           </ActionForm>
         </details>
       )}
+
+      {me && me.role !== "guest" && subs.map((c) => (
+        <div key={c.description} className="rounded-card border border-border bg-surface p-4 text-sm">
+          <p><strong>{c.description}</strong> se repite cada mes (<span className="money font-mono">{formatMoney(c.amountCents)}</span>, {c.months} meses seguidos). ¿Lo pasamos a gasto fijo?</p>
+          <ActionForm action={saveRecurring} submit="Pasar a gasto fijo" tone="plain" className="mt-2">
+            <input type="hidden" name="spaceId" value={active.id} /><input type="hidden" name="description" value={c.description} />
+            <input type="hidden" name="amount" value={(c.amountCents / 100).toFixed(2).replace(".", ",")} /><input type="hidden" name="day" value={c.day} />
+            <input type="hidden" name="frequency" value="monthly" /><input type="hidden" name="detected" value="1" />
+            <input type="hidden" name="nextRun" value={`${addMonths(monthStart(new Date()), 1).slice(0, 8)}${String(Math.min(c.day, 28)).padStart(2, "0")}`} />
+          </ActionForm>
+        </div>
+      ))}
 
       <div className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold">Gastos fijos</h2>

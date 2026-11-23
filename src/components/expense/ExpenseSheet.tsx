@@ -6,6 +6,8 @@ import { parsePercentToBp } from "@/lib/validation/spaces";
 import { submitExpense } from "@/lib/offline/submit";
 import { CURRENCIES } from "@/lib/fx";
 import { getFxPreview } from "@/server/actions/fx";
+import { scanReceipt } from "@/lib/ocr";
+import { uploadReceipt } from "@/server/actions/receipts";
 import type { ExpenseInput } from "@/lib/validation/expense";
 import type { SheetContext, SheetSpace } from "@/server/actions/sheet";
 import { Keypad } from "./Keypad";
@@ -58,6 +60,8 @@ export function ExpenseSheet({
   const [tags, setTags] = useState(prefill?.tags ?? "");
   const [currency, setCurrency] = useState(initialSpace.currency);
   const [fx, setFx] = useState<number | null>(1);
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [scan, setScan] = useState<{ busy: boolean; amountCents: number | null; date: string | null; error?: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -137,6 +141,10 @@ export function ExpenseSheet({
     const res = await submitExpense(input);
     setSaving(false);
     if (!res.ok) return setError(res.error);
+    if (photo && res.id !== "pending") {
+      const fd = new FormData(); fd.set("expenseId", res.id); fd.set("file", photo);
+      await uploadReceipt(fd);
+    }
     try { localStorage.setItem(LAST_KEY, space.id); } catch { /* sin almacenamiento */ }
     onSaved({ id: res.id, shareCents: res.shareCents, spaceName: space.kind === "personal" ? "Personal" : space.name, currency: space.currency, pending: res.id === "pending" });
     onClose();
@@ -185,6 +193,27 @@ export function ExpenseSheet({
             </select>
             {!sameCurrency && cents > 0 && <span className="font-mono">{fx ? `≈ ${formatMoney(baseCents, space.currency)}` : "sin cambio disponible"}</span>}
           </div>
+        </div>
+        <div className="mb-3 flex flex-col gap-2">
+          <label className="flex min-h-11 cursor-pointer items-center justify-center rounded-full border border-dashed border-border px-4 text-sm text-ink-2">
+            {photo ? `Ticket: ${photo.name.slice(0, 24)}` : "Escanear ticket (opcional)"}
+            <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden aria-label="Foto del ticket"
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                e.target.value = "";
+                if (!f) return;
+                setPhoto(f);
+                setScan({ busy: true, amountCents: null, date: null });
+                try { setScan({ busy: false, ...(await scanReceipt(f)) }); } catch { setScan({ busy: false, amountCents: null, date: null, error: "No se ha podido leer el ticket." }); }
+              }} />
+          </label>
+          {scan && (
+            <p className="text-sm text-ink-2" aria-live="polite">
+              {scan.busy ? "Leyendo el ticket…" : scan.error ?? (scan.amountCents || scan.date ? "Propuesta (confírmala):" : "No he encontrado datos claros.")}
+              {!scan.busy && scan.amountCents ? <button type="button" className="ml-2 min-h-11 rounded-full border border-border px-3 font-mono" onClick={() => setAmount((scan.amountCents! / 100).toFixed(2).replace(".", ",").replace(/,00$/, ""))}>Importe {formatMoney(scan.amountCents, space.currency)}</button> : null}
+              {!scan.busy && scan.date ? <button type="button" className="ml-2 min-h-11 rounded-full border border-border px-3 font-mono" onClick={() => setDate(scan.date!)}>Fecha {scan.date}</button> : null}
+            </p>
+          )}
         </div>
         <input
           value={desc} onChange={(e) => setDesc(e.target.value)} maxLength={120} placeholder="Concepto" aria-label="Concepto"
