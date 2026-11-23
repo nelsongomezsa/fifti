@@ -9,14 +9,14 @@ export type PlanData = {
   funds: { id: string; name: string; kind: string; color: string; rollover: boolean }[];
   expected: Record<string, number>; // memberId -> previsto
   actual: Record<string, number>; // memberId -> ingresos reales del mes
-  allocations: Record<string, { mode: "percent" | "amount"; value: number; planned: number }>;
+  allocations: Record<string, { mode: "percent" | "amount"; value: number; planned: number; carry: number }>;
   spentByFund: Record<string, number>;
   uncategorized: number;
   totalSpent: number;
 };
 
 /** Datos del plan de un mes: previsto, ingresos reales y gasto por fondo. Todo por RLS. */
-export async function loadPlan(supabase: SupabaseClient, spaceId: string, month: string, extraSpent?: { categoryId: string | null; cents: number }[]): Promise<PlanData> {
+export async function loadPlan(supabase: SupabaseClient, spaceId: string, month: string, extraByFund: Record<string, number> = {}): Promise<PlanData> {
   const next = addMonths(month, 1);
   const [{ data: plan }, { data: members }, { data: funds }, { data: cats }, { data: incomes }, { data: expenses }] = await Promise.all([
     supabase.from("monthly_plans").select("id, status, notes").eq("space_id", spaceId).eq("month", month).maybeSingle(),
@@ -29,15 +29,16 @@ export async function loadPlan(supabase: SupabaseClient, spaceId: string, month:
   const [{ data: pi }, { data: pa }] = plan
     ? await Promise.all([
         supabase.from("plan_incomes").select("member_id, expected_cents").eq("plan_id", plan.id),
-        supabase.from("plan_allocations").select("fund_id, mode, value, planned_cents").eq("plan_id", plan.id),
+        supabase.from("plan_allocations").select("fund_id, mode, value, planned_cents, carry_cents").eq("plan_id", plan.id),
       ])
     : [{ data: [] }, { data: [] }];
 
   const catToFund = new Map((cats ?? []).map((c) => [c.id, c.fund_id as string]));
-  const sums = sumByFund([...(expenses ?? []).map((e) => ({ categoryId: e.category_id as string | null, cents: e.amount_base_cents as number })), ...(extraSpent ?? [])], catToFund);
+  const sums = sumByFund((expenses ?? []).map((e) => ({ categoryId: e.category_id as string | null, cents: e.amount_base_cents as number })), catToFund);
   const spentByFund: Record<string, number> = {};
   let totalSpent = 0;
   for (const [k, v] of sums) { totalSpent += v; if (k) spentByFund[k] = v; }
+  for (const [k, v] of Object.entries(extraByFund)) { spentByFund[k] = (spentByFund[k] ?? 0) + v; totalSpent += v; }
 
   const actual: Record<string, number> = {};
   for (const i of incomes ?? []) actual[i.member_id] = (actual[i.member_id] ?? 0) + i.amount_cents;
@@ -46,7 +47,15 @@ export async function loadPlan(supabase: SupabaseClient, spaceId: string, month:
     members: members ?? [], funds: funds ?? [],
     expected: Object.fromEntries((pi ?? []).map((r) => [r.member_id, r.expected_cents])),
     actual,
-    allocations: Object.fromEntries((pa ?? []).map((a) => [a.fund_id, { mode: a.mode, value: a.value, planned: a.planned_cents }])),
+    allocations: Object.fromEntries((pa ?? []).map((a) => [a.fund_id, { mode: a.mode, value: a.value, planned: a.planned_cents, carry: a.carry_cents }])),
     spentByFund, uncategorized: sums.get(null) ?? 0, totalSpent,
   };
+}
+
+/** "Tu parte" de gastos de grupo reflejada en el plan personal de este mes, por fondo (solo el propio usuario la ve). */
+export async function loadMirrorByFund(supabase: SupabaseClient, month: string): Promise<Record<string, number>> {
+  const { data } = await supabase.from("personal_mirror").select("fund_id, amount_cents").eq("enabled", true).gte("spent_at", month).lt("spent_at", addMonths(month, 1)).limit(5000);
+  const out: Record<string, number> = {};
+  for (const r of data ?? []) out[r.fund_id] = (out[r.fund_id] ?? 0) + r.amount_cents;
+  return out;
 }

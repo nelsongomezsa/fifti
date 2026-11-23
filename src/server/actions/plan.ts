@@ -168,3 +168,50 @@ export async function markContributionPaid(_prev: FormState, fd: FormData): Prom
   revalidatePath("/plan");
   return { ok: true, message: paid > 0 ? "Aportación marcada como hecha." : "Aportación desmarcada." };
 }
+
+export async function closePlan(_prev: FormState, fd: FormData): Promise<FormState> {
+  const { loadPlan, loadMirrorByFund } = await import("@/server/plan");
+  const { fundLeftover } = await import("@/lib/money");
+  const spaceId = uuidSchema.safeParse(field(fd, "spaceId"));
+  const m = month.safeParse(field(fd, "month"));
+  if (!spaceId.success || !m.success) return { error: "Datos no válidos" };
+  const { supabase, user } = await ctx();
+  if (!user) return { error: "Sesión caducada." };
+  const { data: space } = await supabase.from("spaces").select("kind").eq("id", spaceId.data).maybeSingle();
+  if (!space) return { error: "No autorizado." };
+  // El sobrante se recalcula en el servidor: el cliente solo elige qué hacer con él.
+  const plan = await loadPlan(supabase, spaceId.data, m.data, space.kind === "personal" ? await loadMirrorByFund(supabase, m.data) : {});
+  const decisions = plan.funds.map((f) => {
+    const a = plan.allocations[f.id];
+    const leftover = fundLeftover(a?.planned ?? 0, a?.carry ?? 0, plan.spentByFund[f.id] ?? 0);
+    const action = field(fd, `act_${f.id}`) === "rollover" ? "rollover" : "free";
+    return { fund_id: f.id, action, goal_id: null, leftover_cents: leftover };
+  });
+  const { error } = await supabase.rpc("close_plan", { p_space: spaceId.data, p_month: m.data, p_decisions: decisions });
+  if (error) return { error: rpcMessage(error) };
+  revalidatePath("/plan");
+  return { ok: true, message: "Mes cerrado. Queda en solo lectura." };
+}
+
+export async function reopenPlan(fd: FormData) {
+  const spaceId = uuidSchema.safeParse(field(fd, "spaceId"));
+  const m = month.safeParse(field(fd, "month"));
+  if (!spaceId.success || !m.success) return;
+  const { supabase, user } = await ctx();
+  if (!user) return;
+  await supabase.rpc("reopen_plan", { p_space: spaceId.data, p_month: m.data });
+  revalidatePath("/plan");
+}
+
+export async function setMirrorPref(_prev: FormState, fd: FormData): Promise<FormState> {
+  const spaceId = uuidSchema.safeParse(field(fd, "spaceId"));
+  const fund = field(fd, "fundId");
+  const fundId = fund ? uuidSchema.safeParse(fund) : null;
+  if (!spaceId.success || (fundId && !fundId.success)) return { error: "Datos no válidos" };
+  const { supabase, user } = await ctx();
+  if (!user) return { error: "Sesión caducada." };
+  const { error } = await supabase.rpc("set_mirror_pref", { p_space: spaceId.data, p_enabled: field(fd, "enabled") === "on", p_fund: fundId?.success ? fundId.data : null });
+  if (error) return { error: rpcMessage(error) };
+  revalidatePath("/", "layout");
+  return { ok: true, message: "Guardado." };
+}

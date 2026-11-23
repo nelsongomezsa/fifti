@@ -5,6 +5,7 @@ import { ActionForm, inputClass } from "@/components/ui/ActionForm";
 import { formatMoney } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 import { addFavoriteForm, deleteFavorite } from "@/server/actions/expenses";
+import { setMirrorPref } from "@/server/actions/plan";
 import { requireUser, listMySpaces } from "@/server/spaces";
 import { signOut, upgradeGuest } from "@/server/actions/auth";
 
@@ -14,6 +15,9 @@ export default async function MorePage() {
   const user = await requireUser();
   const spaces = await listMySpaces();
   const supabase = await createClient();
+  const { data: pf } = user.is_anonymous ? { data: [] } : await supabase.from("spaces").select("id").eq("kind", "personal").maybeSingle().then((r) => ({ data: r.data ? [r.data] : [] }));
+  const { data: pFunds } = pf?.[0] ? await supabase.from("funds").select("id, name").eq("space_id", pf[0].id).order("position") : { data: [] };
+  const { data: prefs } = await supabase.from("mirror_prefs").select("space_id, enabled, fund_id");
   const { data: favs } = await supabase.from("favorites").select("id, label, amount_cents").order("label");
   return (
     <section className="flex flex-col gap-4 pt-2">
@@ -48,6 +52,25 @@ export default async function MorePage() {
           </li>
         ))}
       </ul>
+      {!user.is_anonymous && spaces.some((s) => s.kind !== "personal") && (
+        <>
+          <h2 className="mt-2 text-lg font-semibold">Reflejo en tu plan personal</h2>
+          <p className="text-sm text-ink-3">Tu parte de cada gasto de grupo entra sola en tu plan personal. Solo la ves tú.</p>
+          {spaces.filter((s) => s.kind !== "personal").map((s) => {
+            const pr = prefs?.find((p) => p.space_id === s.id);
+            return (
+              <ActionForm key={s.id} action={setMirrorPref} submit="Guardar" tone="plain" className="flex flex-col gap-2 rounded-card border border-border bg-surface p-3">
+                <input type="hidden" name="spaceId" value={s.id} />
+                <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" name="enabled" defaultChecked={pr?.enabled ?? true} /> {s.name}</label>
+                <select name="fundId" defaultValue={pr?.fund_id ?? ""} aria-label={`Fondo para ${s.name}`} className={inputClass}>
+                  <option value="">Fondo automático</option>
+                  {pFunds?.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                </select>
+              </ActionForm>
+            );
+          })}
+        </>
+      )}
       <h2 className="mt-2 text-lg font-semibold">Favoritos</h2>
       <p className="text-sm text-ink-3">Pulsación larga en el botón + para usarlos.</p>
       <ul className="flex flex-col gap-2">

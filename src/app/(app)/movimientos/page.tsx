@@ -39,6 +39,9 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
   const { data: privates } = await supabase.from("expense_private_details").select("expense_id, description");
   const priv = new Map((privates ?? []).map((p) => [p.expense_id, p.description]));
 
+  const { data: mirrors } = active.kind === "personal"
+    ? await supabase.from("personal_mirror").select("id, label, amount_cents, spent_at").eq("enabled", true).gte("spent_at", month).lt("spent_at", next).order("spent_at", { ascending: false })
+    : { data: [] };
   type Row = NonNullable<typeof expenses>[number];
   const tagOf = (e: Row) => ((e.expense_tags as unknown as { tags: { name: string } | null }[]) ?? []).map((t) => t.tags?.name).filter(Boolean) as string[];
   const tag = sp.tag?.toLowerCase().replace(/^#/, "");
@@ -83,6 +86,16 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
         <span className="money font-mono text-ink">{formatMoney(total)}</span>
       </p>
 
+      {(mirrors ?? []).length > 0 && (
+        <ul className="flex flex-col gap-2" aria-label="Tu parte de gastos de grupo">
+          {mirrors!.map((mr) => (
+            <li key={mr.id} className="flex min-h-14 items-center justify-between gap-3 rounded-card border border-dashed border-border px-4 py-3">
+              <span><span className="block font-medium">Tu parte de {mr.label}</span><span className="text-xs text-ink-3">{mr.spent_at} · reflejo de grupo</span></span>
+              <span className="money font-mono">{formatMoney(mr.amount_cents)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
       {rows.length === 0 ? (
         <p className="rounded-card border border-border bg-surface p-4 text-ink-2">Todavía no hay gastos este mes en esta burbuja.</p>
       ) : (

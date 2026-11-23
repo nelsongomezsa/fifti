@@ -249,6 +249,7 @@ begin
     v_creator := coalesce(r.payer_member_id, (select id from public.space_members where space_id = r.space_id and role = 'owner' limit 1));
     v_run := r.next_run; i := 0;
     while v_run <= current_date and i < 12 loop
+      begin
       insert into public.expenses (space_id, client_id, description, category_id, spent_at, amount_cents, currency, amount_base_cents, paid_from, split_mode, recurring_id, created_by_member)
       values (r.space_id, gen_random_uuid(), r.description, r.category_id, v_run, r.amount_cents, v_cur, r.amount_cents, r.paid_from, 'default', r.id, v_creator)
       returning id into v_exp;
@@ -256,7 +257,10 @@ begin
       for s in select * from public._default_split(r.space_id, r.amount_cents) loop
         insert into public.expense_splits values (v_exp, s.member_id, s.share_bp, s.amount_cents);
       end loop;
-      n := n + 1; i := i + 1;
+        n := n + 1;
+      exception when others then null; -- p. ej. mes cerrado: se omite ese cobro y se sigue
+      end;
+      i := i + 1;
       v_run := case r.frequency when 'weekly' then v_run + 7
                  when 'monthly' then (date_trunc('month', v_run) + interval '1 month')::date + (least(r.day, extract(day from (date_trunc('month', v_run) + interval '2 month - 1 day'))::int) - 1)
                  else (v_run + interval '1 year')::date end;

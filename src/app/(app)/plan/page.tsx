@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ActionForm, inputClass } from "@/components/ui/ActionForm";
-import { addMonths, formatMoney, isMonthStart, monthStart, summarizeFund } from "@/lib/money";
+import { PlanBubbles } from "@/components/charts/PlanBubbles";
+import { addMonths, formatMoney, forecastMonthEnd, fundLeftover, isMonthStart, monthStart, summarizeFund } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
-import { copyPreviousPlan, deleteRecurring, generateContributions, markContributionPaid, saveContributionRule, savePlan, saveRecurring } from "@/server/actions/plan";
-import { loadPlan } from "@/server/plan";
+import { closePlan, copyPreviousPlan, deleteRecurring, generateContributions, markContributionPaid, reopenPlan, saveContributionRule, savePlan, saveRecurring } from "@/server/actions/plan";
+import { loadMirrorByFund, loadPlan } from "@/server/plan";
 import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
 
 export const metadata: Metadata = { title: "Plan" };
@@ -13,17 +14,22 @@ const pctText = (bp: number) => (bp / 100).toFixed(2).replace(".", ",");
 const centsText = (c: number) => (c / 100).toFixed(2).replace(".", ",");
 const FREQ = { weekly: "Semanal", monthly: "Mensual", yearly: "Anual" } as const;
 
-export default async function PlanPage({ searchParams }: { searchParams: Promise<{ mes?: string }> }) {
+export default async function PlanPage({ searchParams }: { searchParams: Promise<{ mes?: string; vista?: string }> }) {
   const sp = await searchParams;
   const user = await requireUser();
   const active = await getActiveSpace(await listMySpaces());
   if (!active) return null;
   const supabase = await createClient();
   const month = sp.mes && isMonthStart(sp.mes) ? sp.mes : monthStart(new Date());
-  const d = await loadPlan(supabase, active.id, month);
+  const d = await loadPlan(supabase, active.id, month, active.kind === "personal" ? await loadMirrorByFund(supabase, month) : {});
+  const list = sp.vista === "lista";
+  const rows = d.funds.map((f) => ({ f, row: summarizeFund(f.id, (d.allocations[f.id]?.planned ?? 0) + (d.allocations[f.id]?.carry ?? 0), d.spentByFund[f.id] ?? 0) }));
   const me = d.members.find((m) => m.user_id === user.id);
   const canEdit = !!me && me.role !== "guest" && d.plan?.status !== "closed";
   const label = new Date(`${month}T00:00:00Z`).toLocaleDateString("es-ES", { month: "long", year: "numeric", timeZone: "UTC" });
+  const fixedRows = rows.filter(({ f }) => f.kind === "fixed");
+  const spentFixed = fixedRows.reduce((a, { row }) => a + row.spent, 0);
+  const fc = forecastMonthEnd({ monthIso: month, today: new Date().toISOString().slice(0, 10), spentVariable: d.totalSpent - spentFixed, spentFixed, plannedFixed: fixedRows.reduce((a, { row }) => a + row.planned, 0), income: Object.values(d.actual).reduce((a, b) => a + b, 0) || Object.values(d.expected).reduce((a, b) => a + b, 0) });
   const expectedTotal = Object.values(d.expected).reduce((a, b) => a + b, 0);
   const actualTotal = Object.values(d.actual).reduce((a, b) => a + b, 0);
 
@@ -51,10 +57,21 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
         </ActionForm>
       )}
 
-      <ul className="flex flex-col gap-3" aria-label="Fondos">
-        {d.funds.map((f) => {
-          const a = d.allocations[f.id];
-          const row = summarizeFund(f.id, a?.planned ?? 0, d.spentByFund[f.id] ?? 0);
+      <nav aria-label="Vista" className="flex gap-2">
+        <Link href={`/plan?mes=${month}`} aria-current={!list ? "page" : undefined} className={`min-h-11 rounded-full border px-4 py-2.5 text-sm ${!list ? "border-accent bg-surface-2" : "border-border text-ink-2"}`}>Burbujas</Link>
+        <Link href={`/plan?mes=${month}&vista=lista`} aria-current={list ? "page" : undefined} className={`min-h-11 rounded-full border px-4 py-2.5 text-sm ${list ? "border-accent bg-surface-2" : "border-border text-ink-2"}`}>Lista</Link>
+      </nav>
+
+      <div className="rounded-card border border-border bg-surface p-4">
+        <p className="text-sm text-ink-3">Previsión de fin de mes</p>
+        <p className={`money font-mono text-2xl ${fc.projectedLeftover < 0 ? "text-over-text" : ""}`}>{formatMoney(fc.projectedLeftover)}</p>
+        <p className="mt-1 text-xs text-ink-3">Según tu ritmo de gasto variable y los fijos que quedan por pagar.</p>
+      </div>
+
+      {!list && <PlanBubbles currency="EUR" funds={rows.map(({ f, row }) => ({ id: f.id, name: f.name, color: f.color, planned: row.planned, spent: row.spent }))} />}
+
+      <ul className={`flex flex-col gap-3 ${!list ? "sr-only" : ""}`} aria-label="Fondos">
+        {rows.map(({ f, row }) => {
           const over = row.status === "over";
           return (
             <li key={f.id} className="rounded-card border border-border bg-surface p-4">
@@ -108,6 +125,33 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
               );
             })}
             <textarea name="notes" maxLength={500} defaultValue={d.plan?.notes ?? ""} placeholder="Notas del mes" aria-label="Notas" className={`${inputClass} py-3`} />
+          </ActionForm>
+        </details>
+      )}
+
+      {d.plan?.status === "closed" ? (
+        me?.role === "owner" || (active.kind === "personal" && me) ? (
+          <form action={reopenPlan}><input type="hidden" name="spaceId" value={active.id} /><input type="hidden" name="month" value={month} />
+            <button className="min-h-11 w-full rounded-full border border-border font-semibold">Reabrir el mes</button></form>
+        ) : null
+      ) : d.plan && (me?.role === "owner" || (active.kind === "personal" && me)) && (
+        <details className="rounded-card border border-border bg-surface p-4">
+          <summary className="min-h-11 cursor-pointer font-semibold">Cerrar el mes</summary>
+          <p className="mt-2 text-xs text-ink-3">Decide qué pasa con el sobrante de cada fondo. El mes quedará en solo lectura y podrás reabrirlo.</p>
+          <ActionForm action={closePlan} submit="Cerrar mes" className="mt-3 flex flex-col gap-3">
+            <input type="hidden" name="spaceId" value={active.id} /><input type="hidden" name="month" value={month} />
+            {rows.map(({ f }) => {
+              const a = d.allocations[f.id];
+              const left = fundLeftover(a?.planned ?? 0, a?.carry ?? 0, d.spentByFund[f.id] ?? 0);
+              return (
+                <label key={f.id} className="flex items-center justify-between gap-3 text-sm text-ink-2">
+                  <span>{f.name} <span className="money font-mono text-ink">{formatMoney(left)}</span></span>
+                  <select name={`act_${f.id}`} defaultValue={f.rollover ? "rollover" : "free"} disabled={left <= 0} aria-label={`Qué hacer con el sobrante de ${f.name}`} className="min-h-11 rounded-card border border-border bg-surface-2 px-2 text-ink">
+                    <option value="rollover">Pasa al mes siguiente</option><option value="free">Queda libre</option>
+                  </select>
+                </label>
+              );
+            })}
           </ActionForm>
         </details>
       )}
