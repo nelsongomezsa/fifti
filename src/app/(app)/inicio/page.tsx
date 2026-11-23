@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getLocale, getTranslations } from "next-intl/server";
 import { SpendChart } from "@/components/charts/SpendChart";
 import { dailyBudgetLeft } from "@/lib/fx";
 import { formatMoney, monthStart } from "@/lib/money";
@@ -16,8 +17,10 @@ export default async function HomePage() {
   const active = await getActiveSpace(spaces);
   if (!active) return null;
   const supabase = await createClient();
+  const t = await getTranslations("home");
+  const locale = await getLocale();
   const o = await loadOverview(supabase, active.id, active.kind);
-  const monthName = new Date(`${o.month}T00:00:00Z`).toLocaleDateString("es-ES", { month: "long", timeZone: "UTC" });
+  const monthName = new Date(`${o.month}T00:00:00Z`).toLocaleDateString(locale, { month: "long", timeZone: "UTC" });
   const pctText = (bp: number) => `${(bp / 100).toFixed(0)} %`;
   const hasData = o.income > 0 || o.spent > 0;
 
@@ -47,28 +50,28 @@ export default async function HomePage() {
     <section className="flex flex-col gap-5 pt-2">
       {showSummary && (
         <Link href="/resumen-mensual" className="rounded-card border border-border bg-surface p-4 text-sm">
-          <span className="font-semibold">Tu resumen del mes pasado ya está listo</span>
-          <span className="block text-ink-3">Ver cuánto gastaste y ahorraste ›</span>
+          <span className="font-semibold">{t("summaryReady")}</span>
+          <span className="block text-ink-3">{t("summaryCta")}</span>
         </Link>
       )}
 
       <div>
-        <p className="text-sm text-ink-3">Te sobra en {monthName}</p>
+        <p className="text-sm text-ink-3">{t("leftIn", { month: monthName })}</p>
         <p className={`money font-mono text-5xl font-semibold ${o.leftover < 0 ? "text-over-text" : ""}`}>{formatMoney(o.leftover)}</p>
         <p className="money mt-1 font-mono text-sm text-ink-2" aria-label="Variación frente al mes anterior">
-          {o.change.deltaCents >= 0 ? "+" : ""}{formatMoney(o.change.deltaCents)} vs. mes anterior
+          {o.change.deltaCents >= 0 ? "+" : ""}{formatMoney(o.change.deltaCents)} {t("vsPrev")}
           {o.change.percentBp !== null && ` (${o.change.percentBp >= 0 ? "+" : ""}${pctText(o.change.percentBp)})`}
         </p>
       </div>
 
       {budgetLeft !== null && (
         <p className="rounded-card border border-border bg-surface p-4 text-sm text-ink-2">
-          Hoy os quedan <span className={`money font-mono text-lg ${budgetLeft < 0 ? "text-over-text" : "text-ink"}`}>{formatMoney(budgetLeft)}</span> por cabeza.
+          {t("budgetLeft", { amount: formatMoney(budgetLeft, "EUR", locale) })}
         </p>
       )}
 
       <dl className="grid grid-cols-3 gap-2">
-        {[["Ingresos", formatMoney(o.income)], ["Tasa de ahorro", pctText(o.savingsBp)], ["Previsión día 30", formatMoney(o.forecastLeftover)]].map(([k, v]) => (
+        {[[t("income"), formatMoney(o.income, "EUR", locale)], [t("savingsRate"), pctText(o.savingsBp)], [t("forecast"), formatMoney(o.forecastLeftover, "EUR", locale)]].map(([k, v]) => (
           <div key={k} className="rounded-card border border-border bg-surface p-3">
             <dt className="text-xs text-ink-3">{k}</dt>
             <dd className="money mt-1 font-mono text-base">{v}</dd>
@@ -77,23 +80,23 @@ export default async function HomePage() {
       </dl>
 
       {!hasData && (
-        <p className="rounded-card border border-border bg-surface p-4 text-ink-2">Aún no hay movimientos este mes. Pulsa + para apuntar tu primer gasto o añade tus ingresos en Movimientos.</p>
+        <p className="rounded-card border border-border bg-surface p-4 text-ink-2">{t("empty")}</p>
       )}
 
       <div className="rounded-card border border-border bg-surface p-4">
-        <h2 className="mb-2 text-sm text-ink-3">Gasto de los últimos 6 meses</h2>
+        <h2 className="mb-2 text-sm text-ink-3">{t("chartTitle")}</h2>
         <SpendChart data={o.series} currency="EUR" />
       </div>
 
       {transfer && (
         <div className="flex items-center justify-between rounded-card border border-border bg-surface p-4">
-          <p><span className="block text-xs text-ink-3">Pendiente de pago</span>{transfer.from} → {transfer.to} <span className="money font-mono">{formatMoney(transfer.amountCents)}</span></p>
-          <Link href="/balance" className="min-h-11 rounded-full bg-accent px-5 py-2.5 font-semibold text-on-accent">Saldar</Link>
+          <p><span className="block text-xs text-ink-3">{t("pending")}</span>{transfer.from} → {transfer.to} <span className="money font-mono">{formatMoney(transfer.amountCents)}</span></p>
+          <Link href="/balance" className="min-h-11 rounded-full bg-accent px-5 py-2.5 font-semibold text-on-accent">{t("settle")}</Link>
         </div>
       )}
 
       <div className="rounded-card border border-border bg-surface">
-        <h2 className="px-4 pt-4 text-sm text-ink-3">Fondos</h2>
+        <h2 className="px-4 pt-4 text-sm text-ink-3">{t("funds")}</h2>
         <table className="w-full text-sm">
           <caption className="sr-only">Uso de cada fondo este mes</caption>
           <tbody>
@@ -108,7 +111,7 @@ export default async function HomePage() {
             ))}
           </tbody>
         </table>
-        {o.funds.every((f) => f.planned === 0 && f.spent === 0) && <p className="px-4 pb-4 pt-2 text-sm text-ink-3">Define tu plan para ver los fondos.</p>}
+        {o.funds.every((f) => f.planned === 0 && f.spent === 0) && <p className="px-4 pb-4 pt-2 text-sm text-ink-3">{t("definePlan")}</p>}
       </div>
     </section>
   );

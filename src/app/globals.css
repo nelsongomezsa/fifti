@@ -79,6 +79,14 @@ body {
 }
 .num, .font-mono { font-variant-numeric: tabular-nums; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-/* modo discreto (fase 11): oculta cifras */
-[data-discreet="true"] .money { filter: blur(8px); user-select: none; }
+/* modo discreto: oculta todas las cifras (importes, gráficas y el importe que se teclea) */
+[data-discreet="true"] .money,
+[data-discreet="true"] .recharts-wrapper,
+[data-discreet="true"] output { filter: blur(9px); user-select: none; }
+
+/* animaciones sobrias: solo opacidad y desplazamiento corto */
+@keyframes fifti-sheet { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes fifti-fade { from { opacity: 0; } to { opacity: 1; } }
+.anim-sheet { animation: fifti-sheet 180ms ease-out; }
+.anim-fade { animation: fifti-fade 150ms ease-out; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

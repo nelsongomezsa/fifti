@@ -163,7 +163,7 @@ export function ExpenseSheet({
         aria-label="Nuevo gasto"
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[94dvh] w-full max-w-md overflow-y-auto rounded-t-[24px] border border-border bg-surface-2 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] outline-none"
+        className="anim-sheet max-h-[94dvh] w-full max-w-md overflow-y-auto rounded-t-[24px] border border-border bg-surface-2 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] outline-none"
       >
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-bold">{prefill?.edit ? "Editar gasto" : "Nuevo gasto"}</h2>

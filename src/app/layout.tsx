@@ -1,4 +1,7 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale } from "next-intl/server";
 import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
 import { ServiceWorker } from "@/components/pwa/ServiceWorker";
 import "./globals.css";
@@ -31,11 +34,16 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const locale = await getLocale();
+  const theme = (await cookies()).get("fifti_theme")?.value;
   return (
-    <html lang="es" className={`${grotesk.variable} ${plexMono.variable}`}>
-      <body className="min-h-dvh antialiased">{children}
-        <ServiceWorker />
+    <html lang={locale} data-theme={theme === "light" || theme === "dark" ? theme : undefined} className={`${grotesk.variable} ${plexMono.variable}`}>
+      <body className="min-h-dvh antialiased">
+        <NextIntlClientProvider>
+          {children}
+          <ServiceWorker />
+        </NextIntlClientProvider>
       </body>
     </html>
   );

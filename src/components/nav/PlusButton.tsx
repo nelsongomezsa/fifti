@@ -121,7 +121,7 @@ export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
       )}
 
       {toast && (
-        <div role="status" className="fixed inset-x-4 bottom-28 z-50 mx-auto flex max-w-md items-center justify-between gap-3 rounded-card border border-border bg-surface-2 px-4 py-3 shadow-lg">
+        <div role="status" className="anim-fade fixed inset-x-4 bottom-28 z-50 mx-auto flex max-w-md items-center justify-between gap-3 rounded-card border border-border bg-surface-2 px-4 py-3 shadow-lg">
           <span className="text-sm">
             {toast.pending ? "Guardado sin conexión en " : "Guardado en "}{toast.spaceName}
             {toast.shareCents > 0 && <span className="font-mono text-ink-2"> · tu parte {formatMoney(toast.shareCents, toast.currency)}</span>}

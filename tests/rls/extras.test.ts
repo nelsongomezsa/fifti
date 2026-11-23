@@ -85,3 +85,27 @@ describe.skipIf(!rlsConfigured)("RLS fase 10: tickets, push y preferencias", () 
     expect((await ana.client.from("notification_log").insert({ user_id: ana.id, kind: "x", ref: "y" })).error).not.toBeNull();
   });
 });
+
+describe.skipIf(!rlsConfigured)("RLS fase 11: borrar cuenta", () => {
+  it("traspasa la propiedad, conserva el historial y anonimiza el nombre", async () => {
+    const ana = await createUser("Ana"), leo = await createUser("Leo");
+    const g = (await ana.client.rpc("create_space", { p_name: "Casa", p_kind: "household" })).data as string;
+    const t = newToken();
+    await ana.client.rpc("create_share_link", { p_space: g, p_kind: "invite", p_token_hash: await sha256(t), p_ttl_seconds: 3600, p_max_uses: 2 });
+    await leo.client.rpc("accept_invite", { p_token_hash: await sha256(t) });
+    const solo = (await ana.client.rpc("create_space", { p_name: "Solo yo", p_kind: "group" })).data as string;
+    expect((await ana.client.rpc("prepare_account_deletion")).error).toBeNull();
+    expect((await admin().auth.admin.deleteUser(ana.id)).error).toBeNull();
+    const { data: owner } = await leo.client.from("space_members").select("role").eq("space_id", g).eq("user_id", leo.id).single();
+    expect(owner!.role).toBe("owner");
+    const { data: names } = await leo.client.from("space_members").select("display_name, user_id").eq("space_id", g);
+    expect(names).toContainEqual({ display_name: "Usuario eliminado", user_id: null });
+    expect((await admin().from("spaces").select("id").eq("id", solo)).data).toEqual([]);
+    await admin().auth.admin.deleteUser(leo.id);
+  });
+  it("los invitados no pueden prepararlo", async () => {
+    const guest = await createGuest();
+    expect((await guest.client.rpc("prepare_account_deletion")).error).not.toBeNull();
+    await admin().auth.admin.deleteUser(guest.id);
+  });
+});

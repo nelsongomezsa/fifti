@@ -9,6 +9,10 @@ import { setMirrorPref } from "@/server/actions/plan";
 import { PushSettings } from "@/components/pwa/PushSettings";
 import { vapidPublicKey } from "@/lib/vapid";
 import { savePrefs } from "@/server/actions/push";
+import { cookies } from "next/headers";
+import { getLocale, getTranslations } from "next-intl/server";
+import { LockSettings } from "@/components/lock/LockSettings";
+import { deleteAccount, setLocale, setTheme, toggleDiscreet } from "@/server/actions/prefs";
 import { requireUser, listMySpaces } from "@/server/spaces";
 import { signOut, upgradeGuest } from "@/server/actions/auth";
 
@@ -17,6 +21,9 @@ export const metadata: Metadata = { title: "Más" };
 export default async function MorePage() {
   const user = await requireUser();
   const spaces = await listMySpaces();
+  const t = await getTranslations("more");
+  const locale = await getLocale();
+  const theme = (await cookies()).get("fifti_theme")?.value ?? "system";
   const supabase = await createClient();
   const { data: pf } = user.is_anonymous ? { data: [] } : await supabase.from("spaces").select("id").eq("kind", "personal").maybeSingle().then((r) => ({ data: r.data ? [r.data] : [] }));
   const { data: pFunds } = pf?.[0] ? await supabase.from("funds").select("id, name").eq("space_id", pf[0].id).order("position") : { data: [] };
@@ -26,7 +33,7 @@ export default async function MorePage() {
   const { data: favs } = await supabase.from("favorites").select("id, label, amount_cents").order("label");
   return (
     <section className="flex flex-col gap-4 pt-2">
-      <h1 className="text-2xl font-bold">Más</h1>
+      <h1 className="text-2xl font-bold">{t("title")}</h1>
       <div className="rounded-card border border-border bg-surface p-4">
         <p className="text-sm text-ink-3">{user.is_anonymous ? "Sesión de invitado" : "Sesión iniciada como"}</p>
         <p className="mt-1 break-all">{user.is_anonymous ? "Sin cuenta" : user.email}</p>
@@ -113,9 +120,41 @@ export default async function MorePage() {
         <input name="label" required maxLength={30} placeholder="Café" aria-label="Nombre" className={inputClass} />
         <input name="amount" required inputMode="decimal" placeholder="2,50" aria-label="Importe" className={`${inputClass} font-mono`} />
       </ActionForm>
+      <h2 className="mt-2 text-lg font-semibold">{t("language")} · {t("theme")}</h2>
+      <div className="flex flex-col gap-2 rounded-card border border-border bg-surface p-3">
+        <form action={setLocale} className="flex gap-2">
+          <select name="locale" defaultValue={locale} aria-label={t("language")} className={inputClass}><option value="es">Español</option><option value="en">English</option></select>
+          <button className="min-h-12 rounded-full border border-border px-4 font-semibold">{t("save")}</button>
+        </form>
+        <form action={setTheme} className="flex gap-2">
+          <select name="theme" defaultValue={theme} aria-label={t("theme")} className={inputClass}>
+            <option value="system">{t("themeSystem")}</option><option value="dark">{t("themeDark")}</option><option value="light">{t("themeLight")}</option>
+          </select>
+          <button className="min-h-12 rounded-full border border-border px-4 font-semibold">{t("save")}</button>
+        </form>
+      </div>
+      {!user.is_anonymous && (
+        <>
+          <h2 className="mt-2 text-lg font-semibold">{t("discreet")}</h2>
+          <form action={toggleDiscreet} className="flex items-center justify-between gap-3 rounded-card border border-border bg-surface p-3 text-sm text-ink-2">
+            <span>{t("discreetHelp")}</span><button className="min-h-11 rounded-full border border-border px-4 font-semibold text-ink">{t("discreet")}</button>
+          </form>
+        </>
+      )}
+      <h2 className="mt-2 text-lg font-semibold">{t("lock")}</h2>
+      <LockSettings />
       <form action={signOut}>
-        <button type="submit" className="min-h-12 w-full rounded-full border border-border font-semibold">Cerrar sesión</button>
+        <button type="submit" className="min-h-12 w-full rounded-full border border-border font-semibold">{t("logout")}</button>
       </form>
+      {!user.is_anonymous && (
+        <div className="mt-4 flex flex-col gap-2 rounded-card border border-over p-4">
+          <h2 className="font-semibold text-over-text">{t("danger")}</h2>
+          <p className="text-sm text-ink-2">{t("deleteHelp")}</p>
+          <ActionForm action={deleteAccount} submit={t("deleteAccount")} tone="plain">
+            <input name="password" type="password" autoComplete="current-password" required maxLength={128} aria-label={t("confirmPassword")} placeholder={t("confirmPassword")} className={inputClass} />
+          </ActionForm>
+        </div>
+      )}
     </section>
   );
 }

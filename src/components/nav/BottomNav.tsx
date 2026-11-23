@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { PlusButton } from "./PlusButton";
 
 const stroke = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" } as const;
@@ -18,11 +19,11 @@ const icons = {
 };
 
 const items = [
-  { href: "/inicio", label: "Inicio", icon: icons.inicio },
-  { href: "/movimientos", label: "Movimientos", icon: icons.movimientos },
-  { href: "/plan", label: "Plan", icon: icons.plan },
-  { href: "/ahorro", label: "Ahorro", icon: icons.ahorro },
-];
+  { href: "/inicio", id: "home", icon: icons.inicio },
+  { href: "/movimientos", id: "movements", icon: icons.movimientos },
+  { href: "/plan", id: "plan", icon: icons.plan },
+  { href: "/ahorro", id: "savings", icon: icons.ahorro },
+] as const;
 
 function Item({ href, label, icon, active }: { href: string; label: string; icon: React.ReactNode; active: boolean }) {
   return (
@@ -44,20 +45,21 @@ function Item({ href, label, icon, active }: { href: string; label: string; icon
 
 export function BottomNav({ activeSpaceId }: { activeSpaceId: string }) {
   const path = usePathname();
+  const t = useTranslations("nav");
   const on = (href: string) => path === href || path.startsWith(`${href}/`);
   return (
     <nav
-      aria-label="Principal"
+      aria-label={t("main")}
       className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)]"
     >
       <div className="mx-auto flex max-w-md items-end">
-        <Item {...items[0]!} active={on(items[0]!.href)} />
-        <Item {...items[1]!} active={on(items[1]!.href)} />
+        <Item {...items[0]!} label={t(items[0]!.id)} active={on(items[0]!.href)} />
+        <Item {...items[1]!} label={t(items[1]!.id)} active={on(items[1]!.href)} />
         <div className="flex flex-1 justify-center">
           <PlusButton activeSpaceId={activeSpaceId} />
         </div>
-        <Item {...items[2]!} active={on(items[2]!.href)} />
-        <Item {...items[3]!} active={on(items[3]!.href)} />
+        <Item {...items[2]!} label={t(items[2]!.id)} active={on(items[2]!.href)} />
+        <Item {...items[3]!} label={t(items[3]!.id)} active={on(items[3]!.href)} />
       </div>
     </nav>
   );
