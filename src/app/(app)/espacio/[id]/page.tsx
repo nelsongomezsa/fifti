@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm, inputClass } from "@/components/ui/ActionForm";
 import { addVirtualMember, createClaimLink, createLink, kickMember, revokeLink, saveShares } from "@/server/actions/spaces";
@@ -32,6 +33,7 @@ export default async function SpacePage({ params }: { params: Promise<{ id: stri
   return (
     <section className="flex flex-col gap-6 pt-2">
       <h1 className="text-2xl font-bold">{space.name}</h1>
+      <Link href={`/espacio/${id}/fondos`} className="min-h-11 rounded-card border border-border bg-surface px-4 py-3 text-sm">Fondos y categorías ›</Link>
 
       <div className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold">Miembros</h2>

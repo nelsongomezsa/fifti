@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { PlusButton } from "./PlusButton";
 
 const stroke = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" } as const;
 const icons = {
@@ -41,7 +42,7 @@ function Item({ href, label, icon, active }: { href: string; label: string; icon
   );
 }
 
-export function BottomNav() {
+export function BottomNav({ activeSpaceId }: { activeSpaceId: string }) {
   const path = usePathname();
   const on = (href: string) => path === href || path.startsWith(`${href}/`);
   return (
@@ -53,15 +54,7 @@ export function BottomNav() {
         <Item {...items[0]!} active={on(items[0]!.href)} />
         <Item {...items[1]!} active={on(items[1]!.href)} />
         <div className="flex flex-1 justify-center">
-          <Link
-            href="/inicio?nuevo=gasto"
-            aria-label="Añadir gasto"
-            className="-mt-5 mb-2 grid size-16 place-items-center rounded-full bg-accent text-on-accent shadow-[0_0_0_6px_var(--bg)]"
-          >
-            <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden>
-              <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
-            </svg>
-          </Link>
+          <PlusButton activeSpaceId={activeSpaceId} />
         </div>
         <Item {...items[2]!} active={on(items[2]!.href)} />
         <Item {...items[3]!} active={on(items[3]!.href)} />

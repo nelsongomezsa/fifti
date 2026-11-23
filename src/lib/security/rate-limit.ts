@@ -15,6 +15,9 @@ export const RULES = {
   invite: { action: "invite", limit: 20, windowSeconds: 3600 },
   guestJoin: { action: "guest-join", limit: 15, windowSeconds: 3600 },
   claim: { action: "claim", limit: 10, windowSeconds: 3600 },
+  comment: { action: "comment", limit: 30, windowSeconds: 600 },
+  importCsv: { action: "import-csv", limit: 5, windowSeconds: 3600 },
+  publicSummary: { action: "public-summary", limit: 60, windowSeconds: 600 },
   passwordChange: { action: "password-change", limit: 5, windowSeconds: 3600 },
 } as const satisfies Record<string, RateRule>;
 

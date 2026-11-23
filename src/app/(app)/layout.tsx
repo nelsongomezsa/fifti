@@ -23,7 +23,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </header>
       {active && <BubbleSwitcher spaces={spaces} activeId={active.id} canCreate={!user.is_anonymous} />}
       <main className="px-4">{children}</main>
-      <BottomNav />
+      {active && <BottomNav activeSpaceId={active.id} />}
     </div>
   );
 }
