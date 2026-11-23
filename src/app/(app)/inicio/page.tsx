@@ -21,7 +21,7 @@ export default async function HomePage() {
   const supabase = await createClient();
   const t = await getTranslations("home");
   const locale = await getLocale();
-  const o = await loadOverview(supabase, active.id, active.kind);
+  const o = await loadOverview(supabase, active.id, active.kind, undefined, undefined, x.locale);
   const monthName = new Date(`${o.month}T00:00:00Z`).toLocaleDateString(locale, { month: "long", timeZone: "UTC" });
   const pctText = (bp: number) => `${(bp / 100).toFixed(0)} %`;
   const hasData = o.income > 0 || o.spent > 0;

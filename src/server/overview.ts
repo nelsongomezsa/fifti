@@ -27,7 +27,7 @@ async function seriesFor(supabase: SupabaseClient, spaceId: string, personal: bo
 }
 
 /** Panel de Inicio / seguimiento de un mes: sobra, tasa de ahorro, previsión y gasto de 6 meses. */
-export async function loadOverview(supabase: SupabaseClient, spaceId: string, kind: "personal" | "household" | "group", month = monthStart(new Date()), today = new Date().toISOString().slice(0, 10)): Promise<Overview> {
+export async function loadOverview(supabase: SupabaseClient, spaceId: string, kind: "personal" | "household" | "group", month = monthStart(new Date()), today = new Date().toISOString().slice(0, 10), locale = "es-ES"): Promise<Overview> {
   const personal = kind === "personal";
   const mirror = personal ? await loadMirrorByFund(supabase, month) : {};
   const plan = await loadPlan(supabase, spaceId, month, mirror);
@@ -53,7 +53,7 @@ export async function loadOverview(supabase: SupabaseClient, spaceId: string, ki
   const forecast = forecastMonthEnd({
     monthIso: month, today, spentVariable: spent - spentFixed, spentFixed, plannedFixed: fixed.reduce((a, f) => a + f.planned, 0), income,
   });
-  const label = (m: string) => new Date(`${m}T00:00:00Z`).toLocaleDateString("es-ES", { month: "short", timeZone: "UTC" }).replace(".", "");
+  const label = (m: string) => new Date(`${m}T00:00:00Z`).toLocaleDateString(locale, { month: "short", timeZone: "UTC" }).replace(".", "");
   return {
     month, income, spent, leftover, prevLeftover, change: monthChange(leftover, prevLeftover), savingsBp: savingsRateBp(income, spent),
     forecastLeftover: forecast.projectedLeftover,

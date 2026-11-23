@@ -20,7 +20,7 @@ export function YearImage({ year, cards }: { year: number; cards: { title: strin
       const y = 360 + i * 230;
       g.fillStyle = "#15181D"; g.beginPath(); g.roundRect(72, y, W - 144, 200, 32); g.fill();
       g.fillStyle = "#9AA3AF"; g.font = "400 34px system-ui, sans-serif"; g.fillText(k.title, 112, y + 70);
-      g.fillStyle = "#F2F4F7"; g.font = "700 56px system-ui, sans-serif"; g.fillText(k.value.slice(0, 22), 112, y + 150);
+      g.fillStyle = "#F2F4F7"; g.font = "700 56px system-ui, sans-serif"; g.fillText((k.value.charAt(0).toUpperCase() + k.value.slice(1)).slice(0, 22), 112, y + 150);
     });
     return c;
   };

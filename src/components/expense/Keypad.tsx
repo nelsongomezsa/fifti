@@ -26,7 +26,7 @@ export function Keypad({ value, onChange }: { value: string; onChange: (v: strin
           type="button"
           onClick={() => press(k)}
           aria-label={k === "⌫" ? x("Borrar") : k === "," ? x("Coma decimal") : k}
-          className="min-h-14 rounded-card bg-surface-2 font-mono text-2xl text-ink active:bg-track"
+          className="min-h-14 rounded-card border border-border bg-surface font-mono text-2xl text-ink active:bg-track"
         >
           {k}
         </button>
