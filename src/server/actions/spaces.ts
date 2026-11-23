@@ -1,5 +1,7 @@
 "use server";
 
+import { getTx } from "@/i18n/tx";
+
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -27,6 +29,7 @@ async function session() {
 }
 
 export async function createSpace(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const parsed = createSpaceSchema.safeParse({
     name: fv(fd, "name") ?? "",
     kind: fv(fd, "kind"),
@@ -36,67 +39,70 @@ export async function createSpace(_prev: FormState, fd: FormData): Promise<FormS
     startsOn: fv(fd, "startsOn"),
     endsOn: fv(fd, "endsOn"),
   });
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos no válidos" };
+  if (!parsed.success) return { error: x(parsed.error.issues[0]?.message ?? "Datos no válidos") };
   const { supabase, user } = await session();
-  if (!user || user.is_anonymous) return { error: "Necesitas una cuenta." };
-  if (!(await allow(RULES.createLink, user.id))) return { error: "Demasiados intentos. Espera un rato." };
+  if (!user || user.is_anonymous) return { error: x("Necesitas una cuenta.") };
+  if (!(await allow(RULES.createLink, user.id))) return { error: x("Demasiados intentos. Espera un rato.") };
 
   const v = parsed.data;
   const { data, error } = await supabase.rpc("create_space", {
     p_name: v.name, p_kind: v.kind, p_currency: v.currency, p_emoji: v.emoji ?? null,
     p_template: v.template ?? null, p_starts: v.startsOn ?? null, p_ends: v.endsOn ?? null,
   });
-  if (error) return { error: rpcMessage(error) };
+  if (error) return { error: x(rpcMessage(error)) };
   revalidatePath("/", "layout");
   redirect(`/espacio/${data as string}`);
 }
 
 export async function addVirtualMember(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const parsed = addMemberSchema.safeParse({ spaceId: fv(fd, "spaceId"), name: fv(fd, "name") ?? "" });
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos no válidos" };
+  if (!parsed.success) return { error: x(parsed.error.issues[0]?.message ?? "Datos no válidos") };
   const { supabase, user } = await session();
-  if (!user) return { error: "Sesión caducada." };
+  if (!user) return { error: x("Sesión caducada.") };
   const { error } = await supabase.rpc("add_virtual_member", { p_space: parsed.data.spaceId, p_name: parsed.data.name });
-  if (error) return { error: rpcMessage(error) };
+  if (error) return { error: x(rpcMessage(error)) };
   revalidatePath(`/espacio/${parsed.data.spaceId}`);
-  return { ok: true, message: "Miembro añadido." };
+  return { ok: true, message: x("Miembro añadido.") };
 }
 
 export async function saveShares(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const spaceId = uuidSchema.safeParse(fv(fd, "spaceId"));
-  if (!spaceId.success) return { error: "Datos no válidos" };
+  if (!spaceId.success) return { error: x("Datos no válidos") };
   const entries: { member_id: string; bp: number }[] = [];
   for (const [key, value] of fd.entries()) {
     if (!key.startsWith("bp_") || typeof value !== "string") continue;
     const bp = parsePercentToBp(value);
-    if (bp === null) return { error: "Porcentaje no válido" };
+    if (bp === null) return { error: x("Porcentaje no válido") };
     entries.push({ member_id: key.slice(3), bp });
   }
   const parsed = sharesSchema.safeParse(entries);
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos no válidos" };
+  if (!parsed.success) return { error: x(parsed.error.issues[0]?.message ?? "Datos no válidos") };
   const { supabase, user } = await session();
-  if (!user) return { error: "Sesión caducada." };
+  if (!user) return { error: x("Sesión caducada.") };
   const { error } = await supabase.rpc("set_default_shares", { p_space: spaceId.data, p_shares: parsed.data });
-  if (error) return { error: rpcMessage(error) };
+  if (error) return { error: x(rpcMessage(error)) };
   revalidatePath(`/espacio/${spaceId.data}`);
-  return { ok: true, message: "Porcentajes guardados." };
+  return { ok: true, message: x("Porcentajes guardados.") };
 }
 
 export async function createLink(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const parsed = linkSchema.safeParse({
     spaceId: fv(fd, "spaceId"), kind: fv(fd, "kind"), days: fv(fd, "days") ?? "7", maxUses: fv(fd, "maxUses") ?? "10",
   });
-  if (!parsed.success) return { error: "Datos no válidos" };
+  if (!parsed.success) return { error: x("Datos no válidos") };
   const { supabase, user } = await session();
-  if (!user) return { error: "Sesión caducada." };
-  if (!(await allow(RULES.createLink, user.id))) return { error: "Demasiados enlaces creados. Espera un rato." };
+  if (!user) return { error: x("Sesión caducada.") };
+  if (!(await allow(RULES.createLink, user.id))) return { error: x("Demasiados enlaces creados. Espera un rato.") };
 
   const { token, hash } = generateToken();
   const v = parsed.data;
   const { error } = await supabase.rpc("create_share_link", {
     p_space: v.spaceId, p_kind: v.kind, p_token_hash: hash, p_ttl_seconds: v.days * 86400, p_max_uses: v.maxUses,
   });
-  if (error) return { error: rpcMessage(error) };
+  if (error) return { error: x(rpcMessage(error)) };
   revalidatePath(`/espacio/${v.spaceId}`);
   const path = v.kind === "public_summary" ? "resumen" : "unirse";
   return { ok: true, link: `${publicEnv().NEXT_PUBLIC_SITE_URL}/${path}/${token}` };
@@ -123,14 +129,15 @@ export async function kickMember(fd: FormData) {
 }
 
 export async function createClaimLink(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const id = uuidSchema.safeParse(fv(fd, "memberId"));
-  if (!id.success) return { error: "Datos no válidos" };
+  if (!id.success) return { error: x("Datos no válidos") };
   const { supabase, user } = await session();
-  if (!user) return { error: "Sesión caducada." };
-  if (!(await allow(RULES.createLink, user.id))) return { error: "Demasiados intentos. Espera un rato." };
+  if (!user) return { error: x("Sesión caducada.") };
+  if (!(await allow(RULES.createLink, user.id))) return { error: x("Demasiados intentos. Espera un rato.") };
   const { token, hash } = generateToken();
   const { error } = await supabase.rpc("create_claim_link", { p_member: id.data, p_token_hash: hash, p_ttl_seconds: 7 * 86400 });
-  if (error) return { error: rpcMessage(error) };
+  if (error) return { error: x(rpcMessage(error)) };
   return { ok: true, link: `${publicEnv().NEXT_PUBLIC_SITE_URL}/reclamar/${token}` };
 }
 
@@ -138,36 +145,38 @@ const budgetSchema = z.object({ spaceId: z.uuid(), cents: z.number().int().min(1
 
 /** Presupuesto por persona y día (opcional, para viajes). Solo el owner (RLS). */
 export async function setDailyBudget(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const raw = fv(fd, "budget");
   const cents = raw ? parseToCents(raw) : null;
   const parsed = budgetSchema.safeParse({ spaceId: fv(fd, "spaceId"), cents });
-  if (!parsed.success || (raw && !cents)) return { error: "Importe no válido" };
+  if (!parsed.success || (raw && !cents)) return { error: x("Importe no válido") };
   const { supabase, user } = await session();
-  if (!user) return { error: "Sesión caducada." };
+  if (!user) return { error: x("Sesión caducada.") };
   const { data, error } = await supabase.from("spaces").update({ daily_budget_cents: parsed.data.cents }).eq("id", parsed.data.spaceId).select("id");
-  if (error || !data?.length) return { error: "No autorizado." };
+  if (error || !data?.length) return { error: x("No autorizado.") };
   revalidatePath("/", "layout");
-  return { ok: true, message: cents ? "Presupuesto guardado." : "Presupuesto quitado." };
+  return { ok: true, message: x(cents ? "Presupuesto guardado." : "Presupuesto quitado.") };
 }
 
 /** Cierra el plan: crea el enlace de resumen público (30 días) y archiva el grupo. */
 export async function closeGroup(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const spaceId = uuidSchema.safeParse(fv(fd, "spaceId"));
-  if (!spaceId.success) return { error: "Datos no válidos" };
+  if (!spaceId.success) return { error: x("Datos no válidos") };
   const { supabase, user } = await session();
-  if (!user) return { error: "Sesión caducada." };
-  if (!(await allow(RULES.createLink, user.id))) return { error: "Demasiados intentos. Espera un rato." };
+  if (!user) return { error: x("Sesión caducada.") };
+  if (!(await allow(RULES.createLink, user.id))) return { error: x("Demasiados intentos. Espera un rato.") };
   const { data: space } = await supabase.from("spaces").select("kind, archived_at").eq("id", spaceId.data).maybeSingle();
-  if (!space || space.kind !== "group") return { error: "Solo se cierran los planes espontáneos." };
-  if (space.archived_at) return { error: "Este plan ya está cerrado." };
+  if (!space || space.kind !== "group") return { error: x("Solo se cierran los planes espontáneos.") };
+  if (space.archived_at) return { error: x("Este plan ya está cerrado.") };
 
   const { token, hash } = generateToken();
   const { error: linkErr } = await supabase.rpc("create_share_link", { p_space: spaceId.data, p_kind: "public_summary", p_token_hash: hash, p_ttl_seconds: 30 * 86400, p_max_uses: 1000 });
-  if (linkErr) return { error: rpcMessage(linkErr) };
+  if (linkErr) return { error: x(rpcMessage(linkErr)) };
   const { data, error } = await supabase.from("spaces").update({ archived_at: new Date().toISOString() }).eq("id", spaceId.data).select("id");
-  if (error || !data?.length) return { error: "No autorizado." };
+  if (error || !data?.length) return { error: x("No autorizado.") };
   revalidatePath("/", "layout");
-  return { ok: true, message: "Plan cerrado y archivado.", link: `${publicEnv().NEXT_PUBLIC_SITE_URL}/resumen/${token}` };
+  return { ok: true, message: x("Plan cerrado y archivado."), link: `${publicEnv().NEXT_PUBLIC_SITE_URL}/resumen/${token}` };
 }
 
 export async function reopenGroup(fd: FormData) {

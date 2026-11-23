@@ -1,3 +1,4 @@
+import { getTx } from "@/i18n/tx";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthForm } from "@/components/ui/AuthForm";
@@ -19,6 +20,7 @@ import { signOut, upgradeGuest } from "@/server/actions/auth";
 export const metadata: Metadata = { title: "Más" };
 
 export default async function MorePage() {
+  const x = await getTx();
   const user = await requireUser();
   const spaces = await listMySpaces();
   const t = await getTranslations("more");
@@ -35,29 +37,29 @@ export default async function MorePage() {
     <section className="flex flex-col gap-4 pt-2">
       <h1 className="text-2xl font-bold">{t("title")}</h1>
       <div className="rounded-card border border-border bg-surface p-4">
-        <p className="text-sm text-ink-3">{user.is_anonymous ? "Sesión de invitado" : "Sesión iniciada como"}</p>
-        <p className="mt-1 break-all">{user.is_anonymous ? "Sin cuenta" : user.email}</p>
+        <p className="text-sm text-ink-3">{user.is_anonymous ? x("Sesión de invitado") : x("Sesión iniciada como")}</p>
+        <p className="mt-1 break-all">{user.is_anonymous ? x("Sin cuenta") : user.email}</p>
       </div>
 
       {user.is_anonymous && (
         <div className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4">
-          <h2 className="font-semibold">Crea tu cuenta y conserva tu historial</h2>
+          <h2 className="font-semibold">{x("Crea tu cuenta y conserva tu historial")}</h2>
           <AuthForm
             action={upgradeGuest}
-            submit="Crear cuenta"
+            submit={x("Crear cuenta")}
             fields={[
-              { name: "email", label: "Email", type: "email", autoComplete: "email" },
-              { name: "password", label: "Contraseña", type: "password", autoComplete: "new-password", maxLength: 128, hint: "Mínimo 12 caracteres." },
+              { name: "email", label: x("Email"), type: "email", autoComplete: "email" },
+              { name: "password", label: x("Contraseña"), type: "password", autoComplete: "new-password", maxLength: 128, hint: x("Mínimo 12 caracteres.") },
             ]}
           />
         </div>
       )}
 
       {[["/calendario", "Calendario de pagos"], ["/resumen-mensual", "Resumen del mes"], ["/tu-ano", "Tu año en Fifti"], ["/csv", "Importar y exportar CSV"]].map(([href, label]) => (
-        <Link key={href} href={href!} className="flex min-h-12 items-center justify-between rounded-card border border-border bg-surface px-4">{label}<span aria-hidden className="text-ink-3">›</span></Link>
+        <Link key={href} href={href!} className="flex min-h-12 items-center justify-between rounded-card border border-border bg-surface px-4">{x(label!)}<span aria-hidden className="text-ink-3">›</span></Link>
       ))}
-      <Link href="/balance" className="flex min-h-12 items-center justify-between rounded-card border border-border bg-surface px-4">Balance y saldar deudas<span aria-hidden className="text-ink-3">›</span></Link>
-      <h2 className="mt-2 text-lg font-semibold">Burbujas</h2>
+      <Link href="/balance" className="flex min-h-12 items-center justify-between rounded-card border border-border bg-surface px-4">{x("Balance y saldar deudas")}<span aria-hidden className="text-ink-3">›</span></Link>
+      <h2 className="mt-2 text-lg font-semibold">{x("Burbujas")}</h2>
       <ul className="flex flex-col gap-2">
         {spaces.filter((s) => s.kind !== "personal").map((s) => (
           <li key={s.id}>
@@ -69,7 +71,7 @@ export default async function MorePage() {
       </ul>
       {(archived ?? []).length > 0 && (
         <>
-          <h2 className="mt-2 text-lg font-semibold">Planes archivados</h2>
+          <h2 className="mt-2 text-lg font-semibold">{x("Planes archivados")}</h2>
           <ul className="flex flex-col gap-2">{archived!.map((a) => (
             <li key={a.id}><Link href={`/espacio/${a.id}/cerrar`} className="flex min-h-12 items-center justify-between rounded-card border border-border bg-surface px-4">{a.name}<span aria-hidden className="text-ink-3">›</span></Link></li>
           ))}</ul>
@@ -77,16 +79,16 @@ export default async function MorePage() {
       )}
       {!user.is_anonymous && spaces.some((s) => s.kind !== "personal") && (
         <>
-          <h2 className="mt-2 text-lg font-semibold">Reflejo en tu plan personal</h2>
-          <p className="text-sm text-ink-3">Tu parte de cada gasto de grupo entra sola en tu plan personal. Solo la ves tú.</p>
+          <h2 className="mt-2 text-lg font-semibold">{x("Reflejo en tu plan personal")}</h2>
+          <p className="text-sm text-ink-3">{x("Tu parte de cada gasto de grupo entra sola en tu plan personal. Solo la ves tú.")}</p>
           {spaces.filter((s) => s.kind !== "personal").map((s) => {
             const pr = prefs?.find((p) => p.space_id === s.id);
             return (
-              <ActionForm key={s.id} action={setMirrorPref} submit="Guardar" tone="plain" className="flex flex-col gap-2 rounded-card border border-border bg-surface p-3">
+              <ActionForm key={s.id} action={setMirrorPref} submit={x("Guardar")} tone="plain" className="flex flex-col gap-2 rounded-card border border-border bg-surface p-3">
                 <input type="hidden" name="spaceId" value={s.id} />
                 <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" name="enabled" defaultChecked={pr?.enabled ?? true} /> {s.name}</label>
                 <select name="fundId" defaultValue={pr?.fund_id ?? ""} aria-label={`Fondo para ${s.name}`} className={inputClass}>
-                  <option value="">Fondo automático</option>
+                  <option value="">{x("Fondo automático")}</option>
                   {pFunds?.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
                 </select>
               </ActionForm>
@@ -96,34 +98,34 @@ export default async function MorePage() {
       )}
       {!user.is_anonymous && (
         <>
-          <h2 className="mt-2 text-lg font-semibold">Notificaciones</h2>
+          <h2 className="mt-2 text-lg font-semibold">{x("Notificaciones")}</h2>
           <PushSettings publicKey={vapidPublicKey} />
-          <ActionForm action={savePrefs} submit="Guardar preferencias" tone="plain" className="flex flex-col gap-1 rounded-card border border-border bg-surface p-3">
+          <ActionForm action={savePrefs} submit={x("Guardar preferencias")} tone="plain" className="flex flex-col gap-1 rounded-card border border-border bg-surface p-3">
             {([["new_expense", "Gasto nuevo"], ["fixed_tomorrow", "Gasto fijo mañana"], ["fund_threshold", "Fondo al 80 % / 100 %"], ["goal_reached", "Meta alcanzada"], ["monthly_summary", "Resumen mensual"], ["contribution_pending", "Aportación pendiente"], ["offset_proposal", "Propuesta de compensación"]] as const).map(([k, l]) => (
-              <label key={k} className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" name={k} defaultChecked={(prefRow as Record<string, boolean> | null)?.[k] ?? true} /> {l}</label>
+              <label key={k} className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" name={k} defaultChecked={(prefRow as Record<string, boolean> | null)?.[k] ?? true} /> {x(l)}</label>
             ))}
           </ActionForm>
         </>
       )}
-      <h2 className="mt-2 text-lg font-semibold">Favoritos</h2>
-      <p className="text-sm text-ink-3">Pulsación larga en el botón + para usarlos.</p>
+      <h2 className="mt-2 text-lg font-semibold">{x("Favoritos")}</h2>
+      <p className="text-sm text-ink-3">{x("Pulsación larga en el botón + para usarlos.")}</p>
       <ul className="flex flex-col gap-2">
         {favs?.map((f) => (
           <li key={f.id} className="flex items-center justify-between rounded-card border border-border bg-surface px-4 py-2 text-sm">
-            <span>{f.label} <span className="money font-mono text-ink-3">{formatMoney(f.amount_cents)}</span></span>
+            <span>{f.label} <span className="money font-mono text-ink-3">{formatMoney(f.amount_cents, "EUR", x.locale)}</span></span>
             <form action={deleteFavorite}><input type="hidden" name="favoriteId" value={f.id} /><button aria-label={`Borrar ${f.label}`} className="min-h-11 min-w-11 text-over-text">✕</button></form>
           </li>
         ))}
       </ul>
-      <ActionForm action={addFavoriteForm} submit="Añadir favorito" tone="plain">
-        <select name="spaceId" aria-label="Burbuja" className={inputClass}>{spaces.map((s) => <option key={s.id} value={s.id}>{s.kind === "personal" ? "Personal" : s.name}</option>)}</select>
-        <input name="label" required maxLength={30} placeholder="Café" aria-label="Nombre" className={inputClass} />
-        <input name="amount" required inputMode="decimal" placeholder="2,50" aria-label="Importe" className={`${inputClass} font-mono`} />
+      <ActionForm action={addFavoriteForm} submit={x("Añadir favorito")} tone="plain">
+        <select name="spaceId" aria-label={x("Burbuja")} className={inputClass}>{spaces.map((s) => <option key={s.id} value={s.id}>{s.kind === "personal" ? x("Personal") : s.name}</option>)}</select>
+        <input name="label" required maxLength={30} placeholder={x("Café")} aria-label={x("Nombre")} className={inputClass} />
+        <input name="amount" required inputMode="decimal" placeholder="2,50" aria-label={x("Importe")} className={`${inputClass} font-mono`} />
       </ActionForm>
       <h2 className="mt-2 text-lg font-semibold">{t("language")} · {t("theme")}</h2>
       <div className="flex flex-col gap-2 rounded-card border border-border bg-surface p-3">
         <form action={setLocale} className="flex gap-2">
-          <select name="locale" defaultValue={locale} aria-label={t("language")} className={inputClass}><option value="es">Español</option><option value="en">English</option></select>
+          <select name="locale" defaultValue={locale} aria-label={t("language")} className={inputClass}><option value="es">{x("Español")}</option><option value="en">{x("English")}</option></select>
           <button className="min-h-12 rounded-full border border-border px-4 font-semibold">{t("save")}</button>
         </form>
         <form action={setTheme} className="flex gap-2">

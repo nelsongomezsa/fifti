@@ -1,3 +1,4 @@
+import { getTx } from "@/i18n/tx";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { addMonths, formatMoney, isMonthStart, monthStart } from "@/lib/money";
@@ -11,6 +12,7 @@ const esc = (s: string) => s.replace(/[\\%_,()]/g, " ").trim().slice(0, 50);
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function MovementsPage({ searchParams }: { searchParams: Promise<SP> }) {
+  const x = await getTx();
   const sp = await searchParams;
   const user = await requireUser();
   const active = await getActiveSpace(await listMySpaces());
@@ -19,7 +21,7 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
 
   const month = sp.mes && isMonthStart(sp.mes) ? sp.mes : monthStart(new Date());
   const next = addMonths(month, 1);
-  const monthLabel = new Date(`${month}T00:00:00Z`).toLocaleDateString("es-ES", { month: "long", year: "numeric", timeZone: "UTC" });
+  const monthLabel = new Date(`${month}T00:00:00Z`).toLocaleDateString(x.locale, { month: "long", year: "numeric", timeZone: "UTC" });
 
   const [{ data: members }, { data: cats }] = await Promise.all([
     supabase.from("space_members").select("id, user_id, display_name").eq("space_id", active.id),
@@ -55,69 +57,69 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
 
   return (
     <section className="flex flex-col gap-4 pt-2">
-      <h1 className="text-2xl font-bold">Movimientos</h1>
+      <h1 className="text-2xl font-bold">{x("Movimientos")}</h1>
 
       <div className="flex items-center justify-between">
-        <Link href={href({ mes: addMonths(month, -1) })} aria-label="Mes anterior" className="grid min-h-11 min-w-11 place-items-center rounded-full border border-border">‹</Link>
+        <Link href={href({ mes: addMonths(month, -1) })} aria-label={x("Mes anterior")} className="grid min-h-11 min-w-11 place-items-center rounded-full border border-border">‹</Link>
         <span className="font-semibold capitalize">{monthLabel}</span>
-        <Link href={href({ mes: next })} aria-label="Mes siguiente" className="grid min-h-11 min-w-11 place-items-center rounded-full border border-border">›</Link>
+        <Link href={href({ mes: next })} aria-label={x("Mes siguiente")} className="grid min-h-11 min-w-11 place-items-center rounded-full border border-border">›</Link>
       </div>
 
       <form className="flex flex-wrap gap-2" action="/movimientos">
         <input type="hidden" name="mes" value={month} />
-        <input name="q" defaultValue={sp.q} placeholder="Buscar" aria-label="Buscar" maxLength={50}
+        <input name="q" defaultValue={sp.q} placeholder={x("Buscar")} aria-label={x("Buscar")} maxLength={50}
           className="min-h-11 flex-1 rounded-card border border-border bg-surface px-3 text-sm" />
-        <select name="cat" defaultValue={sp.cat ?? ""} aria-label="Categoría" className="min-h-11 rounded-card border border-border bg-surface px-2 text-sm">
-          <option value="">Categoría</option>
+        <select name="cat" defaultValue={sp.cat ?? ""} aria-label={x("Categoría")} className="min-h-11 rounded-card border border-border bg-surface px-2 text-sm">
+          <option value="">{x("Categoría")}</option>
           {cats?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         {active.kind !== "personal" && (
-          <select name="persona" defaultValue={sp.persona ?? ""} aria-label="Persona" className="min-h-11 rounded-card border border-border bg-surface px-2 text-sm">
-            <option value="">Persona</option>
+          <select name="persona" defaultValue={sp.persona ?? ""} aria-label={x("Persona")} className="min-h-11 rounded-card border border-border bg-surface px-2 text-sm">
+            <option value="">{x("Persona")}</option>
             {members?.map((m) => <option key={m.id} value={m.id}>{m.display_name}</option>)}
           </select>
         )}
-        <input name="tag" defaultValue={sp.tag} placeholder="#etiqueta" aria-label="Etiqueta" maxLength={31} className="min-h-11 w-28 rounded-card border border-border bg-surface px-3 text-sm" />
-        <button className="min-h-11 rounded-full bg-accent px-4 text-sm font-semibold text-on-accent">Filtrar</button>
+        <input name="tag" defaultValue={sp.tag} placeholder={x("#etiqueta")} aria-label={x("Etiqueta")} maxLength={31} className="min-h-11 w-28 rounded-card border border-border bg-surface px-3 text-sm" />
+        <button className="min-h-11 rounded-full bg-accent px-4 text-sm font-semibold text-on-accent">{x("Filtrar")}</button>
       </form>
 
       <p className="flex justify-between text-sm text-ink-2">
-        <span>{rows.length} gastos</span>
-        <span className="money font-mono text-ink">{formatMoney(total)}</span>
+        <span>{rows.length} {x("gastos")}</span>
+        <span className="money font-mono text-ink">{formatMoney(total, "EUR", x.locale)}</span>
       </p>
 
       {(mirrors ?? []).length > 0 && (
-        <ul className="flex flex-col gap-2" aria-label="Tu parte de gastos de grupo">
+        <ul className="flex flex-col gap-2" aria-label={x("Tu parte de gastos de grupo")}>
           {mirrors!.map((mr) => (
             <li key={mr.id} className="flex min-h-14 items-center justify-between gap-3 rounded-card border border-dashed border-border px-4 py-3">
-              <span><span className="block font-medium">Tu parte de {mr.label}</span><span className="text-xs text-ink-3">{mr.spent_at} · reflejo de grupo</span></span>
-              <span className="money font-mono">{formatMoney(mr.amount_cents)}</span>
+              <span><span className="block font-medium">{x("Tu parte de")}{" "}{mr.label}</span><span className="text-xs text-ink-3">{mr.spent_at} {x("· reflejo de grupo")}</span></span>
+              <span className="money font-mono">{formatMoney(mr.amount_cents, "EUR", x.locale)}</span>
             </li>
           ))}
         </ul>
       )}
       {rows.length === 0 ? (
-        <p className="rounded-card border border-border bg-surface p-4 text-ink-2">Todavía no hay gastos este mes en esta burbuja.</p>
+        <p className="rounded-card border border-border bg-surface p-4 text-ink-2">{x("Todavía no hay gastos este mes en esta burbuja.")}</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {rows.map((e) => {
             const mine = (e.expense_splits as { member_id: string; amount_cents: number }[]).find((s) => s.member_id === me?.id)?.amount_cents;
-            const title = e.is_private ? (priv.get(e.id) ?? "Gasto privado") : e.description;
+            const title = e.is_private ? (priv.get(e.id) ?? x("Gasto privado")) : e.description;
             return (
               <li key={e.id}>
                 <Link href={`/movimientos/${e.id}`} className="flex min-h-14 items-center justify-between gap-3 rounded-card border border-border bg-surface px-4 py-3">
                   <span className="min-w-0">
                     <span className="block truncate font-medium">{title}</span>
                     <span className="text-xs text-ink-3">
-                      {new Date(`${e.spent_at}T00:00:00Z`).toLocaleDateString("es-ES", { day: "numeric", month: "short", timeZone: "UTC" })}
+                      {new Date(`${e.spent_at}T00:00:00Z`).toLocaleDateString(x.locale, { day: "numeric", month: "short", timeZone: "UTC" })}
                       {e.category_id && catName.get(e.category_id) ? ` · ${catName.get(e.category_id)}` : ""}
                       {e.is_private ? " · privado" : ""}
                     </span>
                   </span>
                   <span className="text-right">
-                    <span className="money block font-mono">{formatMoney(e.amount_cents, e.currency)}</span>
+                    <span className="money block font-mono">{formatMoney(e.amount_cents, e.currency, x.locale)}</span>
                     {active.kind !== "personal" && mine !== undefined && (
-                      <span className="money block font-mono text-xs text-ink-3">tu parte {formatMoney(mine, e.currency)}</span>
+                      <span className="money block font-mono text-xs text-ink-3">{x("tu parte")}{" "}{formatMoney(mine, e.currency, x.locale)}</span>
                     )}
                   </span>
                 </Link>
@@ -126,7 +128,7 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
           })}
         </ul>
       )}
-      <Link href="/ingreso" className="min-h-12 rounded-full border border-border py-3 text-center font-semibold">Añadir ingreso</Link>
+      <Link href="/ingreso" className="min-h-12 rounded-full border border-border py-3 text-center font-semibold">{x("Añadir ingreso")}</Link>
     </section>
   );
 }

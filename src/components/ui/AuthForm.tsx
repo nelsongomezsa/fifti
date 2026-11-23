@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useTx } from "@/i18n/tx-client";
 import { useActionState } from "react";
 import type { FormState } from "@/server/actions/auth";
 
@@ -16,6 +18,7 @@ export function AuthForm({
   submit: string;
   next?: string;
 }) {
+  const x = useTx();
   const [state, formAction, pending] = useActionState(action, {});
 
   if (state.ok && state.message) {
@@ -58,7 +61,7 @@ export function AuthForm({
         disabled={pending}
         className="min-h-12 rounded-full bg-lime px-6 font-semibold text-on-accent disabled:opacity-60"
       >
-        {pending ? "Un momento…" : submit}
+        {pending ? x("Un momento…") : submit}
       </button>
     </form>
   );

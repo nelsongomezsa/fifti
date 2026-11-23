@@ -1,10 +1,13 @@
 "use client";
 
+
+import { useTx } from "@/i18n/tx-client";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { createBiometric, hashPin, PIN_RE, readLock, writeLock } from "@/lib/applock";
 
 export function LockSettings() {
+  const x = useTx();
   const t = useTranslations("lock");
   const [lock, setLock] = useState(() => (typeof window === "undefined" ? null : readLock()));
   const [pin, setPin] = useState("");
@@ -18,7 +21,7 @@ export function LockSettings() {
   };
   const addBio = async () => {
     const id = await createBiometric().catch(() => null);
-    if (!id) return setMsg("No disponible en este dispositivo.");
+    if (!id) return setMsg(x("No disponible en este dispositivo."));
     const next = { ...(readLock() ?? {}), cred: id };
     writeLock(next); setLock(next); setMsg(null);
   };

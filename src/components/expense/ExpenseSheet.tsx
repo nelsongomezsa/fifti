@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useTx } from "@/i18n/tx-client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { buildSplits, formatMoney, parseToCents, BP_TOTAL, type SplitMode } from "@/lib/money";
 import { parsePercentToBp } from "@/lib/validation/spaces";
@@ -37,6 +39,7 @@ export function ExpenseSheet({
 }: {
   ctx: SheetContext; defaultSpaceId: string; prefill?: SheetPrefill; onClose: () => void; onSaved: (info: SavedInfo) => void;
 }) {
+  const x = useTx();
   const initialSpace = useMemo(() => {
     let last: string | null = null;
     try { last = localStorage.getItem(LAST_KEY); } catch { /* sin almacenamiento */ }
@@ -115,15 +118,15 @@ export function ExpenseSheet({
       const s = buildSplits(baseCents, mode, participants.map((m) => ({ memberId: m.id, defaultBp: m.defaultBp })), custom);
       return { share: s.find((x) => x.memberId === space.meId)?.amountCents ?? 0, error: null };
     } catch (e) {
-      return { share: 0, error: e instanceof RangeError ? e.message : "Reparto no válido" };
+      return { share: 0, error: e instanceof RangeError ? e.message : x("Reparto no válido") };
     }
-  }, [cents, baseCents, fx, sameCurrency, isGroup, mode, participants, pct, space.meId]);
+  }, [cents, baseCents, fx, sameCurrency, isGroup, mode, participants, pct, space.meId, x]);
 
   const save = async () => {
     setError(null);
-    if (cents <= 0) return setError("Pon un importe.");
-    if (!desc.trim()) return setError("Pon un concepto.");
-    if (live.error) return setError(live.error);
+    if (cents <= 0) return setError(x("Pon un importe."));
+    if (!desc.trim()) return setError(x("Pon un concepto."));
+    if (live.error) return setError(x(live.error));
     const payers = fromPot || !isGroup ? [] : multiPay
       ? space.members.filter((m) => parseToCents(payAmounts[m.id] ?? "")).map((m) => ({ memberId: m.id, amountCents: parseToCents(payAmounts[m.id] ?? "")! }))
       : [{ memberId: payerId }];
@@ -146,13 +149,13 @@ export function ExpenseSheet({
       await uploadReceipt(fd);
     }
     try { localStorage.setItem(LAST_KEY, space.id); } catch { /* sin almacenamiento */ }
-    onSaved({ id: res.id, shareCents: res.shareCents, spaceName: space.kind === "personal" ? "Personal" : space.name, currency: space.currency, pending: res.id === "pending" });
+    onSaved({ id: res.id, shareCents: res.shareCents, spaceName: space.kind === "personal" ? x("Personal") : space.name, currency: space.currency, pending: res.id === "pending" });
     onClose();
   };
 
   const accent = ACCENTS[space.kind];
-  const bubbleLabel = space.kind === "personal" ? "Personal" : space.name;
-  const symbol = new Intl.NumberFormat("es-ES", { style: "currency", currency }).formatToParts(0).find((p) => p.type === "currency")?.value;
+  const bubbleLabel = space.kind === "personal" ? x("Personal") : space.name;
+  const symbol = new Intl.NumberFormat(x.locale, { style: "currency", currency }).formatToParts(0).find((p) => p.type === "currency")?.value;
 
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/60" onClick={onClose}>
@@ -160,24 +163,24 @@ export function ExpenseSheet({
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Nuevo gasto"
+        aria-label={x("Nuevo gasto")}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         className="anim-sheet max-h-[94dvh] w-full max-w-md overflow-y-auto rounded-t-[24px] border border-border bg-surface-2 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] outline-none"
       >
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-bold">{prefill?.edit ? "Editar gasto" : "Nuevo gasto"}</h2>
-          <button type="button" onClick={onClose} aria-label="Cerrar" className="grid min-h-11 min-w-11 place-items-center text-ink-2">✕</button>
+          <h2 className="text-lg font-bold">{prefill?.edit ? x("Editar gasto") : x("Nuevo gasto")}</h2>
+          <button type="button" onClick={onClose} aria-label={x("Cerrar")} className="grid min-h-11 min-w-11 place-items-center text-ink-2">✕</button>
         </div>
 
-        <p className="mb-1 text-xs text-ink-3">¿Dónde lo apunto?</p>
+        <p className="mb-1 text-xs text-ink-3">{x("¿Dónde lo apunto?")}</p>
         <div className="mb-4 flex gap-2 overflow-x-auto [scrollbar-width:none]">
           {ctx.spaces.map((s) => {
             const on = s.id === space.id;
             return (
               <button key={s.id} type="button" disabled={!!prefill?.edit} aria-pressed={on} onClick={() => changeSpace(s)}
                 className={chip(on)} style={on ? { background: ACCENTS[s.kind], borderColor: ACCENTS[s.kind] } : undefined}>
-                {s.kind === "personal" ? "Personal" : s.name}
+                {s.kind === "personal" ? x("Personal") : s.name}
               </button>
             );
           })}
@@ -188,16 +191,16 @@ export function ExpenseSheet({
             {amount === "" ? "0" : amount} <span className="text-3xl text-ink-3">{symbol}</span>
           </output>
           <div className="mt-1 flex items-center justify-center gap-2 text-sm text-ink-3">
-            <select value={currency} onChange={(e) => setCurrency(e.target.value)} aria-label="Moneda del gasto" className="min-h-11 rounded-full border border-border bg-surface px-3 text-ink-2">
+            <select value={currency} onChange={(e) => setCurrency(e.target.value)} aria-label={x("Moneda del gasto")} className="min-h-11 rounded-full border border-border bg-surface px-3 text-ink-2">
               {[space.currency, ...CURRENCIES.filter((c) => c !== space.currency)].map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
-            {!sameCurrency && cents > 0 && <span className="font-mono">{fx ? `≈ ${formatMoney(baseCents, space.currency)}` : "sin cambio disponible"}</span>}
+            {!sameCurrency && cents > 0 && <span className="font-mono">{fx ? `≈ ${formatMoney(baseCents, space.currency, x.locale)}` : "sin cambio disponible"}</span>}
           </div>
         </div>
         <div className="mb-3 flex flex-col gap-2">
           <label className="flex min-h-11 cursor-pointer items-center justify-center rounded-full border border-dashed border-border px-4 text-sm text-ink-2">
-            {photo ? `Ticket: ${photo.name.slice(0, 24)}` : "Escanear ticket (opcional)"}
-            <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden aria-label="Foto del ticket"
+            {photo ? `Ticket: ${photo.name.slice(0, 24)}` : x("Escanear ticket (opcional)")}
+            <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden aria-label={x("Foto del ticket")}
               onChange={async (e) => {
                 const f = e.target.files?.[0];
                 e.target.value = "";
@@ -209,18 +212,18 @@ export function ExpenseSheet({
           </label>
           {scan && (
             <p className="text-sm text-ink-2" aria-live="polite">
-              {scan.busy ? "Leyendo el ticket…" : scan.error ?? (scan.amountCents || scan.date ? "Propuesta (confírmala):" : "No he encontrado datos claros.")}
-              {!scan.busy && scan.amountCents ? <button type="button" className="ml-2 min-h-11 rounded-full border border-border px-3 font-mono" onClick={() => setAmount((scan.amountCents! / 100).toFixed(2).replace(".", ",").replace(/,00$/, ""))}>Importe {formatMoney(scan.amountCents, space.currency)}</button> : null}
-              {!scan.busy && scan.date ? <button type="button" className="ml-2 min-h-11 rounded-full border border-border px-3 font-mono" onClick={() => setDate(scan.date!)}>Fecha {scan.date}</button> : null}
+              {scan.busy ? x("Leyendo el ticket…") : scan.error ?? (scan.amountCents || scan.date ? x("Propuesta (confírmala):") : x("No he encontrado datos claros."))}
+              {!scan.busy && scan.amountCents ? <button type="button" className="ml-2 min-h-11 rounded-full border border-border px-3 font-mono" onClick={() => setAmount((scan.amountCents! / 100).toFixed(2).replace(".", ",").replace(/,00$/, ""))}>{x("Importe")}{" "}{formatMoney(scan.amountCents, space.currency, x.locale)}</button> : null}
+              {!scan.busy && scan.date ? <button type="button" className="ml-2 min-h-11 rounded-full border border-border px-3 font-mono" onClick={() => setDate(scan.date!)}>{x("Fecha")}{" "}{scan.date}</button> : null}
             </p>
           )}
         </div>
         <input
-          value={desc} onChange={(e) => setDesc(e.target.value)} maxLength={120} placeholder="Concepto" aria-label="Concepto"
+          value={desc} onChange={(e) => setDesc(e.target.value)} maxLength={120} placeholder={x("Concepto")} aria-label={x("Concepto")}
           className="mb-3 min-h-12 w-full rounded-card border border-border bg-surface px-4 text-base text-ink placeholder:text-ink-3"
         />
 
-        <div className="mb-3 flex gap-2 overflow-x-auto [scrollbar-width:none]" role="group" aria-label="Categoría">
+        <div className="mb-3 flex gap-2 overflow-x-auto [scrollbar-width:none]" role="group" aria-label={x("Categoría")}>
           {space.categories.map((c) => {
             const on = c.id === categoryId;
             return (
@@ -235,12 +238,10 @@ export function ExpenseSheet({
         <Keypad value={amount} onChange={setAmount} />
 
         <div className="mt-3 grid grid-cols-2 gap-3">
-          <label className="flex flex-col gap-1 text-xs text-ink-3">Fecha
-            <input type="date" value={date} max="2100-01-01" onChange={(e) => setDate(e.target.value)}
+          <label className="flex flex-col gap-1 text-xs text-ink-3">{x("Fecha")}<input type="date" value={date} max="2100-01-01" onChange={(e) => setDate(e.target.value)}
               className="min-h-11 rounded-card border border-border bg-surface px-3 text-sm text-ink" />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-ink-3">Etiquetas
-            <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="#cumple" maxLength={80}
+          <label className="flex flex-col gap-1 text-xs text-ink-3">{x("Etiquetas")}<input value={tags} onChange={(e) => setTags(e.target.value)} placeholder={x("#cumple")} maxLength={80}
               className="min-h-11 rounded-card border border-border bg-surface px-3 text-sm text-ink" />
           </label>
         </div>
@@ -249,21 +250,18 @@ export function ExpenseSheet({
           <div className="mt-4 flex flex-col gap-3 rounded-card border border-border bg-surface p-3">
             {space.kind === "household" && (
               <label className="flex min-h-11 items-center gap-3 text-sm text-ink-2">
-                <input type="checkbox" checked={fromPot} onChange={(e) => setFromPot(e.target.checked)} /> Pagado desde el bote común
-              </label>
+                <input type="checkbox" checked={fromPot} onChange={(e) => setFromPot(e.target.checked)} /> {x("Pagado desde el bote común")}</label>
             )}
             {!fromPot && (
               <div className="flex flex-col gap-2">
                 <label className="flex items-center justify-between gap-3 text-sm text-ink-2">
-                  Pagó
-                  <select value={payerId} disabled={multiPay} onChange={(e) => setPayerId(e.target.value)}
+                  {x("Pagó")}<select value={payerId} disabled={multiPay} onChange={(e) => setPayerId(e.target.value)}
                     className="min-h-11 rounded-card border border-border bg-surface-2 px-3 text-ink">
-                    {space.members.map((m) => <option key={m.id} value={m.id}>{m.id === space.meId ? "Yo" : m.name}</option>)}
+                    {space.members.map((m) => <option key={m.id} value={m.id}>{m.id === space.meId ? x("Yo") : m.name}</option>)}
                   </select>
                 </label>
                 <label className="flex min-h-11 items-center gap-3 text-sm text-ink-2">
-                  <input type="checkbox" checked={multiPay} onChange={(e) => setMultiPay(e.target.checked)} /> Pagaron varias personas
-                </label>
+                  <input type="checkbox" checked={multiPay} onChange={(e) => setMultiPay(e.target.checked)} /> {x("Pagaron varias personas")}</label>
                 {multiPay && space.members.map((m) => (
                   <label key={m.id} className="flex items-center justify-between gap-3 text-sm text-ink-2">
                     {m.name}
@@ -274,20 +272,20 @@ export function ExpenseSheet({
               </div>
             )}
 
-            <div role="group" aria-label="Reparto" className="flex gap-2">
+            <div role="group" aria-label={x("Reparto")} className="flex gap-2">
               {([["default", "Por defecto"], ["equal", "Iguales"], ["custom", "Personalizado"]] as const).map(([m, l]) => (
                 <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)} className={chip(mode === m)}
-                  style={mode === m ? { background: accent, borderColor: accent } : undefined}>{l}</button>
+                  style={mode === m ? { background: accent, borderColor: accent } : undefined}>{x(l)}</button>
               ))}
             </div>
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Quién participa">
+            <div className="flex flex-wrap gap-2" role="group" aria-label={x("Quién participa")}>
               {space.members.map((m) => {
                 const on = included.has(m.id);
                 return (
                   <button key={m.id} type="button" aria-pressed={on} className={chip(on)}
                     style={on ? { background: "var(--track)", color: "var(--text)", borderColor: "var(--track)" } : undefined}
                     onClick={() => { const n = new Set(included); if (on) n.delete(m.id); else n.add(m.id); setIncluded(n); }}>
-                    {on ? "✓ " : ""}{m.id === space.meId ? "Yo" : m.name}
+                    {on ? "✓ " : ""}{m.id === space.meId ? x("Yo") : m.name}
                   </button>
                 );
               })}
@@ -303,24 +301,23 @@ export function ExpenseSheet({
             ))}
             <label className="flex min-h-11 items-center gap-3 text-sm text-ink-2">
               <input type="checkbox" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} />
-              Gasto privado (los demás ven solo importe y reparto)
-            </label>
+              {x("Gasto privado (los demás ven solo importe y reparto)")}</label>
           </div>
         ) : (
-          <p className="mt-4 text-sm text-ink-3">Solo lo ves tú.</p>
+          <p className="mt-4 text-sm text-ink-3">{x("Solo lo ves tú.")}</p>
         )}
 
         <p className="mt-3 flex items-baseline justify-between text-sm text-ink-2" aria-live="polite">
-          <span>Tu parte</span>
-          <span className="font-mono text-lg text-ink">{formatMoney(live.share, space.currency)}</span>
+          <span>{x("Tu parte")}</span>
+          <span className="font-mono text-lg text-ink">{formatMoney(live.share, space.currency, x.locale)}</span>
         </p>
         {(error ?? (cents > 0 ? live.error : null)) && (
-          <p role="alert" className="mt-1 text-sm text-over-text">{error ?? live.error}</p>
+          <p role="alert" className="mt-1 text-sm text-over-text">{x(error ?? live.error ?? "")}</p>
         )}
 
         <button type="button" onClick={save} disabled={saving}
           className="mt-4 min-h-14 w-full rounded-full text-base font-semibold text-on-accent disabled:opacity-60" style={{ background: accent }}>
-          {saving ? "Guardando…" : `Guardar en ${bubbleLabel}`}
+          {saving ? x("Guardando…") : `${x("Guardar en")} ${bubbleLabel}`}
         </button>
       </div>
     </div>

@@ -1,5 +1,7 @@
 "use server";
 
+import { getTx } from "@/i18n/tx";
+
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { CSV_MAX_BYTES, CSV_MAX_ROWS, importRowSchema, previewImport, type ImportPreview, type ImportRow } from "@/lib/csv";
@@ -24,20 +26,21 @@ const confirmSchema = z.object({ spaceId: z.uuid(), rows: z.array(importRowSchem
 
 /** Paso 2: guarda las filas ya validadas. Cada una pasa por la misma ruta segura que un gasto normal. */
 export async function confirmImport(input: unknown): Promise<{ ok: boolean; imported: number; failed: number; error?: string }> {
+  const x = await getTx();
   const parsed = confirmSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, imported: 0, failed: 0, error: "Datos no válidos" };
+  if (!parsed.success) return { ok: false, imported: 0, failed: 0, error: x("Datos no válidos") };
   const { spaceId, rows } = parsed.data;
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) return { ok: false, imported: 0, failed: 0, error: "Sesión caducada." };
-  if (!(await allow(RULES.importCsv, auth.user.id))) return { ok: false, imported: 0, failed: 0, error: "Demasiados intentos. Espera un rato." };
+  if (!auth.user) return { ok: false, imported: 0, failed: 0, error: x("Sesión caducada.") };
+  if (!(await allow(RULES.importCsv, auth.user.id))) return { ok: false, imported: 0, failed: 0, error: x("Demasiados intentos. Espera un rato.") };
 
   const [{ data: space }, { data: members }, { data: cats }] = await Promise.all([
     supabase.from("spaces").select("base_currency, kind").eq("id", spaceId).maybeSingle(),
     supabase.from("space_members").select("id, user_id").eq("space_id", spaceId),
     supabase.from("categories").select("id, name").eq("space_id", spaceId),
   ]);
-  if (!space || !members?.some((m) => m.user_id === auth.user!.id)) return { ok: false, imported: 0, failed: 0, error: "No autorizado." };
+  if (!space || !members?.some((m) => m.user_id === auth.user!.id)) return { ok: false, imported: 0, failed: 0, error: x("No autorizado.") };
   const catId = (n?: string) => (n ? cats?.find((c) => c.name.toLowerCase() === n.toLowerCase())?.id ?? null : null);
 
   let imported = 0, failed = 0;

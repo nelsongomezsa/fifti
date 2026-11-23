@@ -1,5 +1,7 @@
 "use server";
 
+import { getTx } from "@/i18n/tx";
+
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { proposeOffset, parseToCents, type PairDebt } from "@/lib/money";
@@ -27,20 +29,21 @@ async function ctx() {
 }
 
 export async function recordSettlement(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const parsed = settleSchema.safeParse({
     spaceId: fd.get("spaceId"), from: fd.get("from"), to: fd.get("to"), amountCents: parseToCents(String(fd.get("amount") ?? "")) ?? 0,
     method: fd.get("method"), note: String(fd.get("note") ?? "") || undefined,
   });
-  if (!parsed.success) return { error: "Datos no válidos" };
+  if (!parsed.success) return { error: x("Datos no válidos") };
   const { supabase, user } = await ctx();
-  if (!user) return { error: "Sesión caducada." };
+  if (!user) return { error: x("Sesión caducada.") };
   const v = parsed.data;
   const { error } = await supabase.rpc("record_settlement", {
     p_space: v.spaceId, p_from: v.from, p_to: v.to, p_amount: v.amountCents, p_method: v.method, p_note: v.note ?? null, p_date: null,
   });
-  if (error) return { error: rpcMessage(error) };
+  if (error) return { error: x(rpcMessage(error)) };
   revalidatePath("/balance");
-  return { ok: true, message: "Pago registrado." };
+  return { ok: true, message: x("Pago registrado.") };
 }
 
 export async function deleteSettlement(fd: FormData) {
@@ -84,21 +87,22 @@ export async function getOfferPreview(otherUserId: string) {
 }
 
 export async function proposeOffsetAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const other = uuidSchema.safeParse(fd.get("otherUserId"));
-  if (!other.success) return { error: "Datos no válidos" };
+  if (!other.success) return { error: x("Datos no válidos") };
   const { supabase, user } = await ctx();
-  if (!user) return { error: "Sesión caducada." };
-  if (!(await allow(RULES.createLink, user.id))) return { error: "Demasiados intentos. Espera un rato." };
+  if (!user) return { error: x("Sesión caducada.") };
+  if (!(await allow(RULES.createLink, user.id))) return { error: x("Demasiados intentos. Espera un rato.") };
   const { debts, memberOf } = await pairDebts(other.data);
   const p = proposeOffset(user.id, other.data, debts, memberOf);
-  if (!p) return { error: "No hay deudas en los dos sentidos que compensar." };
+  if (!p) return { error: x("No hay deudas en los dos sentidos que compensar.") };
   const { error } = await supabase.rpc("propose_offset", {
     p_other: other.data, p_lines: p.lines.map((l) => ({ space_id: l.spaceId, from_member: l.fromMemberId, to_member: l.toMemberId, amount_cents: l.amountCents })),
   });
-  if (error) return { error: rpcMessage(error) };
+  if (error) return { error: x(rpcMessage(error)) };
   await notify([other.data], "offset_proposal", { title: "Fifti", body: "Tienes una propuesta de compensación.", url: "/balance" });
   revalidatePath("/balance");
-  return { ok: true, message: "Propuesta enviada. Se aplicará cuando la otra persona la confirme." };
+  return { ok: true, message: x("Propuesta enviada. Se aplicará cuando la otra persona la confirme.") };
 }
 
 export async function confirmOffset(fd: FormData) {

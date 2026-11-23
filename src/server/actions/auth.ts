@@ -1,5 +1,7 @@
 "use server";
 
+import { getTx } from "@/i18n/tx";
+
 import { redirect } from "next/navigation";
 import { publicEnv } from "@/lib/env";
 import { hit, hitIp, RULES } from "@/lib/security/rate-limit";
@@ -19,18 +21,19 @@ const field = (fd: FormData, name: string) => {
 };
 
 export async function signUp(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const parsed = signUpSchema.safeParse({
     displayName: field(fd, "displayName"),
     email: field(fd, "email"),
     password: field(fd, "password"),
   });
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? GENERIC };
+  if (!parsed.success) return { error: x(parsed.error.issues[0]?.message ?? GENERIC) };
   const { displayName, email, password } = parsed.data;
 
-  if (!(await hitIp(RULES.signup))) return { error: TOO_MANY };
+  if (!(await hitIp(RULES.signup))) return { error: x(TOO_MANY) };
 
   const count = await pwnedCount(password);
-  if (count !== null && count > 0) return { error: PWNED };
+  if (count !== null && count > 0) return { error: x(PWNED) };
 
   try {
     const supabase = await createClient();
@@ -45,37 +48,39 @@ export async function signUp(_prev: FormState, fd: FormData): Promise<FormState>
     if (error && error.status !== 422 && error.status !== 400) throw error;
   } catch (err) {
     console.error("[signUp]", err instanceof Error ? err.message : "error");
-    return { error: GENERIC };
+    return { error: x(GENERIC) };
   }
   // Respuesta idéntica exista o no la cuenta: no se revela qué emails están registrados.
-  return { ok: true, message: "Te hemos enviado un email para confirmar tu cuenta. Ábrelo para entrar." };
+  return { ok: true, message: x("Te hemos enviado un email para confirmar tu cuenta. Ábrelo para entrar.") };
 }
 
 export async function logIn(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const parsed = loginSchema.safeParse({ email: field(fd, "email"), password: field(fd, "password") });
-  if (!parsed.success) return { error: "Email o contraseña incorrectos." };
+  if (!parsed.success) return { error: x("Email o contraseña incorrectos.") };
   const { email, password } = parsed.data;
 
   const [ipOk, emailOk] = await Promise.all([hitIp(RULES.login), hit(RULES.loginEmail, `email:${email}`)]);
-  if (!ipOk || !emailOk) return { error: TOO_MANY };
+  if (!ipOk || !emailOk) return { error: x(TOO_MANY) };
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
-    if (error.code === "email_not_confirmed") return { error: "Confirma tu email antes de entrar. Revisa tu bandeja." };
-    return { error: "Email o contraseña incorrectos." };
+    if (error.code === "email_not_confirmed") return { error: x("Confirma tu email antes de entrar. Revisa tu bandeja.") };
+    return { error: x("Email o contraseña incorrectos.") };
   }
   redirect(safeNext(field(fd, "next")));
 }
 
 export async function requestPasswordReset(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const parsed = recoverSchema.safeParse({ email: field(fd, "email") });
-  const done: FormState = { ok: true, message: "Si el email existe, te hemos enviado un enlace para restablecer la contraseña." };
+  const done: FormState = { ok: true, message: x("Si el email existe, te hemos enviado un enlace para restablecer la contraseña.") };
   if (!parsed.success) return done;
   const { email } = parsed.data;
 
   const [ipOk, emailOk] = await Promise.all([hitIp(RULES.recover), hit(RULES.recoverEmail, `email:${email}`)]);
-  if (!ipOk || !emailOk) return { error: TOO_MANY };
+  if (!ipOk || !emailOk) return { error: x(TOO_MANY) };
 
   try {
     const supabase = await createClient();
@@ -89,22 +94,23 @@ export async function requestPasswordReset(_prev: FormState, fd: FormData): Prom
 }
 
 export async function updatePassword(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const parsed = resetSchema.safeParse({ password: field(fd, "password") });
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? GENERIC };
+  if (!parsed.success) return { error: x(parsed.error.issues[0]?.message ?? GENERIC) };
 
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
-  if (!data.user) return { error: "El enlace ha caducado. Pide uno nuevo." };
+  if (!data.user) return { error: x("El enlace ha caducado. Pide uno nuevo.") };
 
-  if (!(await hit(RULES.passwordChange, `user:${data.user.id}`))) return { error: TOO_MANY };
+  if (!(await hit(RULES.passwordChange, `user:${data.user.id}`))) return { error: x(TOO_MANY) };
 
   const count = await pwnedCount(parsed.data.password);
-  if (count !== null && count > 0) return { error: PWNED };
+  if (count !== null && count > 0) return { error: x(PWNED) };
 
   const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
   if (error) {
     console.error("[updatePassword]", error.message);
-    return { error: GENERIC };
+    return { error: x(GENERIC) };
   }
   redirect("/inicio");
 }
@@ -117,18 +123,19 @@ export async function signOut() {
 
 /** Un invitado se crea cuenta conservando su historial (la sesión anónima pasa a permanente). */
 export async function upgradeGuest(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const parsed = signUpSchema.omit({ displayName: true }).safeParse({ email: field(fd, "email"), password: field(fd, "password") });
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? GENERIC };
+  if (!parsed.success) return { error: x(parsed.error.issues[0]?.message ?? GENERIC) };
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
-  if (!data.user || !data.user.is_anonymous) return { error: GENERIC };
-  if (!(await hit(RULES.signup, `user:${data.user.id}`)) || !(await hitIp(RULES.signup))) return { error: TOO_MANY };
+  if (!data.user || !data.user.is_anonymous) return { error: x(GENERIC) };
+  if (!(await hit(RULES.signup, `user:${data.user.id}`)) || !(await hitIp(RULES.signup))) return { error: x(TOO_MANY) };
   const count = await pwnedCount(parsed.data.password);
-  if (count !== null && count > 0) return { error: PWNED };
+  if (count !== null && count > 0) return { error: x(PWNED) };
   const { error } = await supabase.auth.updateUser({ email: parsed.data.email, password: parsed.data.password });
   if (error) {
     console.error("[upgradeGuest]", error.message);
-    return { error: GENERIC };
+    return { error: x(GENERIC) };
   }
-  return { ok: true, message: "Te hemos enviado un email para confirmar tu cuenta. Tu historial se conserva." };
+  return { ok: true, message: x("Te hemos enviado un email para confirmar tu cuenta. Tu historial se conserva.") };
 }

@@ -1,3 +1,4 @@
+import { getTx } from "@/i18n/tx";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -12,6 +13,7 @@ export const metadata: Metadata = { title: "Ajustes de burbuja" };
 const pct = (bp: number | null) => (bp === null ? "" : (bp / 100).toFixed(2).replace(".", ","));
 
 export default async function SpacePage({ params }: { params: Promise<{ id: string }> }) {
+  const x = await getTx();
   const { id } = await params;
   if (!uuidSchema.safeParse(id).success) notFound();
   const user = await requireUser();
@@ -33,24 +35,24 @@ export default async function SpacePage({ params }: { params: Promise<{ id: stri
   return (
     <section className="flex flex-col gap-6 pt-2">
       <h1 className="text-2xl font-bold">{space.name}</h1>
-      <Link href={`/espacio/${id}/fondos`} className="min-h-11 rounded-card border border-border bg-surface px-4 py-3 text-sm">Fondos y categorías ›</Link>
+      <Link href={`/espacio/${id}/fondos`} className="min-h-11 rounded-card border border-border bg-surface px-4 py-3 text-sm">{x("Fondos y categorías ›")}</Link>
 
       <div className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">Miembros</h2>
+        <h2 className="text-lg font-semibold">{x("Miembros")}</h2>
         <ul className="flex flex-col gap-2">
           {members?.map((m) => (
             <li key={m.id} className="flex items-center justify-between gap-3 rounded-card border border-border bg-surface px-4 py-3">
               <span>
                 {m.display_name}
                 <span className="ml-2 text-xs text-ink-3">
-                  {m.user_id ? roleLabel[m.role as keyof typeof roleLabel] : "Sin cuenta"}
+                  {m.user_id ? x(roleLabel[m.role as keyof typeof roleLabel]) : x("Sin cuenta")}
                 </span>
               </span>
               {isOwner && m.role !== "owner" && m.user_id && (
                 <form action={kickMember}>
                   <input type="hidden" name="memberId" value={m.id} />
                   <input type="hidden" name="spaceId" value={id} />
-                  <button className="min-h-11 px-3 text-sm text-over-text">Expulsar</button>
+                  <button className="min-h-11 px-3 text-sm text-over-text">{x("Expulsar")}</button>
                 </form>
               )}
             </li>
@@ -60,12 +62,12 @@ export default async function SpacePage({ params }: { params: Promise<{ id: stri
 
       {isOwner && space.kind === "group" && (
         <>
-          <Link href={`/espacio/${id}/cerrar`} className="min-h-11 rounded-card border border-border bg-surface px-4 py-3 text-sm">Cerrar plan y ver quién paga a quién ›</Link>
+          <Link href={`/espacio/${id}/cerrar`} className="min-h-11 rounded-card border border-border bg-surface px-4 py-3 text-sm">{x("Cerrar plan y ver quién paga a quién ›")}</Link>
           <div className="flex flex-col gap-3">
-            <h2 className="text-lg font-semibold">Presupuesto por persona y día</h2>
-            <ActionForm action={setDailyBudget} submit="Guardar presupuesto" tone="plain">
+            <h2 className="text-lg font-semibold">{x("Presupuesto por persona y día")}</h2>
+            <ActionForm action={setDailyBudget} submit={x("Guardar presupuesto")} tone="plain">
               <input type="hidden" name="spaceId" value={id} />
-              <input name="budget" inputMode="decimal" defaultValue={space.daily_budget_cents ? (space.daily_budget_cents / 100).toFixed(2).replace(".", ",") : ""} placeholder="50,00 (vacío = sin presupuesto)" aria-label="Presupuesto por persona y día" className={`${inputClass} font-mono`} />
+              <input name="budget" inputMode="decimal" defaultValue={space.daily_budget_cents ? (space.daily_budget_cents / 100).toFixed(2).replace(".", ",") : ""} placeholder={x("50,00 (vacío = sin presupuesto)")} aria-label={x("Presupuesto por persona y día")} className={`${inputClass} font-mono`} />
             </ActionForm>
           </div>
         </>
@@ -74,16 +76,16 @@ export default async function SpacePage({ params }: { params: Promise<{ id: stri
       {isOwner && (
         <>
           <div className="flex flex-col gap-3">
-            <h2 className="text-lg font-semibold">Añadir persona sin cuenta</h2>
-            <ActionForm action={addVirtualMember} submit="Añadir" tone="plain">
+            <h2 className="text-lg font-semibold">{x("Añadir persona sin cuenta")}</h2>
+            <ActionForm action={addVirtualMember} submit={x("Añadir")} tone="plain">
               <input type="hidden" name="spaceId" value={id} />
-              <input name="name" required maxLength={40} placeholder="Nombre" aria-label="Nombre" className={inputClass} />
+              <input name="name" required maxLength={40} placeholder={x("Nombre")} aria-label={x("Nombre")} className={inputClass} />
             </ActionForm>
           </div>
 
           <div className="flex flex-col gap-3">
-            <h2 className="text-lg font-semibold">Porcentaje por defecto</h2>
-            <ActionForm action={saveShares} submit="Guardar porcentajes" tone="plain">
+            <h2 className="text-lg font-semibold">{x("Porcentaje por defecto")}</h2>
+            <ActionForm action={saveShares} submit={x("Guardar porcentajes")} tone="plain">
               <input type="hidden" name="spaceId" value={id} />
               {members?.map((m) => (
                 <label key={m.id} className="flex items-center justify-between gap-3 text-sm text-ink-2">
@@ -99,35 +101,33 @@ export default async function SpacePage({ params }: { params: Promise<{ id: stri
           </div>
 
           <div className="flex flex-col gap-3">
-            <h2 className="text-lg font-semibold">Enlaces</h2>
-            <ActionForm action={createLink} submit="Crear enlace">
+            <h2 className="text-lg font-semibold">{x("Enlaces")}</h2>
+            <ActionForm action={createLink} submit={x("Crear enlace")}>
               <input type="hidden" name="spaceId" value={id} />
-              <select name="kind" className={inputClass} defaultValue={space.kind === "group" ? "guest" : "invite"} aria-label="Tipo de enlace">
-                <option value="invite">Invitar con cuenta</option>
-                {space.kind === "group" && <option value="guest">Entrar como invitado (sin cuenta)</option>}
-                <option value="public_summary">Resumen público (solo lectura)</option>
+              <select name="kind" className={inputClass} defaultValue={space.kind === "group" ? "guest" : "invite"} aria-label={x("Tipo de enlace")}>
+                <option value="invite">{x("Invitar con cuenta")}</option>
+                {space.kind === "group" && <option value="guest">{x("Entrar como invitado (sin cuenta)")}</option>}
+                <option value="public_summary">{x("Resumen público (solo lectura)")}</option>
               </select>
               <div className="grid grid-cols-2 gap-3">
-                <label className="flex flex-col gap-1 text-xs text-ink-3">Caduca en (días)
-                  <input name="days" type="number" min={1} max={90} defaultValue={7} className={inputClass} /></label>
-                <label className="flex flex-col gap-1 text-xs text-ink-3">Usos máximos
-                  <input name="maxUses" type="number" min={1} max={1000} defaultValue={10} className={inputClass} /></label>
+                <label className="flex flex-col gap-1 text-xs text-ink-3">{x("Caduca en (días)")}<input name="days" type="number" min={1} max={90} defaultValue={7} className={inputClass} /></label>
+                <label className="flex flex-col gap-1 text-xs text-ink-3">{x("Usos máximos")}<input name="maxUses" type="number" min={1} max={1000} defaultValue={10} className={inputClass} /></label>
               </div>
             </ActionForm>
             <ul className="flex flex-col gap-2">
               {links?.map((l) => (
                 <li key={l.id} className="flex items-center justify-between rounded-card border border-border bg-surface px-4 py-3 text-sm">
                   <span className="text-ink-2">
-                    {l.kind === "invite" ? "Invitación" : l.kind === "guest" ? "Invitado" : "Resumen"} · {l.uses}/{l.max_uses}
+                    {l.kind === "invite" ? x("Invitación") : l.kind === "guest" ? x("Invitado") : x("Resumen")} · {l.uses}/{l.max_uses}
                     <span className="block text-xs text-ink-3">
-                      {l.revoked ? "Revocado" : new Date(l.expires_at) < new Date() ? "Caducado" : `Caduca ${new Date(l.expires_at).toLocaleDateString("es-ES")}`}
+                      {l.revoked ? x("Revocado") : new Date(l.expires_at) < new Date() ? x("Caducado") : `Caduca ${new Date(l.expires_at).toLocaleDateString(x.locale)}`}
                     </span>
                   </span>
                   {!l.revoked && (
                     <form action={revokeLink}>
                       <input type="hidden" name="linkId" value={l.id} />
                       <input type="hidden" name="spaceId" value={id} />
-                      <button className="min-h-11 px-3 text-over-text">Revocar</button>
+                      <button className="min-h-11 px-3 text-over-text">{x("Revocar")}</button>
                     </form>
                   )}
                 </li>
@@ -137,10 +137,10 @@ export default async function SpacePage({ params }: { params: Promise<{ id: stri
 
           {members?.some((m) => !m.user_id) && (
             <div className="flex flex-col gap-3">
-              <h2 className="text-lg font-semibold">Reclamar perfil</h2>
-              <p className="text-sm text-ink-3">Genera un enlace para que una persona sin cuenta se quede con su perfil e historial.</p>
+              <h2 className="text-lg font-semibold">{x("Reclamar perfil")}</h2>
+              <p className="text-sm text-ink-3">{x("Genera un enlace para que una persona sin cuenta se quede con su perfil e historial.")}</p>
               {members.filter((m) => !m.user_id).map((m) => (
-                <ActionForm key={m.id} action={createClaimLink} submit={`Enlace para ${m.display_name}`} tone="plain">
+                <ActionForm key={m.id} action={createClaimLink} submit={`${x("Enlace para")} ${m.display_name}`} tone="plain">
                   <input type="hidden" name="memberId" value={m.id} />
                 </ActionForm>
               ))}

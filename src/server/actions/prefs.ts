@@ -1,5 +1,7 @@
 "use server";
 
+import { getTx } from "@/i18n/tx";
+
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -41,21 +43,22 @@ export async function toggleDiscreet() {
 
 /** Borrar la cuenta: pide la contraseña, traspasa/borra grupos, anonimiza el nombre y elimina el usuario. */
 export async function deleteAccount(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const password = String(fd.get("password") ?? "");
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
   const user = data.user;
-  if (!user || user.is_anonymous || !user.email || password.length < 1 || password.length > 128) return { error: "No se ha podido completar." };
-  if (!(await allow(RULES.passwordChange, user.id))) return { error: "Demasiados intentos. Espera un rato." };
+  if (!user || user.is_anonymous || !user.email || password.length < 1 || password.length > 128) return { error: x("No se ha podido completar.") };
+  if (!(await allow(RULES.passwordChange, user.id))) return { error: x("Demasiados intentos. Espera un rato.") };
 
   const { error: authErr } = await supabase.auth.signInWithPassword({ email: user.email, password });
-  if (authErr) return { error: "Contraseña incorrecta." };
+  if (authErr) return { error: x("Contraseña incorrecta.") };
   const { error } = await supabase.rpc("prepare_account_deletion");
-  if (error) return { error: rpcMessage(error) };
+  if (error) return { error: x(rpcMessage(error)) };
   const { error: delErr } = await createAdminClient().auth.admin.deleteUser(user.id);
   if (delErr) {
     console.error("[deleteAccount]", delErr.message);
-    return { error: "No se ha podido borrar la cuenta. Inténtalo de nuevo." };
+    return { error: x("No se ha podido borrar la cuenta. Inténtalo de nuevo.") };
   }
   await supabase.auth.signOut();
   const jar = await cookies();

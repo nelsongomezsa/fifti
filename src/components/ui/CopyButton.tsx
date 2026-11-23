@@ -1,8 +1,11 @@
 "use client";
 
+
+import { useTx } from "@/i18n/tx-client";
 import { useState } from "react";
 
-export function CopyButton({ text, label = "Copiar", shareTitle }: { text: string; label?: string; shareTitle?: string }) {
+export function CopyButton({ text, label, shareTitle }: { text: string; label?: string; shareTitle?: string }) {
+  const x = useTx();
   const [done, setDone] = useState(false);
   return (
     <button
@@ -17,7 +20,7 @@ export function CopyButton({ text, label = "Copiar", shareTitle }: { text: strin
         } catch { /* cancelado por el usuario */ }
       }}
     >
-      {done ? "Copiado" : label}
+      {done ? x("Copiado") : (label ?? x("Copiar"))}
     </button>
   );
 }

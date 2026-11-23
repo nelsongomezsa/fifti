@@ -1,3 +1,4 @@
+import { getTx } from "@/i18n/tx";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { YearImage } from "@/components/ui/YearImage";
@@ -7,11 +8,12 @@ import { requireUser } from "@/server/spaces";
 
 export const metadata: Metadata = { title: "Tu año en Fifti" };
 
-const MONTH = (i: number) => new Date(Date.UTC(2000, i, 1)).toLocaleDateString("es-ES", { month: "long", timeZone: "UTC" });
+const MONTH = (i: number, locale: string) => new Date(Date.UTC(2000, i, 1)).toLocaleDateString(locale, { month: "long", timeZone: "UTC" });
 
 export default async function YearPage() {
+  const x = await getTx();
   const user = await requireUser();
-  if (user.is_anonymous) return <p className="pt-4 text-ink-2">Crea una cuenta para ver tu año.</p>;
+  if (user.is_anonymous) return <p className="pt-4 text-ink-2">{x("Crea una cuenta para ver tu año.")}</p>;
   const supabase = await createClient();
   const year = new Date().getUTCFullYear();
   const from = `${year}-01-01`;
@@ -48,17 +50,17 @@ export default async function YearPage() {
   const closed = (groups ?? []).filter((g) => myGroups.has(g.id)).length;
 
   const cards = [
-    { title: "Lo que más gastaste", value: topFund },
-    { title: "Tu mes de más ahorro", value: bestIdx >= 0 ? MONTH(bestIdx) : "—" },
-    { title: "Planes cerrados", value: String(closed) },
-    { title: "Compartiste más con", value: topPerson },
+    { title: x("Lo que más gastaste"), value: topFund },
+    { title: x("Tu mes de más ahorro"), value: bestIdx >= 0 ? MONTH(bestIdx, x.locale) : "—" },
+    { title: x("Planes cerrados"), value: String(closed) },
+    { title: x("Compartiste más con"), value: topPerson },
   ];
 
   return (
     <section className="flex flex-col gap-4 pt-2">
-      <Link href="/mas" className="text-sm text-ink-2">‹ Más</Link>
-      <h1 className="text-2xl font-bold">Tu año {year} en Fifti</h1>
-      <p className="text-sm text-ink-3">Total gastado: <span className="money font-mono text-ink">{formatMoney(totalSpent)}</span> (solo lo ves tú). La imagen para compartir no incluye importes.</p>
+      <Link href="/mas" className="text-sm text-ink-2">{x("‹ Más")}</Link>
+      <h1 className="text-2xl font-bold">{x("Tu año")}{" "}{year} {x("en Fifti")}</h1>
+      <p className="text-sm text-ink-3">{x("Total gastado:")}{" "}<span className="money font-mono text-ink">{formatMoney(totalSpent, "EUR", x.locale)}</span> {x("(solo lo ves tú). La imagen para compartir no incluye importes.")}</p>
       <ul className="grid gap-3">
         {cards.map((c) => (
           <li key={c.title} className="rounded-card border border-border bg-surface p-4">

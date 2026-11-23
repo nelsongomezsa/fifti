@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useTx } from "@/i18n/tx-client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { deleteExpense } from "@/server/actions/expenses";
 import { loadSheetContext, type SheetContext } from "@/server/actions/sheet";
@@ -10,6 +12,7 @@ export const CTX_CACHE_KEY = "fifti:sheetCtx";
 
 /** Botón "+" central: toque = hoja de nuevo gasto; pulsación larga = favoritos. Gestiona el toast con "Deshacer". */
 export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
+  const x = useTx();
   const [ctx, setCtx] = useState<SheetContext | null>(null);
   const [sheet, setSheet] = useState<SheetPrefill | null>(null);
   const [favs, setFavs] = useState(false);
@@ -76,7 +79,7 @@ export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
     <>
       <button
         type="button"
-        aria-label="Añadir gasto"
+        aria-label={x("Añadir gasto")}
         aria-haspopup="dialog"
         onPointerDown={onDown}
         onPointerUp={onUp}
@@ -95,18 +98,18 @@ export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
 
       {favs && ctx && (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50" onClick={() => setFavs(false)}>
-          <div role="dialog" aria-label="Favoritos" onClick={(e) => e.stopPropagation()}
+          <div role="dialog" aria-label={x("Favoritos")} onClick={(e) => e.stopPropagation()}
             className="mb-28 w-full max-w-md rounded-t-[24px] border border-border bg-surface-2 p-4">
-            <h2 className="mb-3 text-lg font-bold">Favoritos</h2>
+            <h2 className="mb-3 text-lg font-bold">{x("Favoritos")}</h2>
             {ctx.favorites.length === 0 ? (
-              <p className="text-sm text-ink-3">Aún no tienes favoritos. Se crean desde Más.</p>
+              <p className="text-sm text-ink-3">{x("Aún no tienes favoritos. Se crean desde Más.")}</p>
             ) : (
               <ul className="flex flex-wrap gap-2">
                 {ctx.favorites.map((f) => (
                   <li key={f.id}>
                     <button type="button" className="min-h-11 rounded-full border border-border px-4 text-sm"
                       onClick={() => { setFavs(false); setSheet({ spaceId: f.spaceId, amountCents: f.amountCents, categoryId: f.categoryId, description: f.label }); }}>
-                      {f.label} <span className="font-mono text-ink-3">{formatMoney(f.amountCents)}</span>
+                      {f.label} <span className="font-mono text-ink-3">{formatMoney(f.amountCents, "EUR", x.locale)}</span>
                     </button>
                   </li>
                 ))}
@@ -123,10 +126,10 @@ export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
       {toast && (
         <div role="status" className="anim-fade fixed inset-x-4 bottom-28 z-50 mx-auto flex max-w-md items-center justify-between gap-3 rounded-card border border-border bg-surface-2 px-4 py-3 shadow-lg">
           <span className="text-sm">
-            {toast.pending ? "Guardado sin conexión en " : "Guardado en "}{toast.spaceName}
-            {toast.shareCents > 0 && <span className="font-mono text-ink-2"> · tu parte {formatMoney(toast.shareCents, toast.currency)}</span>}
+            {toast.pending ? x("Guardado sin conexión en ") : x("Guardado en ")}{toast.spaceName}
+            {toast.shareCents > 0 && <span className="font-mono text-ink-2"> {x("· tu parte")}{" "}{formatMoney(toast.shareCents, toast.currency, x.locale)}</span>}
           </span>
-          <button type="button" onClick={undo} className="min-h-11 px-3 text-sm font-semibold">Deshacer</button>
+          <button type="button" onClick={undo} className="min-h-11 px-3 text-sm font-semibold">{x("Deshacer")}</button>
         </div>
       )}
     </>

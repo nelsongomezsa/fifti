@@ -1,3 +1,4 @@
+import { getTx } from "@/i18n/tx";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -12,6 +13,7 @@ import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
 export const metadata: Metadata = { title: "Inicio" };
 
 export default async function HomePage() {
+  const x = await getTx();
   const user = await requireUser();
   const spaces = await listMySpaces();
   const active = await getActiveSpace(spaces);
@@ -57,9 +59,9 @@ export default async function HomePage() {
 
       <div>
         <p className="text-sm text-ink-3">{t("leftIn", { month: monthName })}</p>
-        <p className={`money font-mono text-5xl font-semibold ${o.leftover < 0 ? "text-over-text" : ""}`}>{formatMoney(o.leftover)}</p>
-        <p className="money mt-1 font-mono text-sm text-ink-2" aria-label="Variación frente al mes anterior">
-          {o.change.deltaCents >= 0 ? "+" : ""}{formatMoney(o.change.deltaCents)} {t("vsPrev")}
+        <p className={`money font-mono text-5xl font-semibold ${o.leftover < 0 ? "text-over-text" : ""}`}>{formatMoney(o.leftover, "EUR", x.locale)}</p>
+        <p className="money mt-1 font-mono text-sm text-ink-2" aria-label={x("Variación frente al mes anterior")}>
+          {o.change.deltaCents >= 0 ? "+" : ""}{formatMoney(o.change.deltaCents, "EUR", x.locale)} {t("vsPrev")}
           {o.change.percentBp !== null && ` (${o.change.percentBp >= 0 ? "+" : ""}${pctText(o.change.percentBp)})`}
         </p>
       </div>
@@ -90,7 +92,7 @@ export default async function HomePage() {
 
       {transfer && (
         <div className="flex items-center justify-between rounded-card border border-border bg-surface p-4">
-          <p><span className="block text-xs text-ink-3">{t("pending")}</span>{transfer.from} → {transfer.to} <span className="money font-mono">{formatMoney(transfer.amountCents)}</span></p>
+          <p><span className="block text-xs text-ink-3">{t("pending")}</span>{transfer.from} → {transfer.to} <span className="money font-mono">{formatMoney(transfer.amountCents, "EUR", x.locale)}</span></p>
           <Link href="/balance" className="min-h-11 rounded-full bg-accent px-5 py-2.5 font-semibold text-on-accent">{t("settle")}</Link>
         </div>
       )}
@@ -98,7 +100,7 @@ export default async function HomePage() {
       <div className="rounded-card border border-border bg-surface">
         <h2 className="px-4 pt-4 text-sm text-ink-3">{t("funds")}</h2>
         <table className="w-full text-sm">
-          <caption className="sr-only">Uso de cada fondo este mes</caption>
+          <caption className="sr-only">{x("Uso de cada fondo este mes")}</caption>
           <tbody>
             {o.funds.filter((f) => f.planned > 0 || f.spent > 0).map((f) => (
               <tr key={f.fundId} className="border-t border-border first:border-t-0">

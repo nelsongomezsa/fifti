@@ -1,5 +1,7 @@
 "use server";
 
+import { getTx } from "@/i18n/tx";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -27,34 +29,36 @@ const goalSchema = z
   .strict();
 
 export async function createGoal(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const kind = f(fd, "kind") || "simple";
   const parsed = goalSchema.safeParse({
     spaceId: f(fd, "spaceId"), name: f(fd, "name"),
     targetCents: kind === "challenge" ? 137800 : (parseToCents(f(fd, "target")) ?? 0),
     deadline: f(fd, "deadline") || null, emoji: f(fd, "emoji") || null, kind,
   });
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos no válidos" };
+  if (!parsed.success) return { error: x(parsed.error.issues[0]?.message ?? "Datos no válidos") };
   const { supabase, user } = await ctx();
-  if (!user) return { error: "Sesión caducada." };
+  if (!user) return { error: x("Sesión caducada.") };
   const v = parsed.data;
   const { data, error } = await supabase.from("savings_goals").insert({
     space_id: v.spaceId, name: v.name, target_cents: v.targetCents, deadline: v.deadline, emoji: v.emoji, kind: v.kind,
   }).select("id").single();
-  if (error || !data) return { error: "No se ha podido crear la meta." };
+  if (error || !data) return { error: x("No se ha podido crear la meta.") };
   if (v.kind === "challenge") await supabase.from("saving_rules").insert({ space_id: v.spaceId, goal_id: data.id, kind: "weekly_challenge", value: 100 });
   revalidatePath("/ahorro");
   redirect(`/ahorro/${data.id}`);
 }
 
 export async function addContribution(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const goal = uuidSchema.safeParse(f(fd, "goalId"));
   const amount = parseToCents(f(fd, "amount"));
   const source = f(fd, "source") === "challenge" ? "challenge" : "manual";
-  if (!goal.success || !amount || amount > MAX_AMOUNT_CENTS) return { error: "Pon un importe válido" };
+  if (!goal.success || !amount || amount > MAX_AMOUNT_CENTS) return { error: x("Pon un importe válido") };
   const { supabase, user } = await ctx();
-  if (!user) return { error: "Sesión caducada." };
+  if (!user) return { error: x("Sesión caducada.") };
   const { error } = await supabase.rpc("add_goal_contribution", { p_goal: goal.data, p_amount: amount, p_source: source, p_date: null });
-  if (error) return { error: rpcMessage(error) };
+  if (error) return { error: x(rpcMessage(error)) };
   const { data: g } = await supabase.from("savings_goals").select("name, target_cents, space_id").eq("id", goal.data).maybeSingle();
   const { data: sums } = await supabase.from("goal_contributions").select("amount_cents").eq("goal_id", goal.data);
   const total = (sums ?? []).reduce((a, c) => a + c.amount_cents, 0);
@@ -63,7 +67,7 @@ export async function addContribution(_prev: FormState, fd: FormData): Promise<F
     await notify(ms.map((m) => m.user_id as string), "goal_reached", { title: "¡Meta alcanzada!", body: g.name, url: `/ahorro/${goal.data}` }, goal.data);
   }
   revalidatePath(`/ahorro/${goal.data}`);
-  return { ok: true, message: "Aportación guardada." };
+  return { ok: true, message: x("Aportación guardada.") };
 }
 
 export async function deleteContribution(fd: FormData) {
@@ -77,18 +81,19 @@ export async function deleteContribution(fd: FormData) {
 }
 
 export async function addMilestone(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const goal = uuidSchema.safeParse(f(fd, "goalId"));
   const space = uuidSchema.safeParse(f(fd, "spaceId"));
   const amount = parseToCents(f(fd, "amount"));
   const due = f(fd, "dueOn");
   const name = f(fd, "name").trim();
-  if (!goal.success || !space.success || !amount || amount > MAX_AMOUNT_CENTS || !name || name.length > 60 || (due && !isoDate.safeParse(due).success)) return { error: "Datos no válidos" };
+  if (!goal.success || !space.success || !amount || amount > MAX_AMOUNT_CENTS || !name || name.length > 60 || (due && !isoDate.safeParse(due).success)) return { error: x("Datos no válidos") };
   const { supabase, user } = await ctx();
-  if (!user) return { error: "Sesión caducada." };
+  if (!user) return { error: x("Sesión caducada.") };
   const { error } = await supabase.from("goal_milestones").insert({ goal_id: goal.data, space_id: space.data, name, due_on: due || null, amount_cents: amount });
-  if (error) return { error: "No se ha podido añadir el pago." };
+  if (error) return { error: x("No se ha podido añadir el pago.") };
   revalidatePath(`/ahorro/${goal.data}`);
-  return { ok: true, message: "Pago añadido." };
+  return { ok: true, message: x("Pago añadido.") };
 }
 
 export async function toggleMilestone(fd: FormData) {
@@ -112,19 +117,20 @@ export async function deleteGoal(fd: FormData) {
 }
 
 export async function saveRule(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const goal = uuidSchema.safeParse(f(fd, "goalId"));
   const space = uuidSchema.safeParse(f(fd, "spaceId"));
   const kind = z.enum(["roundup", "percent_of_income"]).safeParse(f(fd, "kind"));
-  if (!goal.success || !space.success || !kind.success) return { error: "Datos no válidos" };
+  if (!goal.success || !space.success || !kind.success) return { error: x("Datos no válidos") };
   const value = kind.data === "percent_of_income" ? parsePercentToBp(f(fd, "value")) : (f(fd, "value") ? parseToCents(f(fd, "value")) : 100);
-  if (!value || value <= 0 || (kind.data === "percent_of_income" && value > 10000)) return { error: "Valor no válido" };
+  if (!value || value <= 0 || (kind.data === "percent_of_income" && value > 10000)) return { error: x("Valor no válido") };
   const { supabase, user } = await ctx();
-  if (!user) return { error: "Sesión caducada." };
+  if (!user) return { error: x("Sesión caducada.") };
   await supabase.from("saving_rules").delete().eq("goal_id", goal.data).eq("kind", kind.data);
   const { error } = await supabase.from("saving_rules").insert({ space_id: space.data, goal_id: goal.data, kind: kind.data, value });
-  if (error) return { error: "No se ha podido guardar la regla." };
+  if (error) return { error: x("No se ha podido guardar la regla.") };
   revalidatePath(`/ahorro/${goal.data}`);
-  return { ok: true, message: "Regla activada." };
+  return { ok: true, message: x("Regla activada.") };
 }
 
 export async function deleteRule(fd: FormData) {

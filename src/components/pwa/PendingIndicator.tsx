@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useTx } from "@/i18n/tx-client";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { flushQueue, listQueue, removeItem, type QueueItem } from "@/lib/offline/queue";
@@ -8,6 +10,7 @@ import { saveExpense } from "@/server/actions/expenses";
 
 /** Indicador "pendiente de subir" + sincronización automática al volver la conexión. */
 export function PendingIndicator() {
+  const x = useTx();
   const [items, setItems] = useState<QueueItem[]>([]);
   const [online, setOnline] = useState(true);
   const [open, setOpen] = useState(false);
@@ -58,17 +61,17 @@ export function PendingIndicator() {
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
         className="flex min-h-11 w-full items-center gap-2 rounded-card border border-border bg-surface px-4 text-left text-sm text-ink-2">
         <span aria-hidden className="size-2 rounded-full" style={{ background: online ? "var(--tangerine)" : "var(--over)" }} />
-        {!online ? "Sin conexión. " : ""}
+        {!online ? x("Sin conexión. ") : ""}
         {pending.length > 0 && `${pending.length} ${pending.length === 1 ? "gasto pendiente" : "gastos pendientes"} de subir`}
         {failed.length > 0 && ` · ${failed.length} con error`}
-        {pending.length === 0 && failed.length === 0 && "Estás sin conexión: puedes seguir apuntando gastos."}
+        {pending.length === 0 && failed.length === 0 && x("Estás sin conexión: puedes seguir apuntando gastos.")}
       </button>
       {open && failed.length > 0 && (
         <ul className="mt-2 flex flex-col gap-2">
           {failed.map((f) => (
             <li key={f.clientId} className="flex items-center justify-between rounded-card border border-border bg-surface px-4 py-2 text-sm">
               <span>{f.input.description}<span className="block text-xs text-over-text">{f.error}</span></span>
-              <button type="button" className="min-h-11 px-3 text-over-text" onClick={async () => { await removeItem(f.clientId); await refresh(); }}>Descartar</button>
+              <button type="button" className="min-h-11 px-3 text-over-text" onClick={async () => { await removeItem(f.clientId); await refresh(); }}>{x("Descartar")}</button>
             </li>
           ))}
         </ul>

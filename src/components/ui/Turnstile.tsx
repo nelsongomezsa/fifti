@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useTx } from "@/i18n/tx-client";
 import { useEffect, useRef } from "react";
 
 declare global {
@@ -8,6 +10,7 @@ declare global {
 
 /** Widget de Cloudflare Turnstile. Deja el token en un campo oculto `cf-turnstile-response` del formulario. */
 export function Turnstile({ siteKey }: { siteKey: string }) {
+  const x = useTx();
   const box = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
 
@@ -39,7 +42,7 @@ export function Turnstile({ siteKey }: { siteKey: string }) {
   return (
     <>
       <input ref={input} type="hidden" name="cf-turnstile-response" />
-      <div ref={box} aria-label="Verificación anti-bots" />
+      <div ref={box} aria-label={x("Verificación anti-bots")} />
     </>
   );
 }

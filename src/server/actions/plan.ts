@@ -1,5 +1,7 @@
 "use server";
 
+import { getTx } from "@/i18n/tx";
+
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { MAX_AMOUNT_CENTS, addMonths, contributionTargets, isMonthStart, parseToCents, plannedFor } from "@/lib/money";
@@ -17,9 +19,10 @@ async function ctx() {
 }
 
 export async function savePlan(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const spaceId = uuidSchema.safeParse(field(fd, "spaceId"));
   const m = month.safeParse(field(fd, "month"));
-  if (!spaceId.success || !m.success) return { error: "Datos no válidos" };
+  if (!spaceId.success || !m.success) return { error: x("Datos no válidos") };
   const incomes: { member_id: string; expected_cents: number }[] = [];
   const allocs: { fundId: string; mode: "percent" | "amount"; value: number }[] = [];
   for (const [key, raw] of fd.entries()) {
@@ -27,14 +30,14 @@ export async function savePlan(_prev: FormState, fd: FormData): Promise<FormStat
     if (key.startsWith("inc_")) {
       const id = uuidSchema.safeParse(key.slice(4));
       const c = raw.trim() === "" ? 0 : parseToCents(raw);
-      if (!id.success || c === null || c > MAX_AMOUNT_CENTS) return { error: "Importe de ingreso no válido" };
+      if (!id.success || c === null || c > MAX_AMOUNT_CENTS) return { error: x("Importe de ingreso no válido") };
       incomes.push({ member_id: id.data, expected_cents: c });
     } else if (key.startsWith("val_")) {
       const id = uuidSchema.safeParse(key.slice(4));
       const mode = field(fd, `mode_${key.slice(4)}`) === "amount" ? "amount" : "percent";
       if (!id.success || raw.trim() === "") continue;
       const v = mode === "percent" ? parsePercentToBp(raw) : parseToCents(raw);
-      if (v === null || v > MAX_AMOUNT_CENTS) return { error: "Valor de fondo no válido" };
+      if (v === null || v > MAX_AMOUNT_CENTS) return { error: x("Valor de fondo no válido") };
       allocs.push({ fundId: id.data, mode, value: v });
     }
   }
@@ -42,31 +45,32 @@ export async function savePlan(_prev: FormState, fd: FormData): Promise<FormStat
   try {
     planned = plannedFor(incomes.reduce((a, b) => a + b.expected_cents, 0), allocs);
   } catch (e) {
-    return { error: e instanceof RangeError ? e.message : "Datos no válidos" };
+    return { error: x(e instanceof RangeError ? e.message : "Datos no válidos") };
   }
   const { supabase, user } = await ctx();
-  if (!user) return { error: "Sesión caducada." };
+  if (!user) return { error: x("Sesión caducada.") };
   const { error } = await supabase.rpc("save_plan", {
     p: {
       space_id: spaceId.data, month: m.data, notes: field(fd, "notes").slice(0, 500) || null, incomes,
       allocations: allocs.map((a, i) => ({ fund_id: a.fundId, mode: a.mode, value: a.value, planned_cents: planned[i]!.plannedCents })),
     },
   });
-  if (error) return { error: rpcMessage(error) };
+  if (error) return { error: x(rpcMessage(error)) };
   revalidatePath("/plan");
-  return { ok: true, message: "Plan guardado." };
+  return { ok: true, message: x("Plan guardado.") };
 }
 
 export async function copyPreviousPlan(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const spaceId = uuidSchema.safeParse(field(fd, "spaceId"));
   const m = month.safeParse(field(fd, "month"));
-  if (!spaceId.success || !m.success) return { error: "Datos no válidos" };
+  if (!spaceId.success || !m.success) return { error: x("Datos no válidos") };
   const { supabase, user } = await ctx();
-  if (!user) return { error: "Sesión caducada." };
+  if (!user) return { error: x("Sesión caducada.") };
   const { error } = await supabase.rpc("copy_plan", { p_space: spaceId.data, p_from: addMonths(m.data, -1), p_to: m.data });
-  if (error) return { error: rpcMessage(error) };
+  if (error) return { error: x(rpcMessage(error)) };
   revalidatePath("/plan");
-  return { ok: true, message: "Plan copiado del mes anterior." };
+  return { ok: true, message: x("Plan copiado del mes anterior.") };
 }
 
 const recurringSchema = z
@@ -79,23 +83,24 @@ const recurringSchema = z
   .strict();
 
 export async function saveRecurring(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const parsed = recurringSchema.safeParse({
     spaceId: field(fd, "spaceId"), id: field(fd, "id") || undefined, description: field(fd, "description"),
     amountCents: parseToCents(field(fd, "amount")) ?? 0, frequency: field(fd, "frequency") || "monthly",
     day: Number(field(fd, "day") || "1"), nextRun: field(fd, "nextRun"), categoryId: field(fd, "categoryId") || null,
     paidFrom: field(fd, "paidFrom") === "pot" ? "pot" : "member", detected: field(fd, "detected") === "1",
   });
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos no válidos" };
+  if (!parsed.success) return { error: x(parsed.error.issues[0]?.message ?? "Datos no válidos") };
   const { supabase, user } = await ctx();
-  if (!user) return { error: "Sesión caducada." };
+  if (!user) return { error: x("Sesión caducada.") };
   const v = parsed.data;
   const { error } = await supabase.rpc("save_recurring", {
     p: { id: v.id ?? null, space_id: v.spaceId, description: v.description, amount_cents: v.amountCents, frequency: v.frequency, day: v.day, next_run: v.nextRun, category_id: v.categoryId, paid_from: v.paidFrom, detected: v.detected },
   });
-  if (error) return { error: rpcMessage(error) };
+  if (error) return { error: x(rpcMessage(error)) };
   revalidatePath("/plan");
   revalidatePath("/calendario");
-  return { ok: true, message: "Gasto fijo guardado." };
+  return { ok: true, message: x("Gasto fijo guardado.") };
 }
 
 export async function deleteRecurring(fd: FormData) {
@@ -108,39 +113,41 @@ export async function deleteRecurring(fd: FormData) {
 }
 
 export async function saveContributionRule(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const spaceId = uuidSchema.safeParse(field(fd, "spaceId"));
   const mode = z.enum(["proportional_to_income", "fixed_percent", "fixed_amount"]).safeParse(field(fd, "mode"));
   const target = parseToCents(field(fd, "target") || "0");
-  if (!spaceId.success || !mode.success || target === null) return { error: "Datos no válidos" };
+  if (!spaceId.success || !mode.success || target === null) return { error: x("Datos no válidos") };
   const values: Record<string, number> = {};
   for (const [k, raw] of fd.entries()) {
     if (!k.startsWith("rv_") || typeof raw !== "string" || raw.trim() === "") continue;
     const id = uuidSchema.safeParse(k.slice(3));
     const v = mode.data === "fixed_percent" ? parsePercentToBp(raw) : parseToCents(raw);
-    if (!id.success || v === null) return { error: "Valor no válido" };
+    if (!id.success || v === null) return { error: x("Valor no válido") };
     values[id.data] = v;
   }
   const { supabase, user } = await ctx();
-  if (!user) return { error: "Sesión caducada." };
+  if (!user) return { error: x("Sesión caducada.") };
   const { error } = await supabase.rpc("save_contribution_rule", { p_space: spaceId.data, p_mode: mode.data, p_target: target, p_values: values });
-  if (error) return { error: rpcMessage(error) };
+  if (error) return { error: x(rpcMessage(error)) };
   revalidatePath("/plan");
-  return { ok: true, message: "Regla guardada." };
+  return { ok: true, message: x("Regla guardada.") };
 }
 
 /** Genera las aportaciones previstas del mes a partir de la regla y los ingresos previstos del plan. */
 export async function generateContributions(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const spaceId = uuidSchema.safeParse(field(fd, "spaceId"));
   const m = month.safeParse(field(fd, "month"));
-  if (!spaceId.success || !m.success) return { error: "Datos no válidos" };
+  if (!spaceId.success || !m.success) return { error: x("Datos no válidos") };
   const { supabase, user } = await ctx();
-  if (!user) return { error: "Sesión caducada." };
+  if (!user) return { error: x("Sesión caducada.") };
   const [{ data: rule }, { data: members }, { data: plan }] = await Promise.all([
     supabase.from("contribution_rules").select("mode, monthly_target_cents, values").eq("space_id", spaceId.data).maybeSingle(),
     supabase.from("space_members").select("id").eq("space_id", spaceId.data),
     supabase.from("monthly_plans").select("id").eq("space_id", spaceId.data).eq("month", m.data).maybeSingle(),
   ]);
-  if (!rule) return { error: "Define primero la regla de aportación." };
+  if (!rule) return { error: x("Define primero la regla de aportación.") };
   const { data: pi } = plan ? await supabase.from("plan_incomes").select("member_id, expected_cents").eq("plan_id", plan.id) : { data: [] };
   try {
     const lines = contributionTargets(rule.mode, rule.monthly_target_cents, (members ?? []).map((mm) => ({
@@ -149,36 +156,38 @@ export async function generateContributions(_prev: FormState, fd: FormData): Pro
     const { error } = await supabase.rpc("save_contributions", {
       p_space: spaceId.data, p_month: m.data, p_lines: lines.map((l) => ({ member_id: l.memberId, expected_cents: l.expectedCents })),
     });
-    if (error) return { error: rpcMessage(error) };
+    if (error) return { error: x(rpcMessage(error)) };
   } catch (e) {
-    return { error: e instanceof RangeError ? e.message : "No se han podido calcular las aportaciones." };
+    return { error: x(e instanceof RangeError ? e.message : "No se han podido calcular las aportaciones.") };
   }
   revalidatePath("/plan");
-  return { ok: true, message: "Aportaciones del mes calculadas." };
+  return { ok: true, message: x("Aportaciones del mes calculadas.") };
 }
 
 export async function markContributionPaid(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const id = uuidSchema.safeParse(field(fd, "contributionId"));
   const paid = parseToCents(field(fd, "paid") || "0");
-  if (!id.success || paid === null) return { error: "Datos no válidos" };
+  if (!id.success || paid === null) return { error: x("Datos no válidos") };
   const { supabase, user } = await ctx();
-  if (!user) return { error: "Sesión caducada." };
+  if (!user) return { error: x("Sesión caducada.") };
   const { error } = await supabase.rpc("mark_contribution_paid", { p_id: id.data, p_paid: paid });
-  if (error) return { error: rpcMessage(error) };
+  if (error) return { error: x(rpcMessage(error)) };
   revalidatePath("/plan");
-  return { ok: true, message: paid > 0 ? "Aportación marcada como hecha." : "Aportación desmarcada." };
+  return { ok: true, message: x(paid > 0 ? "Aportación marcada como hecha." : "Aportación desmarcada.") };
 }
 
 export async function closePlan(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const { loadPlan, loadMirrorByFund } = await import("@/server/plan");
   const { fundLeftover } = await import("@/lib/money");
   const spaceId = uuidSchema.safeParse(field(fd, "spaceId"));
   const m = month.safeParse(field(fd, "month"));
-  if (!spaceId.success || !m.success) return { error: "Datos no válidos" };
+  if (!spaceId.success || !m.success) return { error: x("Datos no válidos") };
   const { supabase, user } = await ctx();
-  if (!user) return { error: "Sesión caducada." };
+  if (!user) return { error: x("Sesión caducada.") };
   const { data: space } = await supabase.from("spaces").select("kind").eq("id", spaceId.data).maybeSingle();
-  if (!space) return { error: "No autorizado." };
+  if (!space) return { error: x("No autorizado.") };
   // El sobrante se recalcula en el servidor: el cliente solo elige qué hacer con él.
   const plan = await loadPlan(supabase, spaceId.data, m.data, space.kind === "personal" ? await loadMirrorByFund(supabase, m.data) : {});
   const decisions = plan.funds.map((f) => {
@@ -190,9 +199,9 @@ export async function closePlan(_prev: FormState, fd: FormData): Promise<FormSta
     return { fund_id: f.id, action, goal_id: goal?.success ? goal.data : null, leftover_cents: leftover };
   });
   const { error } = await supabase.rpc("close_plan", { p_space: spaceId.data, p_month: m.data, p_decisions: decisions });
-  if (error) return { error: rpcMessage(error) };
+  if (error) return { error: x(rpcMessage(error)) };
   revalidatePath("/plan");
-  return { ok: true, message: "Mes cerrado. Queda en solo lectura." };
+  return { ok: true, message: x("Mes cerrado. Queda en solo lectura.") };
 }
 
 export async function reopenPlan(fd: FormData) {
@@ -206,14 +215,15 @@ export async function reopenPlan(fd: FormData) {
 }
 
 export async function setMirrorPref(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
   const spaceId = uuidSchema.safeParse(field(fd, "spaceId"));
   const fund = field(fd, "fundId");
   const fundId = fund ? uuidSchema.safeParse(fund) : null;
-  if (!spaceId.success || (fundId && !fundId.success)) return { error: "Datos no válidos" };
+  if (!spaceId.success || (fundId && !fundId.success)) return { error: x("Datos no válidos") };
   const { supabase, user } = await ctx();
-  if (!user) return { error: "Sesión caducada." };
+  if (!user) return { error: x("Sesión caducada.") };
   const { error } = await supabase.rpc("set_mirror_pref", { p_space: spaceId.data, p_enabled: field(fd, "enabled") === "on", p_fund: fundId?.success ? fundId.data : null });
-  if (error) return { error: rpcMessage(error) };
+  if (error) return { error: x(rpcMessage(error)) };
   revalidatePath("/", "layout");
-  return { ok: true, message: "Guardado." };
+  return { ok: true, message: x("Guardado.") };
 }
