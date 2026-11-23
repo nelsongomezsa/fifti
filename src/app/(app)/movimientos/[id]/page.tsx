@@ -1,4 +1,5 @@
 import { getTx } from "@/i18n/tx";
+import { displayName } from "@/lib/system-names";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -34,7 +35,7 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
       supabase.from("expense_reactions").select("member_id, emoji").eq("expense_id", id),
       supabase.from("audit_log").select("id, action, at, actor").eq("row_id", id).eq("table_name", "expenses").order("at", { ascending: false }).limit(20),
       supabase.from("expense_tags").select("tags(name)").eq("expense_id", id),
-      e.category_id ? supabase.from("categories").select("name").eq("id", e.category_id).maybeSingle() : Promise.resolve({ data: null }),
+      e.category_id ? supabase.from("categories").select("name, system_key").eq("id", e.category_id).maybeSingle() : Promise.resolve({ data: null }),
     ]);
   const me = members?.find((m) => m.user_id === user.id);
   const name = (mid: string) => members?.find((m) => m.id === mid)?.display_name ?? "—";
@@ -61,7 +62,7 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
         <p className="money mt-1 font-mono text-3xl">{formatMoney(e.amount_cents, e.currency, x.locale)}</p>
         <p className="mt-1 text-sm text-ink-3">
           {new Date(`${e.spent_at}T00:00:00Z`).toLocaleDateString(x.locale, { dateStyle: "long", timeZone: "UTC" })}
-          {(priv?.category_id ? null : cat?.name) ? ` · ${cat?.name}` : ""}
+          {(priv?.category_id ? null : cat?.name) ? ` · ${cat ? displayName(x, cat.name, cat.system_key) : ""}` : ""}
           {e.currency !== "EUR" || e.fx_rate !== 1 ? ` · ${x("cambio")} ${e.fx_rate}` : ""}
         </p>
         {e.is_private && <p className="mt-1 text-sm text-ink-2">{x("Gasto privado: los demás ven solo importe y reparto.")}</p>}

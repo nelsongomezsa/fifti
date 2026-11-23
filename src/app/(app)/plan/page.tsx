@@ -1,4 +1,5 @@
 import { getTx } from "@/i18n/tx";
+import { displayName } from "@/lib/system-names";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ActionForm, inputClass } from "@/components/ui/ActionForm";
@@ -25,6 +26,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
   const supabase = await createClient();
   const month = sp.mes && isMonthStart(sp.mes) ? sp.mes : monthStart(new Date());
   const d = await loadPlan(supabase, active.id, month, active.kind === "personal" ? await loadMirrorByFund(supabase, month) : {});
+  d.funds = d.funds.map((f) => ({ ...f, name: displayName(x, f.name, f.system_key) }));
   const list = sp.vista === "lista";
   const rows = d.funds.map((f) => ({ f, row: summarizeFund(f.id, (d.allocations[f.id]?.planned ?? 0) + (d.allocations[f.id]?.carry ?? 0), d.spentByFund[f.id] ?? 0) }));
   const me = d.members.find((m) => m.user_id === user.id);
@@ -38,7 +40,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
 
   const [{ data: recurring }, { data: cats }, { data: rule }, { data: contribs }, { data: goals }] = await Promise.all([
     supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, next_run, active, category_id, paid_from").eq("space_id", active.id).order("next_run"),
-    supabase.from("categories").select("id, name").eq("space_id", active.id).order("name"),
+    supabase.from("categories").select("id, name, system_key").eq("space_id", active.id).order("name"),
     active.kind === "household" ? supabase.from("contribution_rules").select("mode, monthly_target_cents, values").eq("space_id", active.id).maybeSingle() : Promise.resolve({ data: null }),
     active.kind === "household" ? supabase.from("contributions").select("id, member_id, expected_cents, paid_cents").eq("space_id", active.id).eq("month", month) : Promise.resolve({ data: [] }),
     supabase.from("savings_goals").select("id, name").eq("space_id", active.id),
@@ -201,7 +203,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
                 <input name="day" type="number" min={1} max={31} defaultValue={1} aria-label={x("Día del mes")} className={inputClass} />
               </div>
               <label className="flex flex-col gap-1 text-xs text-ink-3">{x("Primer cobro")}<input name="nextRun" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} className={inputClass} /></label>
-              <select name="categoryId" defaultValue="" aria-label={x("Categoría")} className={inputClass}><option value="">{x("Sin categoría")}</option>{cats?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+              <select name="categoryId" defaultValue="" aria-label={x("Categoría")} className={inputClass}><option value="">{x("Sin categoría")}</option>{cats?.map((c) => <option key={c.id} value={c.id}>{displayName(x, c.name, c.system_key)}</option>)}</select>
               {active.kind === "household" && <select name="paidFrom" aria-label={x("Quién paga")} className={inputClass}><option value="member">{x("Lo pago yo")}</option><option value="pot">{x("Sale del bote común")}</option></select>}
             </ActionForm>
           </details>

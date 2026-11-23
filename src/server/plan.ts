@@ -6,7 +6,7 @@ export type PlanData = {
   month: string;
   plan: { id: string; status: "draft" | "active" | "closed"; notes: string | null } | null;
   members: { id: string; user_id: string | null; display_name: string; role: string }[];
-  funds: { id: string; name: string; kind: string; color: string; rollover: boolean }[];
+  funds: { id: string; name: string; kind: string; color: string; rollover: boolean; system_key: string | null }[];
   expected: Record<string, number>; // memberId -> previsto
   actual: Record<string, number>; // memberId -> ingresos reales del mes
   allocations: Record<string, { mode: "percent" | "amount"; value: number; planned: number; carry: number }>;
@@ -21,7 +21,7 @@ export async function loadPlan(supabase: SupabaseClient, spaceId: string, month:
   const [{ data: plan }, { data: members }, { data: funds }, { data: cats }, { data: incomes }, { data: expenses }] = await Promise.all([
     supabase.from("monthly_plans").select("id, status, notes").eq("space_id", spaceId).eq("month", month).maybeSingle(),
     supabase.from("space_members").select("id, user_id, display_name, role").eq("space_id", spaceId).order("joined_at"),
-    supabase.from("funds").select("id, name, kind, color, rollover").eq("space_id", spaceId).order("position"),
+    supabase.from("funds").select("id, name, kind, color, rollover, system_key").eq("space_id", spaceId).order("position"),
     supabase.from("categories").select("id, fund_id").eq("space_id", spaceId),
     supabase.from("incomes").select("member_id, amount_cents").eq("space_id", spaceId).gte("received_at", month).lt("received_at", next),
     supabase.from("expenses").select("category_id, amount_base_cents").eq("space_id", spaceId).gte("spent_at", month).lt("spent_at", next).limit(5000),

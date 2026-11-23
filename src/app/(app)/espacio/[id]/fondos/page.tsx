@@ -1,4 +1,5 @@
 import { getTx } from "@/i18n/tx";
+import { displayName } from "@/lib/system-names";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -19,8 +20,8 @@ export default async function FundsPage({ params }: { params: Promise<{ id: stri
   const { data: space } = await supabase.from("spaces").select("id, name").eq("id", id).maybeSingle();
   if (!space) notFound();
   const [{ data: funds }, { data: cats }] = await Promise.all([
-    supabase.from("funds").select("id, name, kind, color").eq("space_id", id).order("position"),
-    supabase.from("categories").select("id, fund_id, name").eq("space_id", id).order("name"),
+    supabase.from("funds").select("id, name, kind, color, system_key").eq("space_id", id).order("position"),
+    supabase.from("categories").select("id, fund_id, name, system_key").eq("space_id", id).order("name"),
   ]);
   return (
     <section className="flex flex-col gap-5 pt-2">
@@ -28,9 +29,9 @@ export default async function FundsPage({ params }: { params: Promise<{ id: stri
       <h1 className="text-2xl font-bold">{x("Fondos y categorías")}</h1>
       {funds?.map((f) => (
         <div key={f.id} className="rounded-card border border-border bg-surface p-4">
-          <h2 className="flex items-center gap-2 font-semibold"><span aria-hidden className="size-2.5 rounded-full" style={{ background: f.color }} />{f.name}</h2>
+          <h2 className="flex items-center gap-2 font-semibold"><span aria-hidden className="size-2.5 rounded-full" style={{ background: f.color }} />{displayName(x, f.name, f.system_key)}</h2>
           <p className="mt-2 flex flex-wrap gap-2 text-sm text-ink-2">
-            {cats?.filter((c) => c.fund_id === f.id).map((c) => <span key={c.id} className="rounded-full border border-border px-3 py-1">{c.name}</span>)}
+            {cats?.filter((c) => c.fund_id === f.id).map((c) => <span key={c.id} className="rounded-full border border-border px-3 py-1">{displayName(x, c.name, c.system_key)}</span>)}
           </p>
           <ActionForm action={addCategory} submit={x("Añadir categoría")} tone="plain" className="mt-3 flex gap-2">
             <input type="hidden" name="spaceId" value={id} /><input type="hidden" name="fundId" value={f.id} />

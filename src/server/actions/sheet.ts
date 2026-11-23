@@ -1,5 +1,7 @@
 "use server";
 
+import { getTx } from "@/i18n/tx";
+import { displayName } from "@/lib/system-names";
 import { createClient } from "@/lib/supabase/server";
 
 export type SheetSpace = {
@@ -21,12 +23,13 @@ export async function loadSheetContext(): Promise<SheetContext> {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return { spaces: [], favorites: [] };
   const uid = auth.user.id;
+  const x = await getTx();
 
   const [{ data: spaces }, { data: members }, { data: funds }, { data: cats }, { data: recent }, { data: favs }] = await Promise.all([
     supabase.from("spaces").select("id, name, kind, base_currency, created_at").is("archived_at", null).order("created_at"),
     supabase.from("space_members").select("id, space_id, user_id, display_name, default_share_bp").order("joined_at"),
-    supabase.from("funds").select("id, space_id, name, color, position").order("position"),
-    supabase.from("categories").select("id, space_id, fund_id, name"),
+    supabase.from("funds").select("id, space_id, name, color, position, system_key").order("position"),
+    supabase.from("categories").select("id, space_id, fund_id, name, system_key"),
     supabase.from("expenses").select("space_id, category_id").not("category_id", "is", null).order("created_at", { ascending: false }).limit(300),
     supabase.from("favorites").select("id, space_id, label, amount_cents, category_id").order("label"),
   ]);
@@ -40,7 +43,7 @@ export async function loadSheetContext(): Promise<SheetContext> {
     const fundMap = new Map((funds ?? []).filter((f) => f.space_id === s.id).map((f) => [f.id, f]));
     const categories = (cats ?? [])
       .filter((c) => c.space_id === s.id)
-      .map((c) => ({ id: c.id, name: c.name, fundName: fundMap.get(c.fund_id)?.name ?? "", fundColor: fundMap.get(c.fund_id)?.color ?? "#9AA3AF", pos: fundMap.get(c.fund_id)?.position ?? 0 }))
+      .map((c) => ({ id: c.id, name: displayName(x, c.name, c.system_key), fundName: fundMap.get(c.fund_id) ? displayName(x, fundMap.get(c.fund_id)!.name, fundMap.get(c.fund_id)!.system_key) : "", fundColor: fundMap.get(c.fund_id)?.color ?? "#9AA3AF", pos: fundMap.get(c.fund_id)?.position ?? 0 }))
       .sort((a, b) => a.pos - b.pos)
       .map(({ pos: _pos, ...c }) => c);
     const counts = new Map<string, number>();

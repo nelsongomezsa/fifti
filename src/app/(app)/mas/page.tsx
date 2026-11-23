@@ -1,4 +1,5 @@
 import { getTx } from "@/i18n/tx";
+import { displayName } from "@/lib/system-names";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthForm } from "@/components/ui/AuthForm";
@@ -28,7 +29,7 @@ export default async function MorePage() {
   const theme = (await cookies()).get("fifti_theme")?.value ?? "system";
   const supabase = await createClient();
   const { data: pf } = user.is_anonymous ? { data: [] } : await supabase.from("spaces").select("id").eq("kind", "personal").maybeSingle().then((r) => ({ data: r.data ? [r.data] : [] }));
-  const { data: pFunds } = pf?.[0] ? await supabase.from("funds").select("id, name").eq("space_id", pf[0].id).order("position") : { data: [] };
+  const { data: pFunds } = pf?.[0] ? await supabase.from("funds").select("id, name, system_key").eq("space_id", pf[0].id).order("position") : { data: [] };
   const { data: prefs } = await supabase.from("mirror_prefs").select("space_id, enabled, fund_id");
   const { data: archived } = await supabase.from("spaces").select("id, name").eq("kind", "group").not("archived_at", "is", null).order("archived_at", { ascending: false });
   const { data: prefRow } = user.is_anonymous ? { data: null } : await supabase.from("notification_prefs").select("*").maybeSingle();
@@ -89,7 +90,7 @@ export default async function MorePage() {
                 <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" name="enabled" defaultChecked={pr?.enabled ?? true} /> {s.name}</label>
                 <select name="fundId" defaultValue={pr?.fund_id ?? ""} aria-label={`Fondo para ${s.name}`} className={inputClass}>
                   <option value="">{x("Fondo automático")}</option>
-                  {pFunds?.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                  {pFunds?.map((f) => <option key={f.id} value={f.id}>{displayName(x, f.name, f.system_key)}</option>)}
                 </select>
               </ActionForm>
             );

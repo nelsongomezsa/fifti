@@ -1,4 +1,5 @@
 import { getTx } from "@/i18n/tx";
+import { displayName } from "@/lib/system-names";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { addMonths, formatMoney, isMonthStart, monthStart } from "@/lib/money";
@@ -25,7 +26,7 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
 
   const [{ data: members }, { data: cats }] = await Promise.all([
     supabase.from("space_members").select("id, user_id, display_name").eq("space_id", active.id),
-    supabase.from("categories").select("id, name").eq("space_id", active.id),
+    supabase.from("categories").select("id, name, system_key").eq("space_id", active.id),
   ]);
   const me = members?.find((m) => m.user_id === user.id);
 
@@ -48,7 +49,7 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
   const tagOf = (e: Row) => ((e.expense_tags as unknown as { tags: { name: string } | null }[]) ?? []).map((t) => t.tags?.name).filter(Boolean) as string[];
   const tag = sp.tag?.toLowerCase().replace(/^#/, "");
   const rows = (expenses ?? []).filter((e) => !tag || tagOf(e).includes(tag));
-  const catName = new Map((cats ?? []).map((c) => [c.id, c.name]));
+  const catName = new Map((cats ?? []).map((c) => [c.id, displayName(x, c.name, c.system_key)]));
   const total = rows.reduce((a, e) => a + e.amount_cents, 0);
   const href = (patch: Partial<SP>) => {
     const p = new URLSearchParams(Object.entries({ ...sp, ...patch }).filter(([, v]) => v) as [string, string][]);
@@ -71,7 +72,7 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
           className="min-h-11 flex-1 rounded-card border border-border bg-surface px-3 text-sm" />
         <select name="cat" defaultValue={sp.cat ?? ""} aria-label={x("Categoría")} className="min-h-11 rounded-card border border-border bg-surface px-2 text-sm">
           <option value="">{x("Categoría")}</option>
-          {cats?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          {cats?.map((c) => <option key={c.id} value={c.id}>{displayName(x, c.name, c.system_key)}</option>)}
         </select>
         {active.kind !== "personal" && (
           <select name="persona" defaultValue={sp.persona ?? ""} aria-label={x("Persona")} className="min-h-11 rounded-card border border-border bg-surface px-2 text-sm">

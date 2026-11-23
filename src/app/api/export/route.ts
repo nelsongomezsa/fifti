@@ -1,4 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { getTx } from "@/i18n/tx";
+import { displayName } from "@/lib/system-names";
 import { toCsv } from "@/lib/csv";
 import { RULES } from "@/lib/security/rate-limit";
 import { allow } from "@/lib/security/user-limit";
@@ -18,10 +20,11 @@ export async function GET(request: NextRequest) {
   if (!space) return NextResponse.json({ error: "No encontrado" }, { status: 404 }); // RLS: no eres miembro
   const [{ data: ex }, { data: cats }, { data: priv }] = await Promise.all([
     supabase.from("expenses").select("id, spent_at, description, amount_cents, currency, category_id, is_private").eq("space_id", spaceId.data).order("spent_at").limit(5000),
-    supabase.from("categories").select("id, name").eq("space_id", spaceId.data),
+    supabase.from("categories").select("id, name, system_key").eq("space_id", spaceId.data),
     supabase.from("expense_private_details").select("expense_id, description"),
   ]);
-  const cat = new Map((cats ?? []).map((c) => [c.id, c.name]));
+  const x = await getTx();
+  const cat = new Map((cats ?? []).map((c) => [c.id, displayName(x, c.name, c.system_key)]));
   const mine = new Map((priv ?? []).map((p) => [p.expense_id, p.description]));
   const rows: (string | number)[][] = [["fecha", "concepto", "importe", "moneda", "categoria"]];
   for (const e of ex ?? []) {

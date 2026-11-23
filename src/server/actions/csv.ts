@@ -1,6 +1,7 @@
 "use server";
 
 import { getTx } from "@/i18n/tx";
+import { displayName } from "@/lib/system-names";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -38,10 +39,10 @@ export async function confirmImport(input: unknown): Promise<{ ok: boolean; impo
   const [{ data: space }, { data: members }, { data: cats }] = await Promise.all([
     supabase.from("spaces").select("base_currency, kind").eq("id", spaceId).maybeSingle(),
     supabase.from("space_members").select("id, user_id").eq("space_id", spaceId),
-    supabase.from("categories").select("id, name").eq("space_id", spaceId),
+    supabase.from("categories").select("id, name, system_key").eq("space_id", spaceId),
   ]);
   if (!space || !members?.some((m) => m.user_id === auth.user!.id)) return { ok: false, imported: 0, failed: 0, error: x("No autorizado.") };
-  const catId = (n?: string) => (n ? cats?.find((c) => c.name.toLowerCase() === n.toLowerCase())?.id ?? null : null);
+  const catId = (n?: string) => (n ? cats?.find((c) => c.name.toLowerCase() === n.toLowerCase() || displayName(x, c.name, c.system_key).toLowerCase() === n.toLowerCase())?.id ?? null : null);
 
   let imported = 0, failed = 0;
   for (const r of rows as ImportRow[]) {

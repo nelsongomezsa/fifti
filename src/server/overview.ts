@@ -1,6 +1,8 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { addMonths, fillSeries, forecastMonthEnd, lastMonths, monthChange, monthStart, savingsRateBp, summarizeFund, type FundRow } from "@/lib/money";
+import { getTx } from "@/i18n/tx";
+import { displayName } from "@/lib/system-names";
 import { loadMirrorByFund, loadPlan, type PlanData } from "./plan";
 
 export type Overview = {
@@ -31,6 +33,8 @@ export async function loadOverview(supabase: SupabaseClient, spaceId: string, ki
   const personal = kind === "personal";
   const mirror = personal ? await loadMirrorByFund(supabase, month) : {};
   const plan = await loadPlan(supabase, spaceId, month, mirror);
+  const x = await getTx();
+  plan.funds = plan.funds.map((f) => ({ ...f, name: displayName(x, f.name, f.system_key) }));
   const months = lastMonths(month, 6);
   const s = await seriesFor(supabase, spaceId, personal, months[0]!);
   const spendSeries = fillSeries(months, s.spend).map((v, i) => v + fillSeries(months, s.mir)[i]!);

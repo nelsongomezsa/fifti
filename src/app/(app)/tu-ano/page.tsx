@@ -1,4 +1,5 @@
 import { getTx } from "@/i18n/tx";
+import { displayName } from "@/lib/system-names";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { YearImage } from "@/components/ui/YearImage";
@@ -27,7 +28,7 @@ export default async function YearPage() {
     supabase.rpc("monthly_mirror", { p_from: from }),
     supabase.from("expenses").select("category_id, amount_base_cents").eq("space_id", personal.id).gte("spent_at", from).limit(5000),
     supabase.from("personal_mirror").select("fund_id, amount_cents").gte("spent_at", from).limit(5000),
-    supabase.from("funds").select("id, name").eq("space_id", personal.id),
+    supabase.from("funds").select("id, name, system_key").eq("space_id", personal.id),
     supabase.from("categories").select("id, fund_id").eq("space_id", personal.id),
     supabase.from("space_members").select("space_id, user_id"),
     supabase.from("spaces").select("id, kind, archived_at").eq("kind", "group").not("archived_at", "is", null).gte("archived_at", from),
@@ -44,7 +45,8 @@ export default async function YearPage() {
   for (const e of exp ?? []) { const f = e.category_id ? catFund.get(e.category_id) : undefined; if (f) byFund.set(f, (byFund.get(f) ?? 0) + e.amount_base_cents); }
   for (const r of mirrors ?? []) byFund.set(r.fund_id, (byFund.get(r.fund_id) ?? 0) + r.amount_cents);
   const topFundId = [...byFund.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-  const topFund = funds?.find((f) => f.id === topFundId)?.name ?? "—";
+  const topF = funds?.find((f) => f.id === topFundId);
+  const topFund = topF ? displayName(x, topF.name, topF.system_key) : "—";
   const myGroups = new Set((mem ?? []).filter((x) => x.user_id === user.id).map((x) => x.space_id));
   const perSpace = new Map<string, number>();
   for (const e of yearExpenses ?? []) perSpace.set(e.space_id, (perSpace.get(e.space_id) ?? 0) + 1);
