@@ -1,10 +1,9 @@
 import "server-only";
 import * as webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { localizePayload, type PushContent } from "@/i18n/push-content";
 
 export type PushKind = "new_expense" | "fixed_tomorrow" | "fund_threshold" | "goal_reached" | "monthly_summary" | "contribution_pending" | "offset_proposal";
-export type PushPayload = { title: string; body: string; url: string };
-
 let configured = false;
 function configure(): boolean {
   if (configured) return true;
@@ -20,7 +19,7 @@ function configure(): boolean {
  * Los textos son genéricos (sin importes) para no enseñar dinero en la pantalla bloqueada.
  * Nunca lanza: una notificación fallida no debe romper la acción que la provoca.
  */
-export async function notify(userIds: string[], kind: PushKind, payload: PushPayload, ref?: string): Promise<void> {
+export async function notify(userIds: string[], kind: PushKind, content: PushContent, ref?: string): Promise<void> {
   try {
     if (userIds.length === 0 || !configure()) return;
     const admin = createAdminClient();
@@ -34,9 +33,14 @@ export async function notify(userIds: string[], kind: PushKind, payload: PushPay
       if (targets.length) await admin.from("notification_log").upsert(targets.map((u) => ({ user_id: u, kind, ref })));
     }
     if (targets.length === 0) return;
-    const { data: subs } = await admin.from("push_subscriptions").select("id, endpoint, p256dh, auth").in("user_id", targets);
+    const [{ data: subs }, { data: profs }] = await Promise.all([
+      admin.from("push_subscriptions").select("id, user_id, endpoint, p256dh, auth").in("user_id", targets),
+      admin.from("profiles").select("id, locale").in("id", targets),
+    ]);
+    const localeOf = new Map((profs ?? []).map((p) => [p.id as string, p.locale as string]));
     await Promise.all((subs ?? []).map(async (s) => {
       try {
+        const payload = localizePayload(content, localeOf.get(s.user_id as string));
         await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify(payload), { TTL: 3600 });
       } catch (err) {
         const code = (err as { statusCode?: number }).statusCode;

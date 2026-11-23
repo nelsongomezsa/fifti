@@ -74,7 +74,7 @@ export async function saveExpense(input: unknown): Promise<SaveResult> {
     revalidatePath("/", "layout");
     if (!v.id && !personal) {
       const others = (await supabase.from("space_members").select("user_id").eq("space_id", v.spaceId).not("user_id", "is", null)).data ?? [];
-      await notify(others.map((m) => m.user_id as string).filter((u) => u !== user.id), "new_expense", { title: space.name, body: "Hay un gasto nuevo.", url: "/movimientos" });
+      await notify(others.map((m) => m.user_id as string).filter((u) => u !== user.id), "new_expense", (t) => ({ title: space.name, body: t("Hay un gasto nuevo."), url: "/movimientos" }));
     }
     return { ok: true, id: data as string, shareCents: yourShare(splits, me.id) };
   } catch (err) {

@@ -64,7 +64,7 @@ export async function addContribution(_prev: FormState, fd: FormData): Promise<F
   const total = (sums ?? []).reduce((a, c) => a + c.amount_cents, 0);
   if (g && total >= g.target_cents && total - amount < g.target_cents) {
     const ms = (await supabase.from("space_members").select("user_id").eq("space_id", g.space_id).not("user_id", "is", null)).data ?? [];
-    await notify(ms.map((m) => m.user_id as string), "goal_reached", { title: "¡Meta alcanzada!", body: g.name, url: `/ahorro/${goal.data}` }, goal.data);
+    await notify(ms.map((m) => m.user_id as string), "goal_reached", (t) => ({ title: t("¡Meta alcanzada!"), body: g.name, url: `/ahorro/${goal.data}` }), goal.data);
   }
   revalidatePath(`/ahorro/${goal.data}`);
   return { ok: true, message: x("Aportación guardada.") };

@@ -109,3 +109,15 @@ describe.skipIf(!rlsConfigured)("RLS fase 11: borrar cuenta", () => {
     await admin().auth.admin.deleteUser(guest.id);
   });
 });
+
+describe.skipIf(!rlsConfigured)("idioma del destinatario de avisos", () => {
+  it("setLocale guarda el idioma en el perfil y solo el propio usuario lo cambia", async () => {
+    const ana = await createUser("Ana"), leo = await createUser("Leo");
+    expect((await ana.client.from("profiles").update({ locale: "en" }).eq("id", ana.id)).error).toBeNull();
+    expect((await admin().from("profiles").select("locale").eq("id", ana.id).single()).data).toEqual({ locale: "en" });
+    await leo.client.from("profiles").update({ locale: "en" }).eq("id", ana.id);
+    expect((await leo.client.from("profiles").select("locale").eq("id", ana.id)).data).toEqual([]);
+    expect((await ana.client.from("profiles").update({ locale: "fr" }).eq("id", ana.id)).error).not.toBeNull();
+    await admin().auth.admin.deleteUser(ana.id); await admin().auth.admin.deleteUser(leo.id);
+  });
+});

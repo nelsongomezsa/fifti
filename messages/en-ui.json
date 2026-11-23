@@ -661,5 +661,8 @@
   "Limpieza": "Cleaning",
   "General": "General",
   "Aportación al hogar": "Household contribution",
-  "Internet": "Internet"
+  "Internet": "Internet",
+  "Te has pasado del fondo": "You've gone over the fund",
+  "Vas por el 80 % del fondo": "You're at 80 % of the fund",
+  "¡Meta alcanzada!": "Goal reached!"
 }

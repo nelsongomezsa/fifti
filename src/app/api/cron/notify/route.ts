@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { addMonths, monthStart, summarizeFund } from "@/lib/money";
+import { displayName } from "@/lib/system-names";
 import { isCronAuthorized } from "@/lib/security/cron";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadPlan } from "@/server/plan";
@@ -19,14 +20,14 @@ export async function GET(request: NextRequest) {
   try {
     // 1. Gastos fijos que vencen mañana
     const { data: due } = await admin.from("recurring_expenses").select("id, space_id, next_run").eq("active", true).eq("next_run", tomorrow).limit(1000);
-    for (const r of due ?? []) await notify(await usersOf(r.space_id), "fixed_tomorrow", { title: "Fifti", body: "Mañana vence un gasto fijo.", url: "/plan" }, `${r.id}:${r.next_run}`);
+    for (const r of due ?? []) await notify(await usersOf(r.space_id), "fixed_tomorrow", (t) => ({ title: "Fifti", body: t("Mañana vence un gasto fijo."), url: "/plan" }), `${r.id}:${r.next_run}`);
 
     // 2. Aportaciones al hogar pendientes (a partir del día 5)
     if (now.getUTCDate() >= 5) {
       const { data: cs } = await admin.from("contributions").select("id, member_id, expected_cents, paid_cents").eq("month", month).limit(2000);
       for (const c of (cs ?? []).filter((x) => x.paid_cents < x.expected_cents && x.expected_cents > 0)) {
         const { data: m } = await admin.from("space_members").select("user_id").eq("id", c.member_id).maybeSingle();
-        if (m?.user_id) await notify([m.user_id], "contribution_pending", { title: "Fifti", body: "Tienes una aportación pendiente al hogar.", url: "/plan" }, c.id);
+        if (m?.user_id) await notify([m.user_id], "contribution_pending", (t) => ({ title: "Fifti", body: t("Tienes una aportación pendiente al hogar."), url: "/plan" }), c.id);
       }
     }
 
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
         const row = summarizeFund(f.id, (a?.planned ?? 0) + (a?.carry ?? 0), d.spentByFund[f.id] ?? 0);
         if (row.planned > 0 && row.status !== "ok") {
           await notify(await usersOf(p.space_id), "fund_threshold",
-            { title: "Fifti", body: row.status === "over" ? `Te has pasado del fondo ${f.name}.` : `Vas por el 80 % del fondo ${f.name}.`, url: "/plan" }, `${p.id}:${f.id}:${row.status}`);
+            (t) => ({ title: "Fifti", body: `${t(row.status === "over" ? "Te has pasado del fondo" : "Vas por el 80 % del fondo")} ${displayName(t, f.name, f.system_key)}.`, url: "/plan" }), `${p.id}:${f.id}:${row.status}`);
         }
       }
     }
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
     if (today.endsWith("-01")) {
       const { data: profs } = await admin.from("profiles").select("id").limit(5000);
       for (let i = 0; i < (profs ?? []).length; i += 100) {
-        await notify(profs!.slice(i, i + 100).map((p) => p.id as string), "monthly_summary", { title: "Fifti", body: "Tu resumen del mes pasado ya está listo.", url: "/resumen-mensual" }, addMonths(month, -1));
+        await notify(profs!.slice(i, i + 100).map((p) => p.id as string), "monthly_summary", (t) => ({ title: "Fifti", body: t("Tu resumen del mes pasado ya está listo."), url: "/resumen-mensual" }), addMonths(month, -1));
       }
     }
   } catch (err) {
