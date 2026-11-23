@@ -2,39 +2,53 @@
 
 *Cuentas claras en casa, en pareja y de fiesta.*
 
-PWA de finanzas personales, de pareja y de grupo. El dinero se organiza en **burbujas**: personal (privada), fija (hogar o pareja) y espontánea (una cena, un viaje). Todo está conectado: tu parte de cada gasto de grupo entra sola en tu plan personal.
+PWA de finanzas personales, de pareja y de grupo. El dinero se organiza en **burbujas**:
 
-> En desarrollo por fases. Estado actual: **fase 1 (base)**.
+- **Personal**: privada. Ingresos, gastos, plan del mes y metas.
+- **Hogar** (fija): pareja o piso, con bote común proporcional a los ingresos, gastos fijos y ahorro.
+- **Plan espontáneo**: una cena o un viaje. Se comparte por enlace o QR, entran sin cuenta y al cerrarlo sale quién paga a quién.
+
+**Qué la diferencia de Tricount:** todo está conectado. Tu parte de cada gasto de grupo entra sola en tu plan personal, así sabes lo que gastas de verdad en el mes (casa + pareja + salidas). Además tiene plan mensual por fondos, previsión de fin de mes, cierre de mes, bote común y metas de ahorro.
+
+Prueba la demo (datos ficticios, sin registro) en `/demo`.
+
+## Capturas
+
+Las capturas se generan con los datos ficticios de la demo (`/demo`): Ana, Leo, «Viernes noche», «Viaje Lisboa».
 
 ## Stack
 
-Next.js (App Router) · TypeScript · Tailwind CSS · Supabase (Postgres, Auth, RLS) · Vitest · Vercel
+Next.js 16 (App Router) · TypeScript estricto · Tailwind CSS 4 · Supabase (Postgres, Auth, Storage, RLS, pg_cron) · Zod · Recharts + d3-hierarchy · next-intl · tesseract.js · Vitest · Vercel
 
-## Requisitos
+## Decisiones técnicas
 
-- Node 24+
-- Docker (para Supabase local y los tests de RLS)
+- **Dinero en céntimos** (enteros; `bigint` en Postgres) y **porcentajes en puntos básicos** (10000 = 100 %). Los repartos usan el método del mayor resto: la suma siempre cuadra al céntimo. Toda la lógica de dinero son funciones puras en `src/lib/money`, con tests de propiedades.
+- **RLS en todas las tablas** (38) con `FORCE ROW LEVEL SECURITY`, privilegios por columna y funciones `security definer` con `search_path` fijo. Las escrituras sensibles (gastos, liquidaciones, invitaciones, compensaciones) van por RPC atómicas que validan pertenencia, sumas e importes.
+- **Sesión en cookies `httpOnly`** (`@supabase/ssr`); no hay cliente de Supabase en el navegador y la `service_role` solo existe en el servidor (`server-only`).
+- **Invitados sin cuenta** = sesiones anónimas de Supabase Auth, ligadas por RLS a un solo grupo y un solo perfil; pueden convertirse en cuenta conservando su historial.
+- **Enlaces** (invitación, invitado, reclamar perfil, resumen público): token de 32 bytes, solo se guarda su hash, con caducidad, usos máximos y revocación.
+- **Sincronización offline**: cola en IndexedDB con `client_id` idempotente; reenviar nunca duplica. Service worker propio con lectura offline y sin cachear páginas con tokens.
+- **Gastos privados** dentro de un grupo: el detalle vive en una tabla aparte legible solo por su autor; los demás ven «Gasto privado» con importe y reparto.
+- **Historial** inmutable (solo inserción) escrito por triggers.
+- **Tickets**: tipo real por magic bytes, máx. 5 MB, recodificado a WebP sin EXIF, bucket privado y URL firmada de 5 minutos. OCR en el navegador con archivos servidos desde el propio dominio.
+- **Contraseñas** comprobadas contra Have I Been Pwned por k-anonymity (solo salen 5 caracteres del hash SHA-1).
+- **CSV**: escape de inyección de fórmulas al exportar; al importar, límites de tamaño y filas, validación por fila y vista previa.
 
-## Puesta en marcha
+## Cómo ejecutarlo
+
+Requisitos: Node 24+ y Docker (Supabase local y tests de RLS).
 
 ```bash
 npm install
-cp .env.example <tu archivo local de entorno>   # rellena las claves de tu proyecto Supabase
+cp .env.example <tu archivo local de entorno>   # y rellena las claves
 npx supabase start                              # base de datos local con las migraciones
 npm run dev
 ```
 
-Scripts útiles: `npm test` (lógica de dinero y validación), `npm run test:rls` (políticas RLS contra Supabase), `npm run lint`, `npm run typecheck`, `npm run icons` (regenera logo e iconos).
+Variables: URL y clave anónima de Supabase, `SUPABASE_SERVICE_ROLE_KEY`, `RATE_LIMIT_SALT`, `CRON_SECRET`, y las claves VAPID (`npx web-push generate-vapid-keys`) para las notificaciones.
 
-## Decisiones técnicas
-
-- **Dinero en céntimos** (enteros; `bigint` en Postgres) y **porcentajes en puntos básicos** (10000 = 100 %). Los repartos usan el método del mayor resto, así la suma siempre cuadra al céntimo.
-- **Sesión en cookies `httpOnly`** (`@supabase/ssr`), sin tokens en `localStorage`. Todo el acceso a datos pasa por el servidor.
-- **RLS en todas las tablas**, con `FORCE ROW LEVEL SECURITY` y privilegios por columna.
-- **Rate limiting** en Postgres (RPC atómica), con IPs y emails anonimizados con hash y sal.
-- **Contraseñas** comprobadas contra Have I Been Pwned por k-anonymity (solo salen 5 caracteres del hash).
-- **Logo en SVG con trazados**, generado desde la tipografía, para que se vea igual en todas partes.
+Scripts: `npm test` (lógica de dinero, validación, CSV, cola offline…), `npm run test:rls` (políticas contra Supabase), `npm run lint`, `npm run typecheck`, `npm run check` (todo + build), `npm run icons` (logo e iconos).
 
 ## Seguridad
 
-CI con `gitleaks`, `osv-scanner`, `npm audit` y Dependabot. No hay secretos en el repo: solo el archivo de ejemplo de variables.
+CI con `gitleaks`, `osv-scanner`, `npm audit` y Dependabot. En el repo solo hay archivos de ejemplo de variables; ningún secreto ni dato real.
