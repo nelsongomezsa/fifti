@@ -19,19 +19,16 @@ export type PlanData = {
 export async function loadPlan(supabase: SupabaseClient, spaceId: string, month: string, extraByFund: Record<string, number> = {}): Promise<PlanData> {
   const next = addMonths(month, 1);
   const [{ data: plan }, { data: members }, { data: funds }, { data: cats }, { data: incomes }, { data: expenses }] = await Promise.all([
-    supabase.from("monthly_plans").select("id, status, notes").eq("space_id", spaceId).eq("month", month).maybeSingle(),
+    supabase.from("monthly_plans").select("id, status, notes, plan_incomes(member_id, expected_cents), plan_allocations(fund_id, mode, value, planned_cents, carry_cents)").eq("space_id", spaceId).eq("month", month).maybeSingle(),
     supabase.from("space_members").select("id, user_id, display_name, role").eq("space_id", spaceId).order("joined_at"),
     supabase.from("funds").select("id, name, kind, color, rollover, system_key").eq("space_id", spaceId).order("position"),
     supabase.from("categories").select("id, fund_id").eq("space_id", spaceId),
     supabase.from("incomes").select("member_id, amount_cents").eq("space_id", spaceId).gte("received_at", month).lt("received_at", next),
     supabase.from("expenses").select("category_id, amount_base_cents").eq("space_id", spaceId).gte("spent_at", month).lt("spent_at", next).limit(5000),
   ]);
-  const [{ data: pi }, { data: pa }] = plan
-    ? await Promise.all([
-        supabase.from("plan_incomes").select("member_id, expected_cents").eq("plan_id", plan.id),
-        supabase.from("plan_allocations").select("fund_id, mode, value, planned_cents, carry_cents").eq("plan_id", plan.id),
-      ])
-    : [{ data: [] }, { data: [] }];
+  // Ingresos previstos y asignaciones llegan en la misma consulta del plan (antes eran dos rondas más)
+  const pi = (plan as { plan_incomes?: { member_id: string; expected_cents: number }[] } | null)?.plan_incomes ?? [];
+  const pa = (plan as { plan_allocations?: { fund_id: string; mode: "percent" | "amount"; value: number; planned_cents: number; carry_cents: number }[] } | null)?.plan_allocations ?? [];
 
   const catToFund = new Map((cats ?? []).map((c) => [c.id, c.fund_id as string]));
   const sums = sumByFund((expenses ?? []).map((e) => ({ categoryId: e.category_id as string | null, cents: e.amount_base_cents as number })), catToFund);
@@ -43,11 +40,11 @@ export async function loadPlan(supabase: SupabaseClient, spaceId: string, month:
   const actual: Record<string, number> = {};
   for (const i of incomes ?? []) actual[i.member_id] = (actual[i.member_id] ?? 0) + i.amount_cents;
   return {
-    month, plan: (plan as PlanData["plan"]) ?? null,
+    month, plan: plan ? { id: plan.id, status: plan.status, notes: plan.notes } as PlanData["plan"] : null,
     members: members ?? [], funds: funds ?? [],
-    expected: Object.fromEntries((pi ?? []).map((r) => [r.member_id, r.expected_cents])),
+    expected: Object.fromEntries(pi.map((r) => [r.member_id, r.expected_cents])),
     actual,
-    allocations: Object.fromEntries((pa ?? []).map((a) => [a.fund_id, { mode: a.mode, value: a.value, planned: a.planned_cents, carry: a.carry_cents }])),
+    allocations: Object.fromEntries(pa.map((a) => [a.fund_id, { mode: a.mode, value: a.value, planned: a.planned_cents, carry: a.carry_cents }])),
     spentByFund, uncategorized: sums.get(null) ?? 0, totalSpent,
   };
 }

@@ -31,12 +31,14 @@ async function seriesFor(supabase: SupabaseClient, spaceId: string, personal: bo
 /** Panel de Inicio / seguimiento de un mes: sobra, tasa de ahorro, previsión y gasto de 6 meses. */
 export async function loadOverview(supabase: SupabaseClient, spaceId: string, kind: "personal" | "household" | "group", month = monthStart(new Date()), today = new Date().toISOString().slice(0, 10), locale = "es-ES"): Promise<Overview> {
   const personal = kind === "personal";
-  const mirror = personal ? await loadMirrorByFund(supabase, month) : {};
-  const plan = await loadPlan(supabase, spaceId, month, mirror);
-  const x = await getTx();
-  plan.funds = plan.funds.map((f) => ({ ...f, name: displayName(x, f.name, f.system_key) }));
   const months = lastMonths(month, 6);
-  const s = await seriesFor(supabase, spaceId, personal, months[0]!);
+  // El plan del mes y la serie de 6 meses no dependen entre sí: se piden a la vez.
+  const [plan, s, x] = await Promise.all([
+    (async () => loadPlan(supabase, spaceId, month, personal ? await loadMirrorByFund(supabase, month) : {}))(),
+    seriesFor(supabase, spaceId, personal, months[0]!),
+    getTx(),
+  ]);
+  plan.funds = plan.funds.map((f) => ({ ...f, name: displayName(x, f.name, f.system_key) }));
   const spendSeries = fillSeries(months, s.spend).map((v, i) => v + fillSeries(months, s.mir)[i]!);
   const incSeries = fillSeries(months, s.inc);
 

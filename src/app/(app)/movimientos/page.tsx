@@ -13,22 +13,14 @@ const esc = (s: string) => s.replace(/[\\%_,()]/g, " ").trim().slice(0, 50);
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function MovementsPage({ searchParams }: { searchParams: Promise<SP> }) {
-  const x = await getTx();
-  const sp = await searchParams;
-  const user = await requireUser();
-  const active = await getActiveSpace(await listMySpaces());
+  const [x, sp, user, spaces] = await Promise.all([getTx(), searchParams, requireUser(), listMySpaces()]);
+  const active = await getActiveSpace(spaces);
   if (!active) return null;
   const supabase = await createClient();
 
   const month = sp.mes && isMonthStart(sp.mes) ? sp.mes : monthStart(new Date());
   const next = addMonths(month, 1);
   const monthLabel = new Date(`${month}T00:00:00Z`).toLocaleDateString(x.locale, { month: "long", year: "numeric", timeZone: "UTC" });
-
-  const [{ data: members }, { data: cats }] = await Promise.all([
-    supabase.from("space_members").select("id, user_id, display_name").eq("space_id", active.id),
-    supabase.from("categories").select("id, name, system_key").eq("space_id", active.id),
-  ]);
-  const me = members?.find((m) => m.user_id === user.id);
 
   let q = supabase
     .from("expenses")
@@ -38,13 +30,18 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
   if (sp.cat && uuid.test(sp.cat)) q = q.eq("category_id", sp.cat);
   if (sp.persona && uuid.test(sp.persona)) q = q.eq("created_by_member", sp.persona);
   if (sp.q && esc(sp.q)) q = q.ilike("description", `%${esc(sp.q)}%`);
-  const { data: expenses } = await q;
-  const { data: privates } = await supabase.from("expense_private_details").select("expense_id, description");
+  // Todas las consultas son independientes: una sola ronda de red
+  const [{ data: members }, { data: cats }, { data: expenses }, { data: privates }, { data: mirrors }] = await Promise.all([
+    supabase.from("space_members").select("id, user_id, display_name").eq("space_id", active.id),
+    supabase.from("categories").select("id, name, system_key").eq("space_id", active.id),
+    q,
+    supabase.from("expense_private_details").select("expense_id, description"),
+    active.kind === "personal"
+      ? supabase.from("personal_mirror").select("id, label, amount_cents, spent_at").eq("enabled", true).gte("spent_at", month).lt("spent_at", next).order("spent_at", { ascending: false })
+      : Promise.resolve({ data: [] as { id: string; label: string; amount_cents: number; spent_at: string }[] }),
+  ]);
+  const me = members?.find((m) => m.user_id === user.id);
   const priv = new Map((privates ?? []).map((p) => [p.expense_id, p.description]));
-
-  const { data: mirrors } = active.kind === "personal"
-    ? await supabase.from("personal_mirror").select("id, label, amount_cents, spent_at").eq("enabled", true).gte("spent_at", month).lt("spent_at", next).order("spent_at", { ascending: false })
-    : { data: [] };
   type Row = NonNullable<typeof expenses>[number];
   const tagOf = (e: Row) => ((e.expense_tags as unknown as { tags: { name: string } | null }[]) ?? []).map((t) => t.tags?.name).filter(Boolean) as string[];
   const tag = sp.tag?.toLowerCase().replace(/^#/, "");

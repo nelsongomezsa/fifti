@@ -13,38 +13,38 @@ import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
 export const metadata: Metadata = { title: "Inicio" };
 
 export default async function HomePage() {
-  const x = await getTx();
-  const user = await requireUser();
-  const spaces = await listMySpaces();
+  const [x, user, spaces, t, locale] = await Promise.all([getTx(), requireUser(), listMySpaces(), getTranslations("home"), getLocale()]);
   const active = await getActiveSpace(spaces);
   if (!active) return null;
   const supabase = await createClient();
-  const t = await getTranslations("home");
-  const locale = await getLocale();
-  const o = await loadOverview(supabase, active.id, active.kind, undefined, undefined, x.locale);
-  const monthName = new Date(`${o.month}T00:00:00Z`).toLocaleDateString(locale, { month: "long", timeZone: "UTC" });
-  const pctText = (bp: number) => `${(bp / 100).toFixed(0)} %`;
-  const hasData = o.income > 0 || o.spent > 0;
 
-  let transfer: { from: string; to: string; amountCents: number } | null = null;
-  if (active.kind !== "personal") {
-    const b = await loadSpaceBalance(supabase, active.id);
-    const me = b.members.find((m) => m.user_id === user.id);
-    const t = b.transfers.find((x) => x.from === me?.id || x.to === me?.id) ?? b.transfers[0];
-    if (t) transfer = { from: b.members.find((m) => m.id === t.from)?.display_name ?? "—", to: b.members.find((m) => m.id === t.to)?.display_name ?? "—", amountCents: t.amountCents };
-  }
-  let budgetLeft: number | null = null;
-  if (active.kind === "group") {
-    const { data: sp } = await supabase.from("spaces").select("daily_budget_cents").eq("id", active.id).maybeSingle();
-    if (sp?.daily_budget_cents) {
+  // Resumen, saldo del grupo y presupuesto del día no dependen entre sí: se piden a la vez.
+  const [o, balance, budget] = await Promise.all([
+    loadOverview(supabase, active.id, active.kind, undefined, undefined, x.locale),
+    active.kind !== "personal" ? loadSpaceBalance(supabase, active.id) : Promise.resolve(null),
+    (async () => {
+      if (active.kind !== "group") return null;
+      const { data: sp } = await supabase.from("spaces").select("daily_budget_cents").eq("id", active.id).maybeSingle();
+      if (!sp?.daily_budget_cents) return null;
       const day = new Date().toISOString().slice(0, 10);
       const [{ data: ex }, { count }] = await Promise.all([
         supabase.from("expenses").select("amount_base_cents").eq("space_id", active.id).eq("spent_at", day).eq("paid_from", "member"),
         supabase.from("space_members").select("id", { count: "exact", head: true }).eq("space_id", active.id),
       ]);
-      budgetLeft = dailyBudgetLeft(sp.daily_budget_cents, count ?? 1, (ex ?? []).reduce((a, e) => a + e.amount_base_cents, 0));
-    }
+      return dailyBudgetLeft(sp.daily_budget_cents, count ?? 1, (ex ?? []).reduce((a, e) => a + e.amount_base_cents, 0));
+    })(),
+  ]);
+  const monthName = new Date(`${o.month}T00:00:00Z`).toLocaleDateString(locale, { month: "long", timeZone: "UTC" });
+  const pctText = (bp: number) => `${(bp / 100).toFixed(0)} %`;
+  const hasData = o.income > 0 || o.spent > 0;
+
+  let transfer: { from: string; to: string; amountCents: number } | null = null;
+  if (balance) {
+    const me = balance.members.find((m) => m.user_id === user.id);
+    const tr = balance.transfers.find((q) => q.from === me?.id || q.to === me?.id) ?? balance.transfers[0];
+    if (tr) transfer = { from: balance.members.find((m) => m.id === tr.from)?.display_name ?? "—", to: balance.members.find((m) => m.id === tr.to)?.display_name ?? "—", amountCents: tr.amountCents };
   }
+  const budgetLeft: number | null = budget;
   const today = new Date();
   const showSummary = today.getUTCDate() <= 3 && o.month === monthStart(today);
 

@@ -10,11 +10,12 @@ import { BubbleSwitcher } from "@/components/nav/BubbleSwitcher";
 import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const user = await requireUser();
-  const spaces = await listMySpaces();
+  // Usuario, burbujas, perfil y textos se piden a la vez (antes iban en serie)
+  const [user, spaces, t, profile] = await Promise.all([
+    requireUser(), listMySpaces(), getTranslations("nav"),
+    createClient().then((c) => c.from("profiles").select("discreet_mode").maybeSingle()).then((r) => r.data),
+  ]);
   const active = await getActiveSpace(spaces);
-  const t = await getTranslations("nav");
-  const { data: profile } = user.is_anonymous ? { data: null } : await (await createClient()).from("profiles").select("discreet_mode").maybeSingle();
   const discreet = !!profile?.discreet_mode;
 
   return (

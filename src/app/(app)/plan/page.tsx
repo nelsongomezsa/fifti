@@ -18,14 +18,24 @@ const centsText = (c: number) => (c / 100).toFixed(2).replace(".", ",");
 const FREQ = { weekly: "Semanal", monthly: "Mensual", yearly: "Anual" } as const;
 
 export default async function PlanPage({ searchParams }: { searchParams: Promise<{ mes?: string; vista?: string }> }) {
-  const x = await getTx();
-  const sp = await searchParams;
-  const user = await requireUser();
-  const active = await getActiveSpace(await listMySpaces());
+  const [x, sp, user, spaces] = await Promise.all([getTx(), searchParams, requireUser(), listMySpaces()]);
+  const active = await getActiveSpace(spaces);
   if (!active) return null;
   const supabase = await createClient();
   const month = sp.mes && isMonthStart(sp.mes) ? sp.mes : monthStart(new Date());
-  const d = await loadPlan(supabase, active.id, month, active.kind === "personal" ? await loadMirrorByFund(supabase, month) : {});
+  // Todas las consultas de la página en una sola ronda de red
+  const sideQueries = Promise.all([
+    supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, next_run, active, category_id, paid_from").eq("space_id", active.id).order("next_run"),
+    supabase.from("categories").select("id, name, system_key").eq("space_id", active.id).order("name"),
+    active.kind === "household" ? supabase.from("contribution_rules").select("mode, monthly_target_cents, values").eq("space_id", active.id).maybeSingle() : Promise.resolve({ data: null }),
+    active.kind === "household" ? supabase.from("contributions").select("id, member_id, expected_cents, paid_cents").eq("space_id", active.id).eq("month", month) : Promise.resolve({ data: [] }),
+    supabase.from("savings_goals").select("id, name").eq("space_id", active.id),
+    supabase.from("expenses").select("description, amount_base_cents, spent_at").eq("space_id", active.id).eq("is_private", false).is("recurring_id", null).gte("spent_at", addMonths(month, -6)).limit(2000),
+  ]);
+  const [d, [{ data: recurring }, { data: cats }, { data: rule }, { data: contribs }, { data: goals }, { data: hist }]] = await Promise.all([
+    (async () => loadPlan(supabase, active.id, month, active.kind === "personal" ? await loadMirrorByFund(supabase, month) : {}))(),
+    sideQueries,
+  ]);
   d.funds = d.funds.map((f) => ({ ...f, name: displayName(x, f.name, f.system_key) }));
   const list = sp.vista === "lista";
   const rows = d.funds.map((f) => ({ f, row: summarizeFund(f.id, (d.allocations[f.id]?.planned ?? 0) + (d.allocations[f.id]?.carry ?? 0), d.spentByFund[f.id] ?? 0) }));
@@ -38,14 +48,6 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
   const expectedTotal = Object.values(d.expected).reduce((a, b) => a + b, 0);
   const actualTotal = Object.values(d.actual).reduce((a, b) => a + b, 0);
 
-  const [{ data: recurring }, { data: cats }, { data: rule }, { data: contribs }, { data: goals }] = await Promise.all([
-    supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, next_run, active, category_id, paid_from").eq("space_id", active.id).order("next_run"),
-    supabase.from("categories").select("id, name, system_key").eq("space_id", active.id).order("name"),
-    active.kind === "household" ? supabase.from("contribution_rules").select("mode, monthly_target_cents, values").eq("space_id", active.id).maybeSingle() : Promise.resolve({ data: null }),
-    active.kind === "household" ? supabase.from("contributions").select("id, member_id, expected_cents, paid_cents").eq("space_id", active.id).eq("month", month) : Promise.resolve({ data: [] }),
-    supabase.from("savings_goals").select("id, name").eq("space_id", active.id),
-  ]);
-  const { data: hist } = await supabase.from("expenses").select("description, amount_base_cents, spent_at").eq("space_id", active.id).eq("is_private", false).is("recurring_id", null).gte("spent_at", addMonths(month, -6)).limit(2000);
   const subs = detectSubscriptions((hist ?? []).map((h) => ({ description: h.description, amountCents: h.amount_base_cents, spentAt: h.spent_at })), (recurring ?? []).map((r) => r.description)).slice(0, 3);
   const nm = (id: string) => d.members.find((m) => m.id === id)?.display_name ?? "—";
   const myRecurring = recurring ?? [];
