@@ -10,6 +10,8 @@ import { buildSplits, computeBalances, formatMoney, parseToCents, savingsRateBp,
 
 const ACCENT = { personal: "var(--lilac)", household: "var(--lime)", group: "var(--tangerine)" } as const;
 const MONTHS = ["jun", "jul", "ago", "sep", "oct", "nov"];
+const FULL = ["Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre"];
+const FULL_EN = ["June", "July", "August", "September", "October", "November"];
 type Tab = "inicio" | "movimientos" | "plan";
 
 /** Modo demo: 100 % en el navegador. Ninguna escritura sale del dispositivo ni hay acceso a datos reales. */
@@ -115,7 +117,7 @@ function Home({ b, expenses }: { b: DemoBubble; expenses: DemoExpense[] }) {
   }
   const leftover = b.income - fundsSpent;
   const change = leftover - b.prevLeftover;
-  const series = b.series.map((c, i) => ({ label: MONTHS[i]!, cents: i === 5 ? fundsSpent : c, current: i === 5 }));
+  const series = b.series.map((c, i) => ({ label: MONTHS[i]!, full: (x.locale === "en-GB" ? FULL_EN : FULL)[i]!, cents: i === 5 ? fundsSpent : c, current: i === 5 }));
   return (
     <section className="flex flex-col gap-5 pt-2">
       <div>
