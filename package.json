@@ -15,7 +15,8 @@
     "build:ci": "node scripts/copy-ocr-assets.mjs && NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_SUPABASE_ANON_KEY=placeholder-anon-key-for-build-only next build",
     "check": "npm run typecheck && npm run lint && npm test && npm run build:ci",
     "prebuild": "node scripts/copy-ocr-assets.mjs",
-    "predev": "node scripts/copy-ocr-assets.mjs"
+    "predev": "node scripts/copy-ocr-assets.mjs",
+    "e2e:sheet": "node scripts/e2e/sheet-fits.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -48,6 +49,7 @@
     "fake-indexeddb": "^6.2.8",
     "opentype.js": "^2.0.0",
     "postcss": "^8.5.33",
+    "puppeteer-core": "^25.18.1",
     "sharp": "^0.35.5",
     "tailwindcss": "^4.3.5",
     "typescript": "^6.0.3",

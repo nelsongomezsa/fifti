@@ -5,6 +5,10 @@ import { useTx } from "@/i18n/tx-client";
 import { useMemo, useRef, useState } from "react";
 import { SpendChart } from "@/components/charts/SpendChart";
 import { Keypad } from "@/components/expense/Keypad";
+import { ExpenseSheet } from "@/components/expense/ExpenseSheet";
+import { buildDemoContext } from "@/lib/demo-context";
+import type { ExpenseInput } from "@/lib/validation/expense";
+import type { SaveResult } from "@/server/actions/expenses";
 import { DEMO_BUBBLES, type DemoBubble, type DemoExpense } from "@/lib/demo-data";
 import { buildSplits, computeBalances, formatMoney, groupTyped, parseToCents, savingsRateBp, simplifyDebts, summarizeFund } from "@/lib/money";
 
@@ -26,6 +30,30 @@ export function DemoApp() {
   const bubble = DEMO_BUBBLES.find((b) => b.id === bubbleId)!;
   const expenses = useMemo(() => [...(extra[bubble.id] ?? []), ...bubble.expenses], [extra, bubble]);
   const accent = ACCENT[bubble.kind];
+  const demoCtx = useMemo(() => buildDemoContext(), []);
+
+  /** Entrega en memoria del gasto de la hoja real: nada sale del navegador. */
+  const saveDemoExpense = (input: ExpenseInput): SaveResult => {
+    const sp = demoCtx.spaces.find((v) => v.id === input.spaceId);
+    if (!sp) return { ok: false, error: "Burbuja no encontrada" };
+    const name = (id: string) => sp.members.find((m) => m.id === id)?.name ?? sp.members[0]!.name;
+    const ex: DemoExpense = {
+      id: crypto.randomUUID(), text: input.description, cents: input.amountCents, day: Number(input.spentAt.slice(8, 10)),
+      category: sp.categories.find((c) => c.id === input.categoryId)?.name ?? "Demo",
+      payer: name(input.payers[0]?.memberId ?? sp.meId), participants: input.participants.map(name),
+    };
+    let share = input.amountCents;
+    try {
+      const lines = buildSplits(input.amountCents, sp.kind === "personal" ? "equal" : input.splitMode, input.participants.map((id) => ({ memberId: id, defaultBp: sp.members.find((m) => m.id === id)?.defaultBp ?? null })), input.custom);
+      share = lines.find((l) => l.memberId === sp.meId)?.amountCents ?? 0;
+    } catch { /* reparto no válido: la hoja ya lo avisa */ }
+    setExtra((p) => ({ ...p, [sp.id]: [ex, ...(p[sp.id] ?? [])] }));
+    setBubbleId(sp.id);
+    setToast({ bubbleId: sp.id, id: ex.id, text: sp.kind === "personal" ? "Personal" : sp.name });
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setToast(null), 5000);
+    return { ok: true, id: ex.id, shareCents: share };
+  };
 
   return (
     <div data-bubble={bubble.kind} className="mx-auto min-h-dvh max-w-md pb-28">
@@ -61,14 +89,8 @@ export function DemoApp() {
       </nav>
 
       {sheet && (
-        <DemoSheet bubbles={DEMO_BUBBLES} initialId={bubble.id} onClose={() => setSheet(false)}
-          onSave={(bid, ex) => {
-            setExtra((p) => ({ ...p, [bid]: [ex, ...(p[bid] ?? [])] }));
-            setBubbleId(bid); setSheet(false);
-            setToast({ bubbleId: bid, id: ex.id, text: DEMO_BUBBLES.find((v) => v.id === bid)!.name });
-            if (timer.current) clearTimeout(timer.current);
-            timer.current = setTimeout(() => setToast(null), 5000);
-          }} />
+        <ExpenseSheet ctx={demoCtx} defaultSpaceId={bubble.id} onClose={() => setSheet(false)} onSaved={() => undefined}
+          demo={{ submit: async (input) => saveDemoExpense(input) }} />
       )}
       {toast && (
         <div role="status" className="anim-fade fixed inset-x-4 bottom-28 z-50 mx-auto flex max-w-md items-center justify-between gap-3 rounded-card border border-border bg-surface-2 px-4 py-3 shadow-lg">
@@ -182,86 +204,5 @@ function Plan({ b }: { b: DemoBubble }) {
       <FundTable b={b} />
       <p className="text-sm text-ink-3">{x("En la app real: burbujas por fondo, previsión de fin de mes, cierre de mes y bote común.")}</p>
     </section>
-  );
-}
-
-/** Hoja de nuevo gasto de la demo: misma estructura que la real (burbujas, fondos, pagó, reparto y "tu parte" en directo). */
-function DemoSheet({ bubbles, initialId, onClose, onSave }: { bubbles: DemoBubble[]; initialId: string; onClose: () => void; onSave: (bubbleId: string, e: DemoExpense) => void }) {
-  const x = useTx();
-  const [bid, setBid] = useState(initialId);
-  const b = bubbles.find((v) => v.id === bid)!;
-  const isGroup = b.kind !== "personal";
-  const chips = b.kind === "group" ? ["Alojamiento", "Comida", "Transporte", "Ocio", "Otros"] : b.funds.map((f) => f.name);
-  const [amount, setAmount] = useState("");
-  const [text, setText] = useState("");
-  const [chip, setChip] = useState(chips[0]!);
-  const [payer, setPayer] = useState(b.members[0]!);
-  const [mode, setMode] = useState<"default" | "equal">("default");
-  const [included, setIncluded] = useState<string[]>(b.members);
-  const cents = parseToCents(amount) ?? 0;
-  const accent = ACCENT[b.kind];
-
-  const pick = (id: string) => {
-    const nb = bubbles.find((v) => v.id === id)!;
-    setBid(id);
-    setChip(nb.kind === "group" ? "Alojamiento" : nb.funds[0]!.name);
-    setPayer(nb.members[0]!); setIncluded(nb.members); setMode("default");
-  };
-  const share = (() => {
-    if (cents <= 0) return 0;
-    if (!isGroup) return cents;
-    if (included.length === 0) return 0;
-    const weights = b.kind === "household" ? [6000, 4000] : null; // reparto por defecto ficticio del hogar
-    const parts = included.map((m) => ({ memberId: m, defaultBp: mode === "default" && weights ? (weights[b.members.indexOf(m)] ?? 0) : null }));
-    return buildSplits(cents, mode === "equal" || !weights ? "equal" : "default", parts).find((p) => p.memberId === b.members[0])?.amountCents ?? 0;
-  })();
-  const chipCls = (on: boolean) => `min-h-11 whitespace-nowrap rounded-full border px-4 text-sm font-medium ${on ? "text-on-accent" : "border-border text-ink-2"}`;
-
-  return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/60" onClick={onClose}>
-      <div role="dialog" aria-modal="true" aria-label={x("Nuevo gasto")} onClick={(ev) => ev.stopPropagation()} className="anim-sheet max-h-[94dvh] w-full max-w-md overflow-y-auto rounded-t-[24px] border border-border bg-surface-2 p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-bold">{x("Nuevo gasto")}</h2>
-          <button type="button" onClick={onClose} aria-label={x("Cerrar")} className="grid min-h-11 min-w-11 place-items-center text-ink-2">✕</button>
-        </div>
-        <p className="mb-1 text-xs text-ink-3">{x("¿Dónde lo apunto?")}</p>
-        <div className="mb-4 flex gap-2 overflow-x-auto [scrollbar-width:none]">
-          {bubbles.map((v) => (
-            <button key={v.id} type="button" aria-pressed={v.id === bid} onClick={() => pick(v.id)} className={chipCls(v.id === bid)} style={v.id === bid ? { background: ACCENT[v.kind], borderColor: ACCENT[v.kind] } : undefined}>{v.name}</button>
-          ))}
-        </div>
-        <output className="mb-2 block text-center font-mono text-5xl font-semibold">{amount ? groupTyped(amount, x.locale) : "0"} <span className="text-3xl text-ink-3">€</span></output>
-        <input value={text} onChange={(e) => setText(e.target.value)} maxLength={60} placeholder={x("Concepto")} aria-label={x("Concepto")} className="mb-3 min-h-12 w-full rounded-card border border-border bg-surface px-4 text-ink" />
-        <div className="mb-3 flex gap-2 overflow-x-auto [scrollbar-width:none]" role="group" aria-label={x("Categoría")}>
-          {chips.map((c) => <button key={c} type="button" aria-pressed={c === chip} onClick={() => setChip(c)} className={chipCls(c === chip)} style={c === chip ? { background: accent, borderColor: accent } : undefined}>{c}</button>)}
-        </div>
-        <Keypad value={amount} onChange={setAmount} />
-        {isGroup ? (
-          <div className="mt-4 flex flex-col gap-3 rounded-card border border-border bg-surface p-3">
-            <label className="flex items-center justify-between gap-3 text-sm text-ink-2">{x("Pagó")}
-              <select value={payer} onChange={(e) => setPayer(e.target.value)} className="min-h-11 rounded-card border border-border bg-surface-2 px-3 text-ink">
-                {b.members.map((m) => <option key={m} value={m}>{m === b.members[0] ? x("Yo") : m}</option>)}
-              </select>
-            </label>
-            {b.kind === "household" && (
-              <div role="group" aria-label={x("Reparto")} className="flex gap-2">
-                {([["default", "Por defecto"], ["equal", "Iguales"]] as const).map(([m, l]) => (
-                  <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)} className={chipCls(mode === m)} style={mode === m ? { background: accent, borderColor: accent } : undefined}>{x(l)}</button>
-                ))}
-              </div>
-            )}
-            <div className="flex flex-wrap gap-2" role="group" aria-label={x("Quién participa")}>
-              {b.members.map((m) => {
-                const on = included.includes(m);
-                return <button key={m} type="button" aria-pressed={on} onClick={() => setIncluded(on ? included.filter((i) => i !== m) : [...included, m])} className={chipCls(on)} style={on ? { background: "var(--track)", color: "var(--text)", borderColor: "var(--track)" } : undefined}>{on ? "✓ " : ""}{m === b.members[0] ? x("Yo") : m}</button>;
-              })}
-            </div>
-          </div>
-        ) : <p className="mt-4 text-sm text-ink-3">{x("Solo lo ves tú.")}</p>}
-        <p className="mt-3 flex items-baseline justify-between text-sm text-ink-2" aria-live="polite"><span>{x("Tu parte")}</span><span className="money font-mono text-lg text-ink">{formatMoney(share, "EUR", x.locale)}</span></p>
-        <button disabled={cents <= 0 || !text.trim() || (isGroup && included.length === 0)} onClick={() => onSave(bid, { id: crypto.randomUUID(), text: text.trim(), cents, category: chip, day: 23, payer, participants: isGroup ? included : b.members })}
-          className="mt-3 min-h-14 w-full rounded-full font-semibold text-on-accent disabled:opacity-50" style={{ background: accent }}>{x("Guardar en")} {b.kind === "personal" ? x("Personal") : b.name}</button>
-      </div>
-    </div>
   );
 }

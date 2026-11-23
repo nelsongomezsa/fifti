@@ -12,6 +12,7 @@ import { scanReceipt } from "@/lib/ocr";
 import { uploadReceipt } from "@/server/actions/receipts";
 import type { ExpenseInput } from "@/lib/validation/expense";
 import type { SheetContext, SheetSpace } from "@/server/actions/sheet";
+import type { SaveResult } from "@/server/actions/expenses";
 import { Keypad } from "./Keypad";
 
 export type SheetPrefill = {
@@ -35,17 +36,19 @@ const chip = (on: boolean) =>
 const ACCENTS = { personal: "var(--lilac)", household: "var(--lime)", group: "var(--tangerine)" } as const;
 
 export function ExpenseSheet({
-  ctx, defaultSpaceId, prefill, onClose, onSaved,
+  ctx, defaultSpaceId, prefill, onClose, onSaved, demo,
 }: {
   ctx: SheetContext; defaultSpaceId: string; prefill?: SheetPrefill; onClose: () => void; onSaved: (info: SavedInfo) => void;
+  /** Modo demo: el gasto se entrega a este manejador (en memoria) y no se llama a ningún servidor. */
+  demo?: { submit: (input: ExpenseInput) => Promise<SaveResult> };
 }) {
   const x = useTx();
   const initialSpace = useMemo(() => {
     let last: string | null = null;
-    try { last = localStorage.getItem(LAST_KEY); } catch { /* sin almacenamiento */ }
+    if (!demo) { try { last = localStorage.getItem(LAST_KEY); } catch { /* sin almacenamiento */ } }
     const id = prefill?.spaceId ?? last ?? defaultSpaceId;
     return ctx.spaces.find((s) => s.id === id) ?? ctx.spaces.find((s) => s.id === defaultSpaceId) ?? ctx.spaces[0]!;
-  }, [ctx.spaces, defaultSpaceId, prefill?.spaceId]);
+  }, [ctx.spaces, defaultSpaceId, prefill?.spaceId, demo]);
 
   const [space, setSpace] = useState<SheetSpace>(initialSpace);
   const [amount, setAmount] = useState(prefill?.amountCents ? (prefill.amountCents / 100).toFixed(2).replace(".", ",").replace(/,00$/, "") : "");
@@ -77,11 +80,11 @@ export function ExpenseSheet({
   }, [onClose]);
 
   useEffect(() => {
-    if (currency === space.currency) return;
+    if (demo || currency === space.currency) return;
     let live = true;
     getFxPreview(space.currency, currency, date).then((r) => { if (live) setFx(r); }).catch(() => { if (live) setFx(null); });
     return () => { live = false; };
-  }, [currency, space.currency, date]);
+  }, [currency, space.currency, date, demo]);
 
   const changeSpace = (s: SheetSpace) => {
     setCurrency(s.currency); setFx(1);
@@ -141,14 +144,14 @@ export function ExpenseSheet({
       tags: tags.split(/[\s,#]+/).map((t) => t.trim().toLowerCase()).filter(Boolean).slice(0, 8),
     };
     setSaving(true);
-    const res = await submitExpense(input);
+    const res = demo ? await demo.submit(input) : await submitExpense(input);
     setSaving(false);
     if (!res.ok) return setError(res.error);
-    if (photo && res.id !== "pending") {
+    if (!demo && photo && res.id !== "pending") {
       const fd = new FormData(); fd.set("expenseId", res.id); fd.set("file", photo);
       await uploadReceipt(fd);
     }
-    try { localStorage.setItem(LAST_KEY, space.id); } catch { /* sin almacenamiento */ }
+    if (!demo) { try { localStorage.setItem(LAST_KEY, space.id); } catch { /* sin almacenamiento */ } }
     onSaved({ id: res.id, shareCents: res.shareCents, spaceName: space.kind === "personal" ? x("Personal") : space.name, currency: space.currency, pending: res.id === "pending" });
     onClose();
   };
@@ -193,7 +196,7 @@ export function ExpenseSheet({
               {amount === "" ? "0" : groupTyped(amount, x.locale)} <span className="text-2xl text-ink-3">{symbol}</span>
             </output>
             <select value={currency} onChange={(e) => setCurrency(e.target.value)} aria-label={x("Moneda del gasto")} className="min-h-11 shrink-0 rounded-full border border-border bg-surface px-3 text-sm text-ink-2">
-              {[space.currency, ...CURRENCIES.filter((c) => c !== space.currency)].map((c) => <option key={c} value={c}>{c}</option>)}
+              {[space.currency, ...(demo ? [] : CURRENCIES.filter((c) => c !== space.currency))].map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
           {!sameCurrency && cents > 0 && <p className="mb-2 text-right font-mono text-sm text-ink-3">{fx ? `≈ ${formatMoney(baseCents, space.currency, x.locale)}` : x("No hemos podido obtener el tipo de cambio.")}</p>}
@@ -241,6 +244,7 @@ export function ExpenseSheet({
           <details className="mt-1 pb-2">
             <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium text-ink-2">{x("Más opciones")}</summary>
             <div className="flex flex-col gap-3 pb-2">
+              {!demo && (
               <div className="flex flex-col gap-2">
                 <label className="flex min-h-11 cursor-pointer items-center justify-center rounded-full border border-dashed border-border px-4 text-sm text-ink-2">
                   {photo ? `Ticket: ${photo.name.slice(0, 24)}` : x("Escanear ticket (opcional)")}
@@ -262,6 +266,7 @@ export function ExpenseSheet({
                   </p>
                 )}
               </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <label className="flex flex-col gap-1 text-xs text-ink-3">{x("Fecha")}<input type="date" value={date} max="2100-01-01" onChange={(e) => setDate(e.target.value)}
                     className="min-h-11 rounded-card border border-border bg-surface px-3 text-sm text-ink" />
