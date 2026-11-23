@@ -1,7 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { clientIp } from "@/lib/security/ip";
 import { RULES, hitIp } from "@/lib/security/rate-limit";
+import { verifyTurnstile } from "@/lib/security/turnstile";
 import { hashToken, isValidToken } from "@/lib/security/tokens";
 import { createClient } from "@/lib/supabase/server";
 import { guestJoinSchema } from "@/lib/validation/spaces";
@@ -18,6 +20,8 @@ export async function joinAsGuest(_prev: FormState, fd: FormData): Promise<FormS
   const parsed = guestJoinSchema.safeParse({ token: fv(fd, "token") ?? "", memberId: fv(fd, "memberId"), name: fv(fd, "name") });
   if (!parsed.success || !isValidToken(parsed.data.token)) return { error: "Elige tu nombre o escribe uno." };
   if (!(await hitIp(RULES.guestJoin))) return { error: "Demasiados intentos. Espera un rato." };
+  // Anti-bots: sin esta comprobación no se crea ninguna sesión anónima
+  if (!(await verifyTurnstile(fv(fd, "cf-turnstile-response"), await clientIp()))) return { error: "No hemos podido verificar que eres una persona. Inténtalo de nuevo." };
 
   const supabase = await createClient();
   let { data: { user } } = await supabase.auth.getUser();

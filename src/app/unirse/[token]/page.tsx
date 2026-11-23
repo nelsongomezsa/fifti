@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Logo } from "@/components/brand/Logo";
 import { ActionForm, inputClass } from "@/components/ui/ActionForm";
+import { Turnstile } from "@/components/ui/Turnstile";
+import { turnstileSiteKey } from "@/lib/turnstile-public";
 import { createClient } from "@/lib/supabase/server";
 import { acceptInvite, joinAsGuest } from "@/server/actions/join";
 import { lookupLink } from "@/server/links";
@@ -44,6 +46,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
               </fieldset>
             )}
             <input name="name" maxLength={40} placeholder="Tu nombre" aria-label="Tu nombre" className={inputClass} />
+            <Turnstile siteKey={turnstileSiteKey} />
           </ActionForm>
         )
       ) : user && !user.is_anonymous ? (

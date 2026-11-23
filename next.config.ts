@@ -8,11 +8,12 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${isDev ? " 'unsafe-eval'" : ""}`,
+  `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://challenges.cloudflare.com${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: ${supabaseUrl}`.trim(),
   "font-src 'self' data:",
-  `connect-src 'self' ${supabaseUrl}${isDev ? " ws: http://127.0.0.1:54321" : ""}`.trim(),
+  `connect-src 'self' https://challenges.cloudflare.com ${supabaseUrl}${isDev ? " ws: http://127.0.0.1:54321" : ""}`.trim(),
+  "frame-src https://challenges.cloudflare.com",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
   "frame-ancestors 'none'",
