@@ -35,6 +35,6 @@ max_frequency = "60s"
 enabled = true
 file_size_limit = "5MiB"
 
-[inbucket]
+[local_smtp]
 enabled = true
 port = 54324
