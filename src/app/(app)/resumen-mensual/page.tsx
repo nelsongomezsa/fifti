@@ -20,7 +20,7 @@ export default async function MonthlySummaryPage() {
   return (
     <section className="flex flex-col gap-4 pt-2">
       <Link href="/inicio" className="text-sm text-ink-2">{x("‹ Inicio")}</Link>
-      <h1 className="text-2xl font-bold capitalize">{x("Resumen de")}{" "}{name}</h1>
+      <h1 className="text-2xl font-bold first-letter:uppercase">{x("Resumen de")}{" "}{name}</h1>
       <div className="rounded-card border border-border bg-surface p-4">
         <p className="text-sm text-ink-3">{x("Te sobró")}</p>
         <p className={`money font-mono text-4xl font-semibold ${o.leftover < 0 ? "text-over-text" : ""}`}>{formatMoney(o.leftover, "EUR", x.locale)}</p>

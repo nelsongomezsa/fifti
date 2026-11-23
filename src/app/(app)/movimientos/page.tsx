@@ -62,7 +62,7 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
 
       <div className="flex items-center justify-between">
         <Link href={href({ mes: addMonths(month, -1) })} aria-label={x("Mes anterior")} className="grid min-h-11 min-w-11 place-items-center rounded-full border border-border">‹</Link>
-        <span className="font-semibold capitalize">{monthLabel}</span>
+        <span className="font-semibold first-letter:uppercase">{monthLabel}</span>
         <Link href={href({ mes: next })} aria-label={x("Mes siguiente")} className="grid min-h-11 min-w-11 place-items-center rounded-full border border-border">›</Link>
       </div>
 

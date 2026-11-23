@@ -158,25 +158,20 @@ export async function setDailyBudget(_prev: FormState, fd: FormData): Promise<Fo
   return { ok: true, message: x(cents ? "Presupuesto guardado." : "Presupuesto quitado.") };
 }
 
-/** Cierra el plan: crea el enlace de resumen público (30 días) y archiva el grupo. */
+/** Cierra el plan y lo archiva. El enlace de resumen se crea aparte (así se muestra una sola vez y no queda ninguno huérfano). */
 export async function closeGroup(_prev: FormState, fd: FormData): Promise<FormState> {
   const x = await getTx();
   const spaceId = uuidSchema.safeParse(fv(fd, "spaceId"));
   if (!spaceId.success) return { error: x("Datos no válidos") };
   const { supabase, user } = await session();
   if (!user) return { error: x("Sesión caducada.") };
-  if (!(await allow(RULES.createLink, user.id))) return { error: x("Demasiados intentos. Espera un rato.") };
   const { data: space } = await supabase.from("spaces").select("kind, archived_at").eq("id", spaceId.data).maybeSingle();
   if (!space || space.kind !== "group") return { error: x("Solo se cierran los planes espontáneos.") };
   if (space.archived_at) return { error: x("Este plan ya está cerrado.") };
-
-  const { token, hash } = generateToken();
-  const { error: linkErr } = await supabase.rpc("create_share_link", { p_space: spaceId.data, p_kind: "public_summary", p_token_hash: hash, p_ttl_seconds: 30 * 86400, p_max_uses: 1000 });
-  if (linkErr) return { error: x(rpcMessage(linkErr)) };
   const { data, error } = await supabase.from("spaces").update({ archived_at: new Date().toISOString() }).eq("id", spaceId.data).select("id");
   if (error || !data?.length) return { error: x("No autorizado.") };
   revalidatePath("/", "layout");
-  return { ok: true, message: x("Plan cerrado y archivado."), link: `${publicEnv().NEXT_PUBLIC_SITE_URL}/resumen/${token}` };
+  return { ok: true, message: x("Plan cerrado y archivado.") };
 }
 
 export async function reopenGroup(fd: FormData) {

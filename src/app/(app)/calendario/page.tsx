@@ -40,7 +40,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       <h1 className="text-2xl font-bold">{x("Calendario de pagos")}</h1>
       <div className="flex items-center justify-between">
         <Link href={`/calendario?mes=${addMonths(month, -1)}`} aria-label={x("Mes anterior")} className="grid min-h-11 min-w-11 place-items-center rounded-full border border-border">‹</Link>
-        <span className="font-semibold capitalize">{label}</span>
+        <span className="font-semibold first-letter:uppercase">{label}</span>
         <Link href={`/calendario?mes=${addMonths(month, 1)}`} aria-label={x("Mes siguiente")} className="grid min-h-11 min-w-11 place-items-center rounded-full border border-border">›</Link>
       </div>
       <div className="grid grid-cols-7 gap-1 text-center text-xs" role="grid" aria-label={`Calendario de ${label}`}>

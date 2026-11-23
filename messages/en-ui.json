@@ -500,7 +500,6 @@
   "S": "S",
   "Saldar": "Settle up",
   "Sale del bote común": "Comes from the shared pot",
-  "Se crea un enlace de resumen de solo lectura (30 días) y el plan se archiva: no se podrán añadir más gastos.": "A read-only summary link (30 days) is created and the plan is archived: no more expenses can be added.",
   "Se repite cada mes": "Repeats every month",
   "Según tu ritmo de gasto variable y los fijos que quedan por pagar.": "Based on your variable spending pace and the fixed expenses still to pay.",
   "Semana": "Week",
@@ -664,5 +663,7 @@
   "Internet": "Internet",
   "Te has pasado del fondo": "You've gone over the fund",
   "Vas por el 80 % del fondo": "You're at 80 % of the fund",
-  "¡Meta alcanzada!": "Goal reached!"
+  "¡Meta alcanzada!": "Goal reached!",
+  "El plan se archiva: no se podrán añadir más gastos. Después podrás crear un enlace de resumen de solo lectura.": "The plan is archived: no more expenses can be added. Afterwards you can create a read-only summary link.",
+  "Crear enlace de resumen": "Create summary link"
 }

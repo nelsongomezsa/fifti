@@ -71,7 +71,7 @@ export default async function YearPage() {
         {cards.map((c) => (
           <li key={c.title} className="rounded-card border border-border bg-surface p-4">
             <p className="text-sm text-ink-3">{c.title}</p>
-            <p className="mt-1 text-2xl font-bold capitalize">{c.value}</p>
+            <p className="mt-1 text-2xl font-bold first-letter:uppercase">{c.value}</p>
           </li>
         ))}
       </ul>

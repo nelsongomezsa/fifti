@@ -8,7 +8,7 @@ import { formatMoney } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 import { uuidSchema } from "@/lib/validation/spaces";
 import { recordSettlement } from "@/server/actions/balance";
-import { closeGroup, reopenGroup } from "@/server/actions/spaces";
+import { closeGroup, createLink, reopenGroup } from "@/server/actions/spaces";
 import { loadSpaceBalance } from "@/server/balance";
 import { requireUser } from "@/server/spaces";
 
@@ -54,11 +54,17 @@ export default async function ClosePage({ params }: { params: Promise<{ id: stri
       )}
       <SummaryImage title={space.name} total={fmt(total)} lines={lines} />
       {me?.role === "owner" && (space.archived_at ? (
-        <form action={reopenGroup}><input type="hidden" name="spaceId" value={id} /><button className="min-h-11 w-full rounded-full border border-border font-semibold">{x("Reabrir el plan")}</button></form>
+        <>
+          <ActionForm action={createLink} submit={x("Crear enlace de resumen")} tone="plain">
+            <input type="hidden" name="spaceId" value={id} /><input type="hidden" name="kind" value="public_summary" />
+            <input type="hidden" name="days" value="30" /><input type="hidden" name="maxUses" value="1000" />
+          </ActionForm>
+          <form action={reopenGroup}><input type="hidden" name="spaceId" value={id} /><button className="min-h-11 w-full rounded-full border border-border font-semibold">{x("Reabrir el plan")}</button></form>
+        </>
       ) : (
         <ActionForm action={closeGroup} submit={x("Cerrar y archivar el plan")}>
           <input type="hidden" name="spaceId" value={id} />
-          <p className="text-sm text-ink-3">{x("Se crea un enlace de resumen de solo lectura (30 días) y el plan se archiva: no se podrán añadir más gastos.")}</p>
+          <p className="text-sm text-ink-3">{x("El plan se archiva: no se podrán añadir más gastos. Después podrás crear un enlace de resumen de solo lectura.")}</p>
         </ActionForm>
       ))}
     </section>
