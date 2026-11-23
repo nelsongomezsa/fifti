@@ -21,7 +21,7 @@ export default async function YearPage() {
 
   const { data: personal } = await supabase.from("spaces").select("id").eq("kind", "personal").maybeSingle();
   if (!personal) return null;
-  const [{ data: spend }, { data: inc }, { data: mir }, { data: exp }, { data: mirrors }, { data: funds }, { data: cats }, { data: mem }, { data: groups }] = await Promise.all([
+  const [{ data: spend }, { data: inc }, { data: mir }, { data: exp }, { data: mirrors }, { data: funds }, { data: cats }, { data: mem }, { data: groups }, { data: yearExpenses }, { data: allSpaces }] = await Promise.all([
     supabase.rpc("monthly_spend", { p_space: personal.id, p_from: from }),
     supabase.rpc("monthly_income", { p_space: personal.id, p_from: from }),
     supabase.rpc("monthly_mirror", { p_from: from }),
@@ -29,8 +29,10 @@ export default async function YearPage() {
     supabase.from("personal_mirror").select("fund_id, amount_cents").gte("spent_at", from).limit(5000),
     supabase.from("funds").select("id, name").eq("space_id", personal.id),
     supabase.from("categories").select("id, fund_id").eq("space_id", personal.id),
-    supabase.from("space_members").select("space_id, user_id, display_name"),
+    supabase.from("space_members").select("space_id, user_id"),
     supabase.from("spaces").select("id, kind, archived_at").eq("kind", "group").not("archived_at", "is", null).gte("archived_at", from),
+    supabase.from("expenses").select("space_id").gte("spent_at", from).limit(5000),
+    supabase.from("spaces").select("id, name, kind"),
   ]);
 
   const s = fillSeries(months, (spend ?? []) as never), m = fillSeries(months, (mir ?? []) as never), i = fillSeries(months, (inc ?? []) as never);
@@ -44,16 +46,18 @@ export default async function YearPage() {
   const topFundId = [...byFund.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
   const topFund = funds?.find((f) => f.id === topFundId)?.name ?? "—";
   const myGroups = new Set((mem ?? []).filter((x) => x.user_id === user.id).map((x) => x.space_id));
-  const co = new Map<string, number>();
-  for (const x of mem ?? []) if (x.user_id !== user.id && myGroups.has(x.space_id) && x.space_id !== personal.id) co.set(x.display_name, (co.get(x.display_name) ?? 0) + 1);
-  const topPerson = [...co.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "—";
+  const perSpace = new Map<string, number>();
+  for (const e of yearExpenses ?? []) perSpace.set(e.space_id, (perSpace.get(e.space_id) ?? 0) + 1);
+  const topSpaceId = [...perSpace.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  const topSpace = allSpaces?.find((sp) => sp.id === topSpaceId);
+  const topBubble = topSpace ? (topSpace.kind === "personal" ? x("Personal") : topSpace.name) : "—";
   const closed = (groups ?? []).filter((g) => myGroups.has(g.id)).length;
 
   const cards = [
     { title: x("Lo que más gastaste"), value: topFund },
     { title: x("Tu mes de más ahorro"), value: bestIdx >= 0 ? MONTH(bestIdx, x.locale) : "—" },
     { title: x("Planes cerrados"), value: String(closed) },
-    { title: x("Compartiste más con"), value: topPerson },
+    { title: x("Tu burbuja más activa"), value: topBubble },
   ];
 
   return (

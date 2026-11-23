@@ -4,7 +4,7 @@
 import { useTx } from "@/i18n/tx-client";
 import { useRef } from "react";
 
-/** Imagen "Tu año en Fifti" para compartir. Solo contiene nombres de categoría, meses y recuentos: sin importes. */
+/** Imagen "Tu año en Fifti" para compartir. Solo contiene nombres de fondo, de burbuja, meses y recuentos: sin importes. */
 export function YearImage({ year, cards }: { year: number; cards: { title: string; value: string }[] }) {
   const x = useTx();
   const ref = useRef<HTMLCanvasElement>(null);

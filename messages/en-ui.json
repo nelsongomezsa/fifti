@@ -80,7 +80,6 @@
   "Comentarios": "Comments",
   "Compartir imagen": "Share image",
   "Compartir resumen": "Share summary",
-  "Compartiste más con": "You shared most with",
   "Compensación con": "Offset with",
   "Compensación entre grupos": "Offsetting between groups",
   "Compensar entre grupos": "Offset between groups",
@@ -635,5 +634,6 @@
   "Mañana vence un gasto fijo.": "A fixed expense is due tomorrow.",
   "Tienes una aportación pendiente al hogar.": "You have a pending contribution to the household.",
   "Tu resumen del mes pasado ya está listo.": "Your summary for last month is ready.",
-  "Faltan miembros": "Members missing"
+  "Faltan miembros": "Members missing",
+  "Tu burbuja más activa": "Your most active bubble"
 }
