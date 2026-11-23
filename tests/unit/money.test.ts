@@ -82,3 +82,34 @@ describe("meses", () => {
     expect(addMonths("2026-01-01", -1)).toBe("2025-12-01");
   });
 });
+
+import { currencySymbol, formatAmount, groupTyped } from "@/lib/money";
+describe("formato de dinero (único helper)", () => {
+  const n = (s: string) => s.replace(/\s/g, " "); // espacios no separables → normales
+  it("agrupa miles también con 4 cifras en español", () => {
+    expect(n(formatMoney(210000))).toBe("2.100,00 €");
+    expect(n(formatMoney(171500))).toBe("1.715,00 €");
+    expect(n(formatMoney(99900))).toBe("999,00 €");
+    expect(n(formatMoney(123456789))).toBe("1.234.567,89 €");
+  });
+  it("y en inglés", () => {
+    expect(formatMoney(210000, "EUR", "en-GB")).toBe("€2,100.00");
+    expect(formatMoney(171500, "USD", "en-GB")).toBe("US$1,715.00");
+  });
+  it("importes negativos", () => { expect(n(formatMoney(-210000))).toBe("-2.100,00 €"); });
+  it("número solo para CSV", () => {
+    expect(formatAmount(210000)).toBe("2.100,00");
+    expect(formatAmount(210000, "en-GB")).toBe("2,100.00");
+    expect(formatAmount(5)).toBe("0,05");
+  });
+  it("el CSV exportado se vuelve a importar igual", () => {
+    expect(parseToCents("2100,50")).toBe(210050);
+  });
+  it("símbolo y agrupado al teclear", () => {
+    expect(currencySymbol("EUR")).toBe("€");
+    expect(groupTyped("2100,5")).toBe("2.100,5");
+    expect(groupTyped("1234567")).toBe("1.234.567");
+    expect(groupTyped("2100", "en-GB")).toBe("2,100");
+    expect(groupTyped("")).toBe("");
+  });
+});

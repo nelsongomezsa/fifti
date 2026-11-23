@@ -104,3 +104,11 @@ describe("calendario de pagos", () => {
     expect(projectRecurring(r({ frequency: "yearly", nextRun: "2026-03-15" }), "2026-03-01")).toEqual(["2026-03-15"]);
   });
 });
+
+import { formatAmount } from "@/lib/money";
+describe("CSV: importes con miles", () => {
+  it("lo exportado con punto de miles se importa igual", () => {
+    const csv = toCsv([["fecha", "concepto", "importe"], ["2026-11-10", "Alquiler", formatAmount(210050)]]);
+    expect(previewImport(csv).rows[0]!.amountCents).toBe(210050);
+  });
+});

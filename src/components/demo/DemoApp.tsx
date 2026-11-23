@@ -6,7 +6,7 @@ import { useMemo, useRef, useState } from "react";
 import { SpendChart } from "@/components/charts/SpendChart";
 import { Keypad } from "@/components/expense/Keypad";
 import { DEMO_BUBBLES, type DemoBubble, type DemoExpense } from "@/lib/demo-data";
-import { buildSplits, computeBalances, formatMoney, parseToCents, savingsRateBp, simplifyDebts, summarizeFund } from "@/lib/money";
+import { buildSplits, computeBalances, formatMoney, groupTyped, parseToCents, savingsRateBp, simplifyDebts, summarizeFund } from "@/lib/money";
 
 const ACCENT = { personal: "var(--lilac)", household: "var(--lime)", group: "var(--tangerine)" } as const;
 const MONTHS = ["jun", "jul", "ago", "sep", "oct", "nov"];
@@ -230,7 +230,7 @@ function DemoSheet({ bubbles, initialId, onClose, onSave }: { bubbles: DemoBubbl
             <button key={v.id} type="button" aria-pressed={v.id === bid} onClick={() => pick(v.id)} className={chipCls(v.id === bid)} style={v.id === bid ? { background: ACCENT[v.kind], borderColor: ACCENT[v.kind] } : undefined}>{v.name}</button>
           ))}
         </div>
-        <output className="mb-2 block text-center font-mono text-5xl font-semibold">{amount || "0"} <span className="text-3xl text-ink-3">€</span></output>
+        <output className="mb-2 block text-center font-mono text-5xl font-semibold">{amount ? groupTyped(amount, x.locale) : "0"} <span className="text-3xl text-ink-3">€</span></output>
         <input value={text} onChange={(e) => setText(e.target.value)} maxLength={60} placeholder={x("Concepto")} aria-label={x("Concepto")} className="mb-3 min-h-12 w-full rounded-card border border-border bg-surface px-4 text-ink" />
         <div className="mb-3 flex gap-2 overflow-x-auto [scrollbar-width:none]" role="group" aria-label={x("Categoría")}>
           {chips.map((c) => <button key={c} type="button" aria-pressed={c === chip} onClick={() => setChip(c)} className={chipCls(c === chip)} style={c === chip ? { background: accent, borderColor: accent } : undefined}>{c}</button>)}

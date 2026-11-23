@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getTx } from "@/i18n/tx";
 import { displayName } from "@/lib/system-names";
 import { toCsv } from "@/lib/csv";
+import { formatAmount } from "@/lib/money";
 import { RULES } from "@/lib/security/rate-limit";
 import { allow } from "@/lib/security/user-limit";
 import { createClient } from "@/lib/supabase/server";
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
   const mine = new Map((priv ?? []).map((p) => [p.expense_id, p.description]));
   const rows: (string | number)[][] = [["fecha", "concepto", "importe", "moneda", "categoria"]];
   for (const e of ex ?? []) {
-    rows.push([e.spent_at, e.is_private ? (mine.get(e.id) ?? "Gasto privado") : e.description, (e.amount_cents / 100).toFixed(2).replace(".", ","), e.currency, e.category_id ? (cat.get(e.category_id) ?? "") : ""]);
+    rows.push([e.spent_at, e.is_private ? (mine.get(e.id) ?? "Gasto privado") : e.description, formatAmount(e.amount_cents, x.locale), e.currency, e.category_id ? (cat.get(e.category_id) ?? "") : ""]);
   }
   return new NextResponse(toCsv(rows), {
     headers: {

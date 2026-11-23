@@ -3,7 +3,7 @@
 
 import { useTx } from "@/i18n/tx-client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { buildSplits, formatMoney, parseToCents, BP_TOTAL, type SplitMode } from "@/lib/money";
+import { buildSplits, currencySymbol, formatMoney, groupTyped, parseToCents, BP_TOTAL, type SplitMode } from "@/lib/money";
 import { parsePercentToBp } from "@/lib/validation/spaces";
 import { submitExpense } from "@/lib/offline/submit";
 import { CURRENCIES } from "@/lib/fx";
@@ -155,7 +155,7 @@ export function ExpenseSheet({
 
   const accent = ACCENTS[space.kind];
   const bubbleLabel = space.kind === "personal" ? x("Personal") : space.name;
-  const symbol = new Intl.NumberFormat(x.locale, { style: "currency", currency }).formatToParts(0).find((p) => p.type === "currency")?.value;
+  const symbol = currencySymbol(currency, x.locale);
 
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/60" onClick={onClose}>
@@ -188,7 +188,7 @@ export function ExpenseSheet({
 
         <div className="mb-3 text-center">
           <output aria-live="polite" className="font-mono text-5xl font-semibold tabular-nums">
-            {amount === "" ? "0" : amount} <span className="text-3xl text-ink-3">{symbol}</span>
+            {amount === "" ? "0" : groupTyped(amount, x.locale)} <span className="text-3xl text-ink-3">{symbol}</span>
           </output>
           <div className="mt-1 flex items-center justify-center gap-2 text-sm text-ink-3">
             <select value={currency} onChange={(e) => setCurrency(e.target.value)} aria-label={x("Moneda del gasto")} className="min-h-11 rounded-full border border-border bg-surface px-3 text-ink-2">

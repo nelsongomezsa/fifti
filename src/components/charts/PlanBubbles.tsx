@@ -2,6 +2,7 @@
 
 
 import { useTx } from "@/i18n/tx-client";
+import { formatMoney } from "@/lib/money";
 import { hierarchy, pack } from "d3-hierarchy";
 
 export type BubbleFund = { id: string; name: string; color: string; planned: number; spent: number };
@@ -14,7 +15,7 @@ export function PlanBubbles({ funds, currency }: { funds: BubbleFund[]; currency
   if (items.length === 0) return <p className="text-sm text-ink-3">{x("Define el plan para ver las burbujas.")}</p>;
   const root = hierarchy<{ children?: typeof items; weight?: number }>({ children: items }).sum((d) => ("weight" in d ? (d.weight ?? 0) : 0));
   const leaves = pack<{ children?: typeof items; weight?: number }>().size([size, size]).padding(6)(root).leaves();
-  const fmt = (c: number) => new Intl.NumberFormat(x.locale, { style: "currency", currency, maximumFractionDigits: 0 }).format(c / 100);
+  const fmt = (c: number) => formatMoney(c, currency, x.locale);
 
   return (
     <svg viewBox={`0 0 ${size} ${size}`} className="mx-auto w-full max-w-sm" role="img"
