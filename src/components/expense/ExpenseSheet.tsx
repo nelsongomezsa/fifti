@@ -166,159 +166,173 @@ export function ExpenseSheet({
         aria-label={x("Nuevo gasto")}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="anim-sheet max-h-[94dvh] w-full max-w-md overflow-y-auto rounded-t-[24px] border border-border bg-surface-2 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] outline-none"
+        className="anim-sheet flex max-h-[94dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[24px] border border-border bg-surface-2 outline-none"
       >
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-bold">{prefill?.edit ? x("Editar gasto") : x("Nuevo gasto")}</h2>
-          <button type="button" onClick={onClose} aria-label={x("Cerrar")} className="grid min-h-11 min-w-11 place-items-center text-ink-2">✕</button>
-        </div>
+        {/* Zona central: es lo único que se desplaza */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-3">
+          <div className="mb-1 flex items-center justify-between">
+            <h2 className="text-lg font-bold">{prefill?.edit ? x("Editar gasto") : x("Nuevo gasto")}</h2>
+            <button type="button" onClick={onClose} aria-label={x("Cerrar")} className="grid min-h-11 min-w-11 place-items-center text-ink-2">✕</button>
+          </div>
 
-        <p className="mb-1 text-xs text-ink-3">{x("¿Dónde lo apunto?")}</p>
-        <div className="mb-4 flex gap-2 overflow-x-auto [scrollbar-width:none]">
-          {ctx.spaces.map((s) => {
-            const on = s.id === space.id;
-            return (
-              <button key={s.id} type="button" disabled={!!prefill?.edit} aria-pressed={on} onClick={() => changeSpace(s)}
-                className={chip(on)} style={on ? { background: ACCENTS[s.kind], borderColor: ACCENTS[s.kind] } : undefined}>
-                {s.kind === "personal" ? x("Personal") : s.name}
-              </button>
-            );
-          })}
-        </div>
+          <p className="mb-1 text-xs text-ink-3">{x("¿Dónde lo apunto?")}</p>
+          <div className="mb-2 flex gap-2 overflow-x-auto [scrollbar-width:none]">
+            {ctx.spaces.map((s) => {
+              const on = s.id === space.id;
+              return (
+                <button key={s.id} type="button" disabled={!!prefill?.edit} aria-pressed={on} onClick={() => changeSpace(s)}
+                  className={chip(on)} style={on ? { background: ACCENTS[s.kind], borderColor: ACCENTS[s.kind] } : undefined}>
+                  {s.kind === "personal" ? x("Personal") : s.name}
+                </button>
+              );
+            })}
+          </div>
 
-        <div className="mb-3 text-center">
-          <output aria-live="polite" className="font-mono text-5xl font-semibold tabular-nums">
-            {amount === "" ? "0" : groupTyped(amount, x.locale)} <span className="text-3xl text-ink-3">{symbol}</span>
-          </output>
-          <div className="mt-1 flex items-center justify-center gap-2 text-sm text-ink-3">
-            <select value={currency} onChange={(e) => setCurrency(e.target.value)} aria-label={x("Moneda del gasto")} className="min-h-11 rounded-full border border-border bg-surface px-3 text-ink-2">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <output aria-live="polite" className="min-w-0 truncate font-mono text-4xl font-semibold tabular-nums">
+              {amount === "" ? "0" : groupTyped(amount, x.locale)} <span className="text-2xl text-ink-3">{symbol}</span>
+            </output>
+            <select value={currency} onChange={(e) => setCurrency(e.target.value)} aria-label={x("Moneda del gasto")} className="min-h-11 shrink-0 rounded-full border border-border bg-surface px-3 text-sm text-ink-2">
               {[space.currency, ...CURRENCIES.filter((c) => c !== space.currency)].map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
-            {!sameCurrency && cents > 0 && <span className="font-mono">{fx ? `≈ ${formatMoney(baseCents, space.currency, x.locale)}` : "sin cambio disponible"}</span>}
           </div>
-        </div>
-        <div className="mb-3 flex flex-col gap-2">
-          <label className="flex min-h-11 cursor-pointer items-center justify-center rounded-full border border-dashed border-border px-4 text-sm text-ink-2">
-            {photo ? `Ticket: ${photo.name.slice(0, 24)}` : x("Escanear ticket (opcional)")}
-            <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden aria-label={x("Foto del ticket")}
-              onChange={async (e) => {
-                const f = e.target.files?.[0];
-                e.target.value = "";
-                if (!f) return;
-                setPhoto(f);
-                setScan({ busy: true, amountCents: null, date: null });
-                try { setScan({ busy: false, ...(await scanReceipt(f)) }); } catch { setScan({ busy: false, amountCents: null, date: null, error: "No se ha podido leer el ticket." }); }
-              }} />
-          </label>
-          {scan && (
-            <p className="text-sm text-ink-2" aria-live="polite">
-              {scan.busy ? x("Leyendo el ticket…") : scan.error ?? (scan.amountCents || scan.date ? x("Propuesta (confírmala):") : x("No he encontrado datos claros."))}
-              {!scan.busy && scan.amountCents ? <button type="button" className="ml-2 min-h-11 rounded-full border border-border px-3 font-mono" onClick={() => setAmount((scan.amountCents! / 100).toFixed(2).replace(".", ",").replace(/,00$/, ""))}>{x("Importe")}{" "}{formatMoney(scan.amountCents, space.currency, x.locale)}</button> : null}
-              {!scan.busy && scan.date ? <button type="button" className="ml-2 min-h-11 rounded-full border border-border px-3 font-mono" onClick={() => setDate(scan.date!)}>{x("Fecha")}{" "}{scan.date}</button> : null}
-            </p>
-          )}
-        </div>
-        <input
-          value={desc} onChange={(e) => setDesc(e.target.value)} maxLength={120} placeholder={x("Concepto")} aria-label={x("Concepto")}
-          className="mb-3 min-h-12 w-full rounded-card border border-border bg-surface px-4 text-base text-ink placeholder:text-ink-3"
-        />
+          {!sameCurrency && cents > 0 && <p className="mb-2 text-right font-mono text-sm text-ink-3">{fx ? `≈ ${formatMoney(baseCents, space.currency, x.locale)}` : x("No hemos podido obtener el tipo de cambio.")}</p>}
 
-        <div className="mb-3 flex gap-2 overflow-x-auto [scrollbar-width:none]" role="group" aria-label={x("Categoría")}>
-          {space.categories.map((c) => {
-            const on = c.id === categoryId;
-            return (
-              <button key={c.id} type="button" aria-pressed={on} onClick={() => setCategoryId(c.id)} className={chip(on)}
-                style={on ? { background: accent, borderColor: accent } : undefined}>
-                {c.name}
-              </button>
-            );
-          })}
-        </div>
+          <input
+            value={desc} onChange={(e) => setDesc(e.target.value)} maxLength={120} placeholder={x("Concepto")} aria-label={x("Concepto")}
+            className="mb-2 min-h-11 w-full rounded-card border border-border bg-surface px-4 text-base text-ink placeholder:text-ink-3"
+          />
 
-        <Keypad value={amount} onChange={setAmount} />
+          <div className="mb-2 flex gap-2 overflow-x-auto [scrollbar-width:none]" role="group" aria-label={x("Categoría")}>
+            {space.categories.map((c) => {
+              const on = c.id === categoryId;
+              return (
+                <button key={c.id} type="button" aria-pressed={on} onClick={() => setCategoryId(c.id)} className={chip(on)}
+                  style={on ? { background: accent, borderColor: accent } : undefined}>
+                  {c.name}
+                </button>
+              );
+            })}
+          </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <label className="flex flex-col gap-1 text-xs text-ink-3">{x("Fecha")}<input type="date" value={date} max="2100-01-01" onChange={(e) => setDate(e.target.value)}
-              className="min-h-11 rounded-card border border-border bg-surface px-3 text-sm text-ink" />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-ink-3">{x("Etiquetas")}<input value={tags} onChange={(e) => setTags(e.target.value)} placeholder={x("#cumple")} maxLength={80}
-              className="min-h-11 rounded-card border border-border bg-surface px-3 text-sm text-ink" />
-          </label>
-        </div>
+          <Keypad value={amount} onChange={setAmount} compact />
 
-        {isGroup ? (
-          <div className="mt-4 flex flex-col gap-3 rounded-card border border-border bg-surface p-3">
-            {space.kind === "household" && (
-              <label className="flex min-h-11 items-center gap-3 text-sm text-ink-2">
-                <input type="checkbox" checked={fromPot} onChange={(e) => setFromPot(e.target.checked)} /> {x("Pagado desde el bote común")}</label>
-            )}
-            {!fromPot && (
-              <div className="flex flex-col gap-2">
+          {isGroup ? (
+            <div className="mt-2 flex flex-col gap-2">
+              {!fromPot && (
                 <label className="flex items-center justify-between gap-3 text-sm text-ink-2">
                   {x("Pagó")}<select value={payerId} disabled={multiPay} onChange={(e) => setPayerId(e.target.value)}
-                    className="min-h-11 rounded-card border border-border bg-surface-2 px-3 text-ink">
+                    className="min-h-11 rounded-card border border-border bg-surface px-3 text-ink">
                     {space.members.map((m) => <option key={m.id} value={m.id}>{m.id === space.meId ? x("Yo") : m.name}</option>)}
                   </select>
                 </label>
-                <label className="flex min-h-11 items-center gap-3 text-sm text-ink-2">
-                  <input type="checkbox" checked={multiPay} onChange={(e) => setMultiPay(e.target.checked)} /> {x("Pagaron varias personas")}</label>
-                {multiPay && space.members.map((m) => (
-                  <label key={m.id} className="flex items-center justify-between gap-3 text-sm text-ink-2">
-                    {m.name}
-                    <input inputMode="decimal" value={payAmounts[m.id] ?? ""} onChange={(e) => setPayAmounts({ ...payAmounts, [m.id]: e.target.value })}
-                      placeholder="0,00" className="min-h-11 w-28 rounded-card border border-border bg-surface-2 px-3 text-right font-mono text-ink" />
-                  </label>
+              )}
+              <div role="group" aria-label={x("Reparto")} className="flex gap-2 overflow-x-auto [scrollbar-width:none]">
+                {([["default", "Por defecto"], ["equal", "Iguales"], ["custom", "Personalizado"]] as const).map(([m, l]) => (
+                  <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)} className={chip(mode === m)}
+                    style={mode === m ? { background: accent, borderColor: accent } : undefined}>{x(l)}</button>
                 ))}
               </div>
-            )}
-
-            <div role="group" aria-label={x("Reparto")} className="flex gap-2">
-              {([["default", "Por defecto"], ["equal", "Iguales"], ["custom", "Personalizado"]] as const).map(([m, l]) => (
-                <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)} className={chip(mode === m)}
-                  style={mode === m ? { background: accent, borderColor: accent } : undefined}>{x(l)}</button>
-              ))}
             </div>
-            <div className="flex flex-wrap gap-2" role="group" aria-label={x("Quién participa")}>
-              {space.members.map((m) => {
-                const on = included.has(m.id);
-                return (
-                  <button key={m.id} type="button" aria-pressed={on} className={chip(on)}
-                    style={on ? { background: "var(--track)", color: "var(--text)", borderColor: "var(--track)" } : undefined}
-                    onClick={() => { const n = new Set(included); if (on) n.delete(m.id); else n.add(m.id); setIncluded(n); }}>
-                    {on ? "✓ " : ""}{m.id === space.meId ? x("Yo") : m.name}
-                  </button>
-                );
-              })}
+          ) : (
+            <p className="mt-2 text-sm text-ink-3">{x("Solo lo ves tú.")}</p>
+          )}
+
+          <details className="mt-1 pb-2">
+            <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium text-ink-2">{x("Más opciones")}</summary>
+            <div className="flex flex-col gap-3 pb-2">
+              <div className="flex flex-col gap-2">
+                <label className="flex min-h-11 cursor-pointer items-center justify-center rounded-full border border-dashed border-border px-4 text-sm text-ink-2">
+                  {photo ? `Ticket: ${photo.name.slice(0, 24)}` : x("Escanear ticket (opcional)")}
+                  <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden aria-label={x("Foto del ticket")}
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!f) return;
+                      setPhoto(f);
+                      setScan({ busy: true, amountCents: null, date: null });
+                      try { setScan({ busy: false, ...(await scanReceipt(f)) }); } catch { setScan({ busy: false, amountCents: null, date: null, error: "No se ha podido leer el ticket." }); }
+                    }} />
+                </label>
+                {scan && (
+                  <p className="text-sm text-ink-2" aria-live="polite">
+                    {scan.busy ? x("Leyendo el ticket…") : scan.error ? x(scan.error) : (scan.amountCents || scan.date ? x("Propuesta (confírmala):") : x("No he encontrado datos claros."))}
+                    {!scan.busy && scan.amountCents ? <button type="button" className="ml-2 min-h-11 rounded-full border border-border px-3 font-mono" onClick={() => setAmount((scan.amountCents! / 100).toFixed(2).replace(".", ",").replace(/,00$/, ""))}>{x("Importe")}{" "}{formatMoney(scan.amountCents, space.currency, x.locale)}</button> : null}
+                    {!scan.busy && scan.date ? <button type="button" className="ml-2 min-h-11 rounded-full border border-border px-3 font-mono" onClick={() => setDate(scan.date!)}>{x("Fecha")}{" "}{scan.date}</button> : null}
+                  </p>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1 text-xs text-ink-3">{x("Fecha")}<input type="date" value={date} max="2100-01-01" onChange={(e) => setDate(e.target.value)}
+                    className="min-h-11 rounded-card border border-border bg-surface px-3 text-sm text-ink" />
+                </label>
+                <label className="flex flex-col gap-1 text-xs text-ink-3">{x("Etiquetas")}<input value={tags} onChange={(e) => setTags(e.target.value)} placeholder={x("#cumple")} maxLength={80}
+                    className="min-h-11 rounded-card border border-border bg-surface px-3 text-sm text-ink" />
+                </label>
+              </div>
+              {isGroup && (
+                <div className="flex flex-col gap-2 rounded-card border border-border bg-surface p-3">
+                  {space.kind === "household" && (
+                    <label className="flex min-h-11 items-center gap-3 text-sm text-ink-2">
+                      <input type="checkbox" checked={fromPot} onChange={(e) => setFromPot(e.target.checked)} /> {x("Pagado desde el bote común")}</label>
+                  )}
+                  {!fromPot && (
+                    <>
+                      <label className="flex min-h-11 items-center gap-3 text-sm text-ink-2">
+                        <input type="checkbox" checked={multiPay} onChange={(e) => setMultiPay(e.target.checked)} /> {x("Pagaron varias personas")}</label>
+                      {multiPay && space.members.map((m) => (
+                        <label key={m.id} className="flex items-center justify-between gap-3 text-sm text-ink-2">
+                          {m.name}
+                          <input inputMode="decimal" value={payAmounts[m.id] ?? ""} onChange={(e) => setPayAmounts({ ...payAmounts, [m.id]: e.target.value })}
+                            placeholder="0,00" className="min-h-11 w-28 rounded-card border border-border bg-surface-2 px-3 text-right font-mono text-ink" />
+                        </label>
+                      ))}
+                    </>
+                  )}
+                  <div className="flex flex-wrap gap-2" role="group" aria-label={x("Quién participa")}>
+                    {space.members.map((m) => {
+                      const on = included.has(m.id);
+                      return (
+                        <button key={m.id} type="button" aria-pressed={on} className={chip(on)}
+                          style={on ? { background: "var(--track)", color: "var(--text)", borderColor: "var(--track)" } : undefined}
+                          onClick={() => { const n = new Set(included); if (on) n.delete(m.id); else n.add(m.id); setIncluded(n); }}>
+                          {on ? "✓ " : ""}{m.id === space.meId ? x("Yo") : m.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {mode === "custom" && participants.map((m) => (
+                    <label key={m.id} className="flex items-center justify-between gap-3 text-sm text-ink-2">
+                      {m.name}
+                      <span className="flex items-center gap-2">
+                        <input inputMode="decimal" value={pct[m.id] ?? ""} onChange={(e) => setPct({ ...pct, [m.id]: e.target.value })}
+                          placeholder="0" className="min-h-11 w-20 rounded-card border border-border bg-surface-2 px-3 text-right font-mono text-ink" /> %
+                      </span>
+                    </label>
+                  ))}
+                  <label className="flex min-h-11 items-center gap-3 text-sm text-ink-2">
+                    <input type="checkbox" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} />
+                    {x("Gasto privado (los demás ven solo importe y reparto)")}</label>
+                </div>
+              )}
             </div>
-            {mode === "custom" && participants.map((m) => (
-              <label key={m.id} className="flex items-center justify-between gap-3 text-sm text-ink-2">
-                {m.name}
-                <span className="flex items-center gap-2">
-                  <input inputMode="decimal" value={pct[m.id] ?? ""} onChange={(e) => setPct({ ...pct, [m.id]: e.target.value })}
-                    placeholder="0" className="min-h-11 w-20 rounded-card border border-border bg-surface-2 px-3 text-right font-mono text-ink" /> %
-                </span>
-              </label>
-            ))}
-            <label className="flex min-h-11 items-center gap-3 text-sm text-ink-2">
-              <input type="checkbox" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} />
-              {x("Gasto privado (los demás ven solo importe y reparto)")}</label>
-          </div>
-        ) : (
-          <p className="mt-4 text-sm text-ink-3">{x("Solo lo ves tú.")}</p>
-        )}
+          </details>
+        </div>
 
-        <p className="mt-3 flex items-baseline justify-between text-sm text-ink-2" aria-live="polite">
-          <span>{x("Tu parte")}</span>
-          <span className="font-mono text-lg text-ink">{formatMoney(live.share, space.currency, x.locale)}</span>
-        </p>
-        {(error ?? (cents > 0 ? live.error : null)) && (
-          <p role="alert" className="mt-1 text-sm text-over-text">{x(error ?? live.error ?? "")}</p>
-        )}
-
-        <button type="button" onClick={save} disabled={saving}
-          className="mt-4 min-h-14 w-full rounded-full text-base font-semibold text-on-accent disabled:opacity-60" style={{ background: accent }}>
-          {saving ? x("Guardando…") : `${x("Guardar en")} ${bubbleLabel}`}
-        </button>
+        {/* Pie fijo: "Tu parte" y guardar siempre visibles */}
+        <div className="border-t border-border bg-surface-2 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2">
+          <p className="flex items-baseline justify-between text-sm text-ink-2" aria-live="polite">
+            <span>{x("Tu parte")}</span>
+            <span className="money font-mono text-lg text-ink">{formatMoney(live.share, space.currency, x.locale)}</span>
+          </p>
+          {(error ?? (cents > 0 ? live.error : null)) && (
+            <p role="alert" className="text-sm text-over-text">{x(error ?? live.error ?? "")}</p>
+          )}
+          <button type="button" onClick={save} disabled={saving}
+            className="mt-2 min-h-12 w-full rounded-full text-base font-semibold text-on-accent disabled:opacity-60" style={{ background: accent }}>
+            {saving ? x("Guardando…") : `${x("Guardar en")} ${bubbleLabel}`}
+          </button>
+        </div>
       </div>
     </div>
   );
