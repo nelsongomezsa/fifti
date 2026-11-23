@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import type { FormState } from "@/server/actions/auth";
+import { QrCode } from "./QrCode";
 
 /** Formulario genérico para server actions: muestra error, mensaje y (una vez) un enlace generado. */
 export function ActionForm({
@@ -35,6 +36,11 @@ export function ActionForm({
         <div className="rounded-card border border-border bg-bg p-3 text-sm">
           <p className="mb-1 text-ink-3">Cópialo ahora: no se vuelve a mostrar.</p>
           <input readOnly value={state.link} aria-label="Enlace" className="w-full bg-transparent font-mono text-xs text-ink" />
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <QrCode text={state.link} />
+            <a href={`https://wa.me/?text=${encodeURIComponent(`Únete en Fifti: ${state.link}`)}`} target="_blank" rel="noopener noreferrer"
+              className="min-h-11 rounded-full border border-border px-4 py-2.5 text-sm font-medium">Enviar por WhatsApp</a>
+          </div>
         </div>
       )}
       <button

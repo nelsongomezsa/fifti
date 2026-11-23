@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { buildSplits, formatMoney, parseToCents, BP_TOTAL, type SplitMode } from "@/lib/money";
 import { parsePercentToBp } from "@/lib/validation/spaces";
 import { submitExpense } from "@/lib/offline/submit";
+import { CURRENCIES } from "@/lib/fx";
+import { getFxPreview } from "@/server/actions/fx";
 import type { ExpenseInput } from "@/lib/validation/expense";
 import type { SheetContext, SheetSpace } from "@/server/actions/sheet";
 import { Keypad } from "./Keypad";
@@ -54,6 +56,8 @@ export function ExpenseSheet({
   const [isPrivate, setIsPrivate] = useState(prefill?.edit?.isPrivate ?? false);
   const [fromPot, setFromPot] = useState(prefill?.edit?.paidFrom === "pot");
   const [tags, setTags] = useState(prefill?.tags ?? "");
+  const [currency, setCurrency] = useState(initialSpace.currency);
+  const [fx, setFx] = useState<number | null>(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -65,7 +69,15 @@ export function ExpenseSheet({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
+  useEffect(() => {
+    if (currency === space.currency) return;
+    let live = true;
+    getFxPreview(space.currency, currency, date).then((r) => { if (live) setFx(r); }).catch(() => { if (live) setFx(null); });
+    return () => { live = false; };
+  }, [currency, space.currency, date]);
+
   const changeSpace = (s: SheetSpace) => {
+    setCurrency(s.currency); setFx(1);
     setSpace(s);
     setCategoryId(s.topCategoryId);
     setPayerId(s.meId);
@@ -74,12 +86,15 @@ export function ExpenseSheet({
   };
 
   const cents = parseToCents(amount) ?? 0;
+  const sameCurrency = currency === space.currency;
+  const baseCents = sameCurrency ? cents : fx ? Math.round(cents * fx) : 0;
   const isGroup = space.kind !== "personal";
   const participants = useMemo(() => space.members.filter((m) => included.has(m.id)), [space.members, included]);
 
   const live = useMemo(() => {
     if (cents <= 0) return { share: 0, error: null as string | null };
-    if (!isGroup) return { share: cents, error: null };
+    if (!sameCurrency && !fx) return { share: 0, error: "No hemos podido obtener el tipo de cambio." };
+    if (!isGroup) return { share: baseCents, error: null };
     try {
       let custom;
       if (mode === "custom") {
@@ -93,12 +108,12 @@ export function ExpenseSheet({
         custom = { kind: "percent" as const, values };
       }
       if (participants.length === 0) throw new RangeError("Elige al menos una persona");
-      const s = buildSplits(cents, mode, participants.map((m) => ({ memberId: m.id, defaultBp: m.defaultBp })), custom);
+      const s = buildSplits(baseCents, mode, participants.map((m) => ({ memberId: m.id, defaultBp: m.defaultBp })), custom);
       return { share: s.find((x) => x.memberId === space.meId)?.amountCents ?? 0, error: null };
     } catch (e) {
       return { share: 0, error: e instanceof RangeError ? e.message : "Reparto no válido" };
     }
-  }, [cents, isGroup, mode, participants, pct, space.meId]);
+  }, [cents, baseCents, fx, sameCurrency, isGroup, mode, participants, pct, space.meId]);
 
   const save = async () => {
     setError(null);
@@ -113,7 +128,7 @@ export function ExpenseSheet({
       : undefined;
     const input: ExpenseInput = {
       id: prefill?.edit?.id, clientId: prefill?.edit?.clientId ?? crypto.randomUUID(), spaceId: space.id,
-      description: desc.trim(), categoryId, spentAt: date, amountCents: cents, currency: space.currency,
+      description: desc.trim(), categoryId, spentAt: date, amountCents: cents, currency,
       paidFrom: fromPot ? "pot" : "member", splitMode: mode, participants: participants.map((p) => p.id), custom,
       payers, isPrivate: isGroup && isPrivate,
       tags: tags.split(/[\s,#]+/).map((t) => t.trim().toLowerCase()).filter(Boolean).slice(0, 8),
@@ -129,7 +144,7 @@ export function ExpenseSheet({
 
   const accent = ACCENTS[space.kind];
   const bubbleLabel = space.kind === "personal" ? "Personal" : space.name;
-  const symbol = new Intl.NumberFormat("es-ES", { style: "currency", currency: space.currency }).formatToParts(0).find((p) => p.type === "currency")?.value;
+  const symbol = new Intl.NumberFormat("es-ES", { style: "currency", currency }).formatToParts(0).find((p) => p.type === "currency")?.value;
 
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/60" onClick={onClose}>
@@ -164,6 +179,12 @@ export function ExpenseSheet({
           <output aria-live="polite" className="font-mono text-5xl font-semibold tabular-nums">
             {amount === "" ? "0" : amount} <span className="text-3xl text-ink-3">{symbol}</span>
           </output>
+          <div className="mt-1 flex items-center justify-center gap-2 text-sm text-ink-3">
+            <select value={currency} onChange={(e) => setCurrency(e.target.value)} aria-label="Moneda del gasto" className="min-h-11 rounded-full border border-border bg-surface px-3 text-ink-2">
+              {[space.currency, ...CURRENCIES.filter((c) => c !== space.currency)].map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            {!sameCurrency && cents > 0 && <span className="font-mono">{fx ? `≈ ${formatMoney(baseCents, space.currency)}` : "sin cambio disponible"}</span>}
+          </div>
         </div>
         <input
           value={desc} onChange={(e) => setDesc(e.target.value)} maxLength={120} placeholder="Concepto" aria-label="Concepto"

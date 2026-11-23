@@ -181,7 +181,12 @@ begin
   if new.kind = 'group' then
     insert into public.funds (space_id, name, kind, color, position) values (new.id, 'General', 'variable', '#FF9F43', 0) returning id into f;
     insert into public.categories (space_id, fund_id, name)
-      select new.id, f, n from unnest(array['Comida','Bebida','Transporte','Alojamiento','Ocio','Otros']) n;
+      select new.id, f, n from unnest(case new.template
+        when 'night' then array['Copas','Entradas','Taxi','Comida','Otros']
+        when 'dinner' then array['Comida','Bebida','Postre','Propina','Otros']
+        when 'trip' then array['Alojamiento','Transporte','Comida','Actividades','Compras','Otros']
+        when 'flat' then array['Alquiler','Luz','Agua','Internet','Compra','Limpieza']
+        else array['Comida','Bebida','Transporte','Alojamiento','Ocio','Otros'] end) n;
     return new;
   end if;
 

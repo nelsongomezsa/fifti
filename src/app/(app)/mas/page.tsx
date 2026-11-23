@@ -18,6 +18,7 @@ export default async function MorePage() {
   const { data: pf } = user.is_anonymous ? { data: [] } : await supabase.from("spaces").select("id").eq("kind", "personal").maybeSingle().then((r) => ({ data: r.data ? [r.data] : [] }));
   const { data: pFunds } = pf?.[0] ? await supabase.from("funds").select("id, name").eq("space_id", pf[0].id).order("position") : { data: [] };
   const { data: prefs } = await supabase.from("mirror_prefs").select("space_id, enabled, fund_id");
+  const { data: archived } = await supabase.from("spaces").select("id, name").eq("kind", "group").not("archived_at", "is", null).order("archived_at", { ascending: false });
   const { data: favs } = await supabase.from("favorites").select("id, label, amount_cents").order("label");
   return (
     <section className="flex flex-col gap-4 pt-2">
@@ -52,6 +53,14 @@ export default async function MorePage() {
           </li>
         ))}
       </ul>
+      {(archived ?? []).length > 0 && (
+        <>
+          <h2 className="mt-2 text-lg font-semibold">Planes archivados</h2>
+          <ul className="flex flex-col gap-2">{archived!.map((a) => (
+            <li key={a.id}><Link href={`/espacio/${a.id}/cerrar`} className="flex min-h-12 items-center justify-between rounded-card border border-border bg-surface px-4">{a.name}<span aria-hidden className="text-ink-3">›</span></Link></li>
+          ))}</ul>
+        </>
+      )}
       {!user.is_anonymous && spaces.some((s) => s.kind !== "personal") && (
         <>
           <h2 className="mt-2 text-lg font-semibold">Reflejo en tu plan personal</h2>

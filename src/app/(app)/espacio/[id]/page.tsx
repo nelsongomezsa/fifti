@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm, inputClass } from "@/components/ui/ActionForm";
-import { addVirtualMember, createClaimLink, createLink, kickMember, revokeLink, saveShares } from "@/server/actions/spaces";
+import { addVirtualMember, createClaimLink, createLink, kickMember, revokeLink, saveShares, setDailyBudget } from "@/server/actions/spaces";
 import { createClient } from "@/lib/supabase/server";
 import { uuidSchema } from "@/lib/validation/spaces";
 import { requireUser } from "@/server/spaces";
@@ -18,7 +18,7 @@ export default async function SpacePage({ params }: { params: Promise<{ id: stri
   const supabase = await createClient();
 
   // RLS: si no eres miembro, no hay fila (mismo resultado que si no existiera).
-  const { data: space } = await supabase.from("spaces").select("id, name, kind, emoji, base_currency").eq("id", id).maybeSingle();
+  const { data: space } = await supabase.from("spaces").select("id, name, kind, emoji, base_currency, daily_budget_cents").eq("id", id).maybeSingle();
   if (!space) notFound();
   const { data: members } = await supabase
     .from("space_members").select("id, user_id, display_name, role, default_share_bp").eq("space_id", id).order("joined_at");
@@ -57,6 +57,19 @@ export default async function SpacePage({ params }: { params: Promise<{ id: stri
           ))}
         </ul>
       </div>
+
+      {isOwner && space.kind === "group" && (
+        <>
+          <Link href={`/espacio/${id}/cerrar`} className="min-h-11 rounded-card border border-border bg-surface px-4 py-3 text-sm">Cerrar plan y ver quién paga a quién ›</Link>
+          <div className="flex flex-col gap-3">
+            <h2 className="text-lg font-semibold">Presupuesto por persona y día</h2>
+            <ActionForm action={setDailyBudget} submit="Guardar presupuesto" tone="plain">
+              <input type="hidden" name="spaceId" value={id} />
+              <input name="budget" inputMode="decimal" defaultValue={space.daily_budget_cents ? (space.daily_budget_cents / 100).toFixed(2).replace(".", ",") : ""} placeholder="50,00 (vacío = sin presupuesto)" aria-label="Presupuesto por persona y día" className={`${inputClass} font-mono`} />
+            </ActionForm>
+          </div>
+        </>
+      )}
 
       {isOwner && (
         <>

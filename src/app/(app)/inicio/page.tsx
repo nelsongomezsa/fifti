@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SpendChart } from "@/components/charts/SpendChart";
+import { dailyBudgetLeft } from "@/lib/fx";
 import { formatMoney, monthStart } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 import { loadSpaceBalance } from "@/server/balance";
@@ -27,6 +28,18 @@ export default async function HomePage() {
     const t = b.transfers.find((x) => x.from === me?.id || x.to === me?.id) ?? b.transfers[0];
     if (t) transfer = { from: b.members.find((m) => m.id === t.from)?.display_name ?? "—", to: b.members.find((m) => m.id === t.to)?.display_name ?? "—", amountCents: t.amountCents };
   }
+  let budgetLeft: number | null = null;
+  if (active.kind === "group") {
+    const { data: sp } = await supabase.from("spaces").select("daily_budget_cents").eq("id", active.id).maybeSingle();
+    if (sp?.daily_budget_cents) {
+      const day = new Date().toISOString().slice(0, 10);
+      const [{ data: ex }, { count }] = await Promise.all([
+        supabase.from("expenses").select("amount_base_cents").eq("space_id", active.id).eq("spent_at", day).eq("paid_from", "member"),
+        supabase.from("space_members").select("id", { count: "exact", head: true }).eq("space_id", active.id),
+      ]);
+      budgetLeft = dailyBudgetLeft(sp.daily_budget_cents, count ?? 1, (ex ?? []).reduce((a, e) => a + e.amount_base_cents, 0));
+    }
+  }
   const today = new Date();
   const showSummary = today.getUTCDate() <= 3 && o.month === monthStart(today);
 
@@ -47,6 +60,12 @@ export default async function HomePage() {
           {o.change.percentBp !== null && ` (${o.change.percentBp >= 0 ? "+" : ""}${pctText(o.change.percentBp)})`}
         </p>
       </div>
+
+      {budgetLeft !== null && (
+        <p className="rounded-card border border-border bg-surface p-4 text-sm text-ink-2">
+          Hoy os quedan <span className={`money font-mono text-lg ${budgetLeft < 0 ? "text-over-text" : "text-ink"}`}>{formatMoney(budgetLeft)}</span> por cabeza.
+        </p>
+      )}
 
       <dl className="grid grid-cols-3 gap-2">
         {[["Ingresos", formatMoney(o.income)], ["Tasa de ahorro", pctText(o.savingsBp)], ["Previsión día 30", formatMoney(o.forecastLeftover)]].map(([k, v]) => (
