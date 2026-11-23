@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
+import { ServiceWorker } from "@/components/pwa/ServiceWorker";
 import "./globals.css";
 
 const grotesk = Space_Grotesk({ subsets: ["latin", "latin-ext"], variable: "--font-grotesk", display: "swap" });
@@ -33,7 +34,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={`${grotesk.variable} ${plexMono.variable}`}>
-      <body className="min-h-dvh antialiased">{children}</body>
+      <body className="min-h-dvh antialiased">{children}
+        <ServiceWorker />
+      </body>
     </html>
   );
 }

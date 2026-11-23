@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ClearLocalData } from "@/components/pwa/ClearLocalData";
 import { AuthForm } from "@/components/ui/AuthForm";
 import { safeNext } from "@/lib/validation/auth";
 import { logIn } from "@/server/actions/auth";
@@ -11,6 +12,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const safe = safeNext(next);
   return (
     <>
+      <ClearLocalData />
       <h1 className="text-2xl font-bold">Entrar</h1>
       {error === "enlace" && (
         <p role="alert" className="text-sm text-over-text">El enlace no es válido o ha caducado.</p>

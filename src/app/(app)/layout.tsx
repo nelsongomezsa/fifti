@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Logo } from "@/components/brand/Logo";
 import { BottomNav } from "@/components/nav/BottomNav";
+import { PendingIndicator } from "@/components/pwa/PendingIndicator";
 import { BubbleSwitcher } from "@/components/nav/BubbleSwitcher";
 import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
 
@@ -22,6 +23,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </Link>
       </header>
       {active && <BubbleSwitcher spaces={spaces} activeId={active.id} canCreate={!user.is_anonymous} />}
+      <PendingIndicator />
       <main className="px-4">{children}</main>
       {active && <BottomNav activeSpaceId={active.id} />}
     </div>

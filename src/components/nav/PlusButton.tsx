@@ -6,6 +6,8 @@ import { loadSheetContext, type SheetContext } from "@/server/actions/sheet";
 import { formatMoney } from "@/lib/money";
 import { ExpenseSheet, type SavedInfo, type SheetPrefill } from "@/components/expense/ExpenseSheet";
 
+export const CTX_CACHE_KEY = "fifti:sheetCtx";
+
 /** Botón "+" central: toque = hoja de nuevo gasto; pulsación larga = favoritos. Gestiona el toast con "Deshacer". */
 export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
   const [ctx, setCtx] = useState<SheetContext | null>(null);
@@ -17,9 +19,18 @@ export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
   const longFired = useRef(false);
 
   const ensureCtx = useCallback(async () => {
-    const c = ctx ?? (await loadSheetContext());
-    setCtx(c);
-    return c;
+    if (ctx) return ctx;
+    let c: SheetContext | null = null;
+    try {
+      c = await loadSheetContext();
+      try { localStorage.setItem(CTX_CACHE_KEY, JSON.stringify(c)); } catch { /* sin almacenamiento */ }
+    } catch {
+      // Sin conexión: se usan las burbujas y categorías guardadas en el dispositivo
+      try { c = JSON.parse(localStorage.getItem(CTX_CACHE_KEY) ?? "null") as SheetContext | null; } catch { c = null; }
+    }
+    const result = c ?? { spaces: [], favorites: [] };
+    setCtx(result);
+    return result;
   }, [ctx]);
 
   // Atajo de la PWA: /inicio?nuevo=gasto abre la hoja

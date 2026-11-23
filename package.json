@@ -11,7 +11,9 @@
     "test": "vitest run tests/unit",
     "test:rls": "vitest run tests/rls",
     "icons": "node scripts/build-logo.mjs && node scripts/generate-icons.mjs",
-    "audit": "npm audit --audit-level=moderate"
+    "audit": "npm audit --audit-level=moderate",
+    "build:ci": "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_SUPABASE_ANON_KEY=placeholder-anon-key-for-build-only next build",
+    "check": "npm run typecheck && npm run lint && npm test && npm run build:ci"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -31,6 +33,7 @@
     "dotenv": "^18.0.10",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.4.6",
+    "fake-indexeddb": "^6.2.8",
     "opentype.js": "^2.0.0",
     "postcss": "^8.5.33",
     "sharp": "^0.35.5",
