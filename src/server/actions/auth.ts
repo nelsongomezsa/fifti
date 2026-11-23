@@ -14,6 +14,8 @@ export type FormState = { ok?: boolean; error?: string; message?: string; link?:
 const TOO_MANY = "Demasiados intentos. Espera un rato e inténtalo de nuevo.";
 const GENERIC = "No hemos podido completar la operación. Inténtalo de nuevo.";
 const PWNED = "Esa contraseña aparece en filtraciones de datos. Elige otra distinta.";
+const MAIL_LIMIT = "Ahora mismo no podemos enviar más correos. Inténtalo de nuevo en una hora.";
+const BAD_EMAIL = "Ese email no es válido.";
 
 const field = (fd: FormData, name: string) => {
   const v = fd.get(name);
@@ -45,9 +47,18 @@ export async function signUp(_prev: FormState, fd: FormData): Promise<FormState>
         emailRedirectTo: `${publicEnv().NEXT_PUBLIC_SITE_URL}/auth/callback?next=${encodeURIComponent(safeNext(field(fd, "next")))}`,
       },
     });
-    if (error && error.status !== 422 && error.status !== 400) throw error;
+    if (error) {
+      // Solo se distinguen errores que no revelan si una cuenta existe (límite global de correos, formato del email).
+      if (error.code === "over_email_send_rate_limit" || error.status === 429) {
+        console.error("[signUp] límite de correos de Auth alcanzado");
+        return { error: x(MAIL_LIMIT) };
+      }
+      if (error.code === "email_address_invalid") return { error: x(BAD_EMAIL) };
+      if (error.code === "weak_password") return { error: x(PWNED) };
+      if (error.code !== "user_already_exists") throw error;
+    }
   } catch (err) {
-    console.error("[signUp]", err instanceof Error ? err.message : "error");
+    console.error("[signUp]", err instanceof Error ? `${(err as { code?: string }).code ?? ""} ${err.message}` : "error");
     return { error: x(GENERIC) };
   }
   // Respuesta idéntica exista o no la cuenta: no se revela qué emails están registrados.

@@ -667,5 +667,7 @@
   "El plan se archiva: no se podrán añadir más gastos. Después podrás crear un enlace de resumen de solo lectura.": "The plan is archived: no more expenses can be added. Afterwards you can create a read-only summary link.",
   "Crear enlace de resumen": "Create summary link",
   "Más opciones": "More options",
-  "No se ha podido leer el ticket.": "Couldn't read the receipt."
+  "No se ha podido leer el ticket.": "Couldn't read the receipt.",
+  "Ahora mismo no podemos enviar más correos. Inténtalo de nuevo en una hora.": "We can't send more emails right now. Try again in an hour.",
+  "Ese email no es válido.": "That email isn't valid."
 }
