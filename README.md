@@ -14,7 +14,15 @@ Prueba la demo (datos ficticios, sin registro) en `/demo`.
 
 ## Capturas
 
-Las capturas se generan con los datos ficticios de la demo (`/demo`): Ana, Leo, «Viernes noche», «Viaje Lisboa».
+Capturas reales de la demo (`/demo`, datos ficticios: Ana, Leo, «Viaje Lisboa»).
+
+| Inicio (personal) | Inicio (hogar) | Quién paga a quién |
+|---|---|---|
+| ![Inicio personal](docs/capturas/01-inicio-personal.png) | ![Inicio hogar](docs/capturas/02-inicio-hogar.png) | ![Viaje Lisboa](docs/capturas/03-viaje-quien-paga-a-quien.png) |
+
+| Movimientos | Plan por fondos | Nuevo gasto en grupo |
+|---|---|---|
+| ![Movimientos](docs/capturas/04-movimientos-viaje.png) | ![Plan](docs/capturas/05-plan-fondos.png) | ![Nuevo gasto](docs/capturas/06-nuevo-gasto-grupo.png) |
 
 ## Stack
 
@@ -48,6 +56,17 @@ npm run dev
 Variables: URL y clave anónima de Supabase, `SUPABASE_SERVICE_ROLE_KEY`, `RATE_LIMIT_SALT`, `CRON_SECRET`, y las claves VAPID (`npx web-push generate-vapid-keys`) para las notificaciones.
 
 Scripts: `npm test` (lógica de dinero, validación, CSV, cola offline…), `npm run test:rls` (políticas contra Supabase), `npm run lint`, `npm run typecheck`, `npm run check` (todo + build), `npm run icons` (logo e iconos).
+
+## Pruebas
+
+- `npm test`: lógica de dinero, validación, CSV, cola offline y service worker.
+- `npm run test:rls`: políticas de RLS contra Supabase local.
+- `npm run e2e:sheet`: comprueba en el navegador (375×812) que «Guardar» y «Tu parte» quedan dentro de la pantalla en la demo y en la app.
+- `scripts/e2e/walkthrough.mjs`: recorrido completo con una cuenta ficticia y un invitado.
+
+## Licencia
+
+MIT. Ver [LICENSE](LICENSE).
 
 ## Seguridad
 
