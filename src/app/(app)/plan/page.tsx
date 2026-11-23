@@ -1,18 +1,198 @@
 import type { Metadata } from "next";
-import { getActiveSpace, listMySpaces } from "@/server/spaces";
+import Link from "next/link";
+import { ActionForm, inputClass } from "@/components/ui/ActionForm";
+import { addMonths, formatMoney, isMonthStart, monthStart, summarizeFund } from "@/lib/money";
+import { createClient } from "@/lib/supabase/server";
+import { copyPreviousPlan, deleteRecurring, generateContributions, markContributionPaid, saveContributionRule, savePlan, saveRecurring } from "@/server/actions/plan";
+import { loadPlan } from "@/server/plan";
+import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
 
 export const metadata: Metadata = { title: "Plan" };
 
-export default async function Page() {
+const pctText = (bp: number) => (bp / 100).toFixed(2).replace(".", ",");
+const centsText = (c: number) => (c / 100).toFixed(2).replace(".", ",");
+const FREQ = { weekly: "Semanal", monthly: "Mensual", yearly: "Anual" } as const;
+
+export default async function PlanPage({ searchParams }: { searchParams: Promise<{ mes?: string }> }) {
+  const sp = await searchParams;
+  const user = await requireUser();
   const active = await getActiveSpace(await listMySpaces());
+  if (!active) return null;
+  const supabase = await createClient();
+  const month = sp.mes && isMonthStart(sp.mes) ? sp.mes : monthStart(new Date());
+  const d = await loadPlan(supabase, active.id, month);
+  const me = d.members.find((m) => m.user_id === user.id);
+  const canEdit = !!me && me.role !== "guest" && d.plan?.status !== "closed";
+  const label = new Date(`${month}T00:00:00Z`).toLocaleDateString("es-ES", { month: "long", year: "numeric", timeZone: "UTC" });
+  const expectedTotal = Object.values(d.expected).reduce((a, b) => a + b, 0);
+  const actualTotal = Object.values(d.actual).reduce((a, b) => a + b, 0);
+
+  const [{ data: recurring }, { data: cats }, { data: rule }, { data: contribs }] = await Promise.all([
+    supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, next_run, active, category_id, paid_from").eq("space_id", active.id).order("next_run"),
+    supabase.from("categories").select("id, name").eq("space_id", active.id).order("name"),
+    active.kind === "household" ? supabase.from("contribution_rules").select("mode, monthly_target_cents, values").eq("space_id", active.id).maybeSingle() : Promise.resolve({ data: null }),
+    active.kind === "household" ? supabase.from("contributions").select("id, member_id, expected_cents, paid_cents").eq("space_id", active.id).eq("month", month) : Promise.resolve({ data: [] }),
+  ]);
+  const nm = (id: string) => d.members.find((m) => m.id === id)?.display_name ?? "—";
+  const myRecurring = recurring ?? [];
+
   return (
-    <section className="flex flex-col gap-4 pt-2">
+    <section className="flex flex-col gap-6 pt-2">
       <h1 className="text-2xl font-bold">Plan</h1>
-      <div className="rounded-card border border-border bg-surface p-4">
-        <p className="text-sm text-ink-3">Burbuja activa</p>
-        <p className="mt-1 flex items-center gap-2 text-lg font-semibold"><span aria-hidden className="size-2.5 rounded-full bg-accent" />{active?.name}</p>
-        <p className="mt-3 text-ink-2">Tu plan mensual por fondos. Llega en la fase 6.</p>
+      <div className="flex items-center justify-between">
+        <Link href={`/plan?mes=${addMonths(month, -1)}`} aria-label="Mes anterior" className="grid min-h-11 min-w-11 place-items-center rounded-full border border-border">‹</Link>
+        <span className="font-semibold capitalize">{label}{d.plan?.status === "closed" ? " · cerrado" : ""}</span>
+        <Link href={`/plan?mes=${addMonths(month, 1)}`} aria-label="Mes siguiente" className="grid min-h-11 min-w-11 place-items-center rounded-full border border-border">›</Link>
       </div>
+
+      {!d.plan && canEdit && (
+        <ActionForm action={copyPreviousPlan} submit="Copiar el plan del mes anterior" tone="plain">
+          <input type="hidden" name="spaceId" value={active.id} /><input type="hidden" name="month" value={month} />
+        </ActionForm>
+      )}
+
+      <ul className="flex flex-col gap-3" aria-label="Fondos">
+        {d.funds.map((f) => {
+          const a = d.allocations[f.id];
+          const row = summarizeFund(f.id, a?.planned ?? 0, d.spentByFund[f.id] ?? 0);
+          const over = row.status === "over";
+          return (
+            <li key={f.id} className="rounded-card border border-border bg-surface p-4">
+              <p className="flex items-center justify-between">
+                <span className="flex items-center gap-2 font-medium"><span aria-hidden className="size-2.5 rounded-full" style={{ background: f.color }} />{f.name}</span>
+                <span className={`money font-mono text-sm ${over ? "text-over-text" : "text-ink-2"}`}>{Math.round(row.usedBp / 100)} %</span>
+              </p>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-track" role="progressbar" aria-valuenow={Math.min(100, Math.round(row.usedBp / 100))} aria-valuemin={0} aria-valuemax={100} aria-label={`Uso de ${f.name}`}>
+                <div className="h-full rounded-full" style={{ width: `${Math.min(100, row.usedBp / 100)}%`, background: over ? "var(--over)" : row.status === "warn" ? "var(--tangerine)" : f.color }} />
+              </div>
+              <p className="money mt-2 flex justify-between font-mono text-xs text-ink-3">
+                <span>Gastado {formatMoney(row.spent)}</span><span>Previsto {formatMoney(row.planned)}</span>
+                <span className={over ? "text-over-text" : ""}>Resta {formatMoney(row.remaining)}</span>
+              </p>
+              {row.status !== "ok" && <p role="status" className={`mt-1 text-xs ${over ? "text-over-text" : "text-ink-2"}`}>{over ? "Te has pasado de este fondo." : "Vas por el 80 % de este fondo."}</p>}
+            </li>
+          );
+        })}
+      </ul>
+      {d.uncategorized > 0 && <p className="text-sm text-ink-3">Sin categoría: <span className="money font-mono">{formatMoney(d.uncategorized)}</span></p>}
+
+      <p className="money flex justify-between rounded-card border border-border bg-surface p-4 font-mono text-sm">
+        <span>Ingresos previstos {formatMoney(expectedTotal)}</span><span>Reales {formatMoney(actualTotal)}</span>
+      </p>
+
+      {canEdit && (
+        <details className="rounded-card border border-border bg-surface p-4">
+          <summary className="min-h-11 cursor-pointer font-semibold">Editar plan</summary>
+          <ActionForm action={savePlan} submit="Guardar plan" className="mt-3 flex flex-col gap-3">
+            <input type="hidden" name="spaceId" value={active.id} /><input type="hidden" name="month" value={month} />
+            <h3 className="text-sm text-ink-3">Ingresos previstos</h3>
+            {d.members.map((m) => (
+              <label key={m.id} className="flex items-center justify-between gap-3 text-sm text-ink-2">
+                {m.display_name}
+                <input name={`inc_${m.id}`} inputMode="decimal" defaultValue={d.expected[m.id] !== undefined ? centsText(d.expected[m.id]!) : ""} placeholder="0,00" aria-label={`Ingreso previsto de ${m.display_name}`}
+                  className="min-h-11 w-32 rounded-card border border-border bg-surface-2 px-3 text-right font-mono text-ink" />
+              </label>
+            ))}
+            <h3 className="mt-2 text-sm text-ink-3">Fondos (% de los ingresos o importe fijo)</h3>
+            {d.funds.map((f) => {
+              const a = d.allocations[f.id];
+              return (
+                <div key={f.id} className="flex items-center justify-between gap-2 text-sm text-ink-2">
+                  <span className="min-w-0 flex-1 truncate">{f.name}</span>
+                  <select name={`mode_${f.id}`} defaultValue={a?.mode ?? "percent"} aria-label={`Tipo de ${f.name}`} className="min-h-11 rounded-card border border-border bg-surface-2 px-2 text-ink">
+                    <option value="percent">%</option><option value="amount">€</option>
+                  </select>
+                  <input name={`val_${f.id}`} inputMode="decimal" defaultValue={a ? (a.mode === "percent" ? pctText(a.value) : centsText(a.value)) : ""} placeholder="0" aria-label={`Valor de ${f.name}`}
+                    className="min-h-11 w-24 rounded-card border border-border bg-surface-2 px-3 text-right font-mono text-ink" />
+                </div>
+              );
+            })}
+            <textarea name="notes" maxLength={500} defaultValue={d.plan?.notes ?? ""} placeholder="Notas del mes" aria-label="Notas" className={`${inputClass} py-3`} />
+          </ActionForm>
+        </details>
+      )}
+
+      <div className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold">Gastos fijos</h2>
+        {myRecurring.length === 0 ? <p className="text-sm text-ink-3">Aún no hay gastos fijos.</p> : (
+          <ul className="flex flex-col gap-2">
+            {myRecurring.map((r) => (
+              <li key={r.id} className="flex items-center justify-between rounded-card border border-border bg-surface px-4 py-3 text-sm">
+                <span>{r.description}<span className="block text-xs text-ink-3">{FREQ[r.frequency as keyof typeof FREQ]} · próximo {r.next_run}{r.paid_from === "pot" ? " · del bote" : ""}</span></span>
+                <span className="flex items-center gap-2">
+                  <span className="money font-mono">{formatMoney(r.amount_cents)}</span>
+                  <form action={deleteRecurring}><input type="hidden" name="recurringId" value={r.id} /><button aria-label={`Borrar ${r.description}`} className="min-h-11 min-w-11 text-over-text">✕</button></form>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {me && me.role !== "guest" && (
+          <details className="rounded-card border border-border bg-surface p-4">
+            <summary className="min-h-11 cursor-pointer font-semibold">Añadir gasto fijo</summary>
+            <ActionForm action={saveRecurring} submit="Guardar gasto fijo" className="mt-3 flex flex-col gap-3">
+              <input type="hidden" name="spaceId" value={active.id} />
+              <input name="description" required maxLength={120} placeholder="Alquiler" aria-label="Concepto" className={inputClass} />
+              <input name="amount" required inputMode="decimal" placeholder="650,00" aria-label="Importe" className={`${inputClass} font-mono`} />
+              <div className="grid grid-cols-2 gap-3">
+                <select name="frequency" defaultValue="monthly" aria-label="Frecuencia" className={inputClass}>{Object.entries(FREQ).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+                <input name="day" type="number" min={1} max={31} defaultValue={1} aria-label="Día del mes" className={inputClass} />
+              </div>
+              <label className="flex flex-col gap-1 text-xs text-ink-3">Primer cobro<input name="nextRun" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} className={inputClass} /></label>
+              <select name="categoryId" defaultValue="" aria-label="Categoría" className={inputClass}><option value="">Sin categoría</option>{cats?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+              {active.kind === "household" && <select name="paidFrom" aria-label="Quién paga" className={inputClass}><option value="member">Lo pago yo</option><option value="pot">Sale del bote común</option></select>}
+            </ActionForm>
+          </details>
+        )}
+      </div>
+
+      {active.kind === "household" && (
+        <div className="flex flex-col gap-3">
+          <h2 className="text-lg font-semibold">Bote común y aportaciones</h2>
+          {me?.role === "owner" && (
+            <details className="rounded-card border border-border bg-surface p-4">
+              <summary className="min-h-11 cursor-pointer font-semibold">Regla de aportación</summary>
+              <ActionForm action={saveContributionRule} submit="Guardar regla" className="mt-3 flex flex-col gap-3">
+                <input type="hidden" name="spaceId" value={active.id} />
+                <select name="mode" defaultValue={rule?.mode ?? "proportional_to_income"} aria-label="Modo" className={inputClass}>
+                  <option value="proportional_to_income">Proporcional a los ingresos</option>
+                  <option value="fixed_percent">Porcentaje fijo</option>
+                  <option value="fixed_amount">Importe fijo</option>
+                </select>
+                <input name="target" inputMode="decimal" defaultValue={rule ? centsText(rule.monthly_target_cents) : ""} placeholder="Bote mensual (1.200,00)" aria-label="Bote mensual" className={`${inputClass} font-mono`} />
+                <p className="text-xs text-ink-3">Solo para % o importe fijo: un valor por persona (% o €).</p>
+                {d.members.map((m) => (
+                  <label key={m.id} className="flex items-center justify-between gap-3 text-sm text-ink-2">{m.display_name}
+                    <input name={`rv_${m.id}`} inputMode="decimal" defaultValue={rule?.values && (rule.values as Record<string, number>)[m.id] !== undefined ? String((rule.values as Record<string, number>)[m.id]! / 100).replace(".", ",") : ""}
+                      aria-label={`Valor de ${m.display_name}`} className="min-h-11 w-28 rounded-card border border-border bg-surface-2 px-3 text-right font-mono text-ink" /></label>
+                ))}
+              </ActionForm>
+              <ActionForm action={generateContributions} submit="Calcular aportaciones del mes" tone="plain" className="mt-3 flex flex-col gap-2">
+                <input type="hidden" name="spaceId" value={active.id} /><input type="hidden" name="month" value={month} />
+              </ActionForm>
+            </details>
+          )}
+          {(contribs ?? []).length === 0 ? <p className="text-sm text-ink-3">Calcula las aportaciones del mes con la regla.</p> : (
+            <ul className="flex flex-col gap-2">
+              {contribs!.map((c) => {
+                const mineOrOwner = d.members.find((m) => m.id === c.member_id)?.user_id === user.id || me?.role === "owner";
+                return (
+                  <li key={c.id} className="rounded-card border border-border bg-surface px-4 py-3 text-sm">
+                    <p className="flex justify-between"><span>{nm(c.member_id)}</span>
+                      <span className="money font-mono">{formatMoney(c.paid_cents)} / {formatMoney(c.expected_cents)}</span></p>
+                    {mineOrOwner && d.plan?.status !== "closed" && (
+                      <ActionForm action={markContributionPaid} submit={c.paid_cents > 0 ? "Actualizar" : "Marcar como hecha"} tone="plain" className="mt-2 flex gap-2">
+                        <input type="hidden" name="contributionId" value={c.id} />
+                        <input name="paid" inputMode="decimal" defaultValue={centsText(c.paid_cents > 0 ? c.paid_cents : c.expected_cents)} aria-label="Importe aportado" className={`${inputClass} font-mono`} />
+                      </ActionForm>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
     </section>
   );
 }
