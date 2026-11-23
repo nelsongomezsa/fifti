@@ -101,6 +101,34 @@ describe.skipIf(!rlsConfigured)("RLS fase 7: reflejo grupo → personal y cierre
       expect(al!.carry_cents).toBe(4200);
     });
 
+    it("reabrir el mes deshace el arrastre del sobrante y las aportaciones a metas", async () => {
+      await ana.client.rpc("save_plan", { p: plan(hogar, "2026-04-01", anaH) });
+      const fund = (await ana.client.from("funds").select("id").eq("space_id", hogar).eq("name", "Ocio").single()).data!.id;
+      const other = (await ana.client.from("funds").select("id").eq("space_id", hogar).eq("name", "Ahorro").single()).data!.id;
+      const goal = (await ana.client.from("savings_goals").insert({ space_id: hogar, name: "Viaje", target_cents: 100000 }).select("id").single()).data!.id;
+      const dec = [{ fund_id: fund, action: "rollover", leftover_cents: 4200 }, { fund_id: other, action: "goal", goal_id: goal, leftover_cents: 1500 }];
+      expect((await ana.client.rpc("close_plan", { p_space: hogar, p_month: "2026-04-01", p_decisions: dec })).error).toBeNull();
+      const carry = async () => (await ana.client.from("plan_allocations").select("carry_cents, monthly_plans!inner(month, space_id)").eq("fund_id", fund).eq("monthly_plans.month", "2026-05-01")).data ?? [];
+      expect((await carry())[0]!.carry_cents).toBe(4200);
+      expect((await ana.client.from("goal_contributions").select("amount_cents").eq("goal_id", goal).eq("source", "month_surplus")).data).toEqual([{ amount_cents: 1500 }]);
+      expect((await ana.client.rpc("reopen_plan", { p_space: hogar, p_month: "2026-04-01" })).error).toBeNull();
+      expect(await carry()).toEqual([]); // el plan de mayo lo creó el cierre y vuelve a no existir
+      expect((await ana.client.from("goal_contributions").select("id").eq("goal_id", goal).eq("source", "month_surplus")).data).toEqual([]);
+      // cerrar de nuevo vuelve a aplicar una sola vez (sin doble arrastre)
+      await ana.client.rpc("close_plan", { p_space: hogar, p_month: "2026-04-01", p_decisions: dec });
+      expect((await carry())[0]!.carry_cents).toBe(4200);
+    });
+
+    it("reabrir conserva el plan siguiente si ya tenía contenido propio", async () => {
+      await ana.client.rpc("save_plan", { p: plan(hogar, "2026-02-01", anaH) });
+      await ana.client.rpc("save_plan", { p: plan(hogar, "2026-03-01", anaH) });
+      const fund = (await ana.client.from("funds").select("id").eq("space_id", hogar).eq("name", "Ocio").single()).data!.id;
+      await ana.client.rpc("close_plan", { p_space: hogar, p_month: "2026-02-01", p_decisions: [{ fund_id: fund, action: "rollover", leftover_cents: 900 }] });
+      await ana.client.rpc("reopen_plan", { p_space: hogar, p_month: "2026-02-01" });
+      expect((await ana.client.from("monthly_plans").select("id").eq("space_id", hogar).eq("month", "2026-03-01")).data).toHaveLength(1);
+      expect((await ana.client.from("plan_allocations").select("carry_cents, monthly_plans!inner(month)").eq("fund_id", fund).eq("monthly_plans.month", "2026-03-01")).data).toEqual([]);
+    });
+
     it("borrar un espacio no se bloquea por tener meses cerrados", async () => {
       const tmp = (await ana.client.rpc("create_space", { p_name: "Temporal", p_kind: "household" })).data as string;
       const m = (await ana.client.from("space_members").select("id").eq("space_id", tmp).single()).data!.id;
