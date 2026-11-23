@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
-import { AuthForm } from "@/components/ui/AuthForm";
+import { PasswordForm } from "@/components/ui/PasswordForm";
 import { safeNext } from "@/lib/validation/auth";
 import { signUp } from "@/server/actions/auth";
 
@@ -13,17 +13,13 @@ export default async function SignUpPage({ searchParams }: { searchParams: Promi
   return (
     <>
       <h1 className="text-2xl font-bold">{t("signup")}</h1>
-      <AuthForm
+      <PasswordForm
         action={signUp}
         next={safe}
         submit={t("signup")}
-        fields={[
+        leading={[
           { name: "displayName", label: t("yourName"), type: "text", autoComplete: "given-name", maxLength: 40 },
           { name: "email", label: t("email"), type: "email", autoComplete: "email" },
-          {
-            name: "password", label: t("password"), type: "password", autoComplete: "new-password", maxLength: 128,
-            hint: t("passwordHint"),
-          },
         ]}
       />
       <p className="text-sm text-ink-2">

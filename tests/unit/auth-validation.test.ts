@@ -8,7 +8,7 @@ describe("validación de auth", () => {
     expect(passwordSchema.safeParse("a".repeat(129)).success).toBe(false);
   });
   it("rechaza campos extra (mass assignment)", () => {
-    const base = { displayName: "Ana", email: "ana@example.test", password: "una-clave-larga-1" };
+    const base = { displayName: "Ana", email: "ana@example.test", password: "una-clave-larga-1", confirmPassword: "una-clave-larga-1" };
     expect(signUpSchema.safeParse(base).success).toBe(true);
     expect(signUpSchema.safeParse({ ...base, role: "owner" }).success).toBe(false);
     expect(loginSchema.safeParse({ email: "a@b.co", password: "x", admin: true }).success).toBe(false);

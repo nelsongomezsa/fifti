@@ -7,13 +7,13 @@ import { publicEnv } from "@/lib/env";
 import { hit, hitIp, RULES } from "@/lib/security/rate-limit";
 import { pwnedCount } from "@/lib/security/hibp";
 import { createClient } from "@/lib/supabase/server";
-import { loginSchema, recoverSchema, resetSchema, safeNext, signUpSchema } from "@/lib/validation/auth";
+import { changePasswordSchema, loginSchema, recoverSchema, resetSchema, safeNext, signUpSchema, upgradeGuestSchema } from "@/lib/validation/auth";
 
 export type FormState = { ok?: boolean; error?: string; message?: string; link?: string };
 
 const TOO_MANY = "Demasiados intentos. Espera un rato e inténtalo de nuevo.";
 const GENERIC = "No hemos podido completar la operación. Inténtalo de nuevo.";
-const PWNED = "Esa contraseña aparece en filtraciones de datos. Elige otra distinta.";
+const PWNED = "Esta contraseña ha aparecido en filtraciones, elige otra";
 const MAIL_LIMIT = "Ahora mismo no podemos enviar más correos. Inténtalo de nuevo en una hora.";
 const BAD_EMAIL = "Ese email no es válido.";
 
@@ -28,6 +28,7 @@ export async function signUp(_prev: FormState, fd: FormData): Promise<FormState>
     displayName: field(fd, "displayName"),
     email: field(fd, "email"),
     password: field(fd, "password"),
+    confirmPassword: field(fd, "confirmPassword"),
   });
   if (!parsed.success) return { error: x(parsed.error.issues[0]?.message ?? GENERIC) };
   const { displayName, email, password } = parsed.data;
@@ -106,7 +107,7 @@ export async function requestPasswordReset(_prev: FormState, fd: FormData): Prom
 
 export async function updatePassword(_prev: FormState, fd: FormData): Promise<FormState> {
   const x = await getTx();
-  const parsed = resetSchema.safeParse({ password: field(fd, "password") });
+  const parsed = resetSchema.safeParse({ password: field(fd, "password"), confirmPassword: field(fd, "confirmPassword") });
   if (!parsed.success) return { error: x(parsed.error.issues[0]?.message ?? GENERIC) };
 
   const supabase = await createClient();
@@ -135,7 +136,7 @@ export async function signOut() {
 /** Un invitado se crea cuenta conservando su historial (la sesión anónima pasa a permanente). */
 export async function upgradeGuest(_prev: FormState, fd: FormData): Promise<FormState> {
   const x = await getTx();
-  const parsed = signUpSchema.omit({ displayName: true }).safeParse({ email: field(fd, "email"), password: field(fd, "password") });
+  const parsed = upgradeGuestSchema.safeParse({ email: field(fd, "email"), password: field(fd, "password"), confirmPassword: field(fd, "confirmPassword") });
   if (!parsed.success) return { error: x(parsed.error.issues[0]?.message ?? GENERIC) };
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
@@ -149,4 +150,30 @@ export async function upgradeGuest(_prev: FormState, fd: FormData): Promise<Form
     return { error: x(GENERIC) };
   }
   return { ok: true, message: x("Te hemos enviado un email para confirmar tu cuenta. Tu historial se conserva.") };
+}
+
+/** Cambiar la contraseña con la sesión abierta: exige la actual, valida la nueva (HIBP) y limita los intentos. */
+export async function changePassword(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
+  const parsed = changePasswordSchema.safeParse({
+    currentPassword: field(fd, "currentPassword"), password: field(fd, "password"), confirmPassword: field(fd, "confirmPassword"),
+  });
+  if (!parsed.success) return { error: x(parsed.error.issues[0]?.message ?? GENERIC) };
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  if (!data.user?.email || data.user.is_anonymous) return { error: x(GENERIC) };
+  if (!(await hit(RULES.passwordChange, `user:${data.user.id}`)) || !(await hitIp(RULES.passwordChange))) return { error: x(TOO_MANY) };
+
+  const { error: authErr } = await supabase.auth.signInWithPassword({ email: data.user.email, password: parsed.data.currentPassword });
+  if (authErr) return { error: x("La contraseña actual no es correcta.") };
+  if (parsed.data.password === parsed.data.currentPassword) return { error: x("La contraseña nueva debe ser distinta de la actual.") };
+  const count = await pwnedCount(parsed.data.password);
+  if (count !== null && count > 0) return { error: x(PWNED) };
+
+  const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
+  if (error) {
+    console.error("[changePassword]", error.code ?? "", error.message);
+    return { error: x(error.code === "weak_password" ? PWNED : GENERIC) };
+  }
+  return { ok: true, message: x("Contraseña cambiada.") };
 }

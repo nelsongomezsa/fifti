@@ -2,12 +2,12 @@ import { getTx } from "@/i18n/tx";
 import { displayName } from "@/lib/system-names";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AuthForm } from "@/components/ui/AuthForm";
 import { ActionForm, inputClass } from "@/components/ui/ActionForm";
 import { formatMoney } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 import { addFavoriteForm, deleteFavorite } from "@/server/actions/expenses";
 import { setMirrorPref } from "@/server/actions/plan";
+import { PasswordForm } from "@/components/ui/PasswordForm";
 import { PushSettings } from "@/components/pwa/PushSettings";
 import { vapidPublicKey } from "@/lib/vapid";
 import { savePrefs } from "@/server/actions/push";
@@ -16,7 +16,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { LockSettings } from "@/components/lock/LockSettings";
 import { deleteAccount, setLocale, setTheme, toggleDiscreet } from "@/server/actions/prefs";
 import { requireUser, listMySpaces } from "@/server/spaces";
-import { signOut, upgradeGuest } from "@/server/actions/auth";
+import { changePassword, signOut, upgradeGuest } from "@/server/actions/auth";
 
 export const metadata: Metadata = { title: "Más" };
 
@@ -45,14 +45,7 @@ export default async function MorePage() {
       {user.is_anonymous && (
         <div className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4">
           <h2 className="font-semibold">{x("Crea tu cuenta y conserva tu historial")}</h2>
-          <AuthForm
-            action={upgradeGuest}
-            submit={x("Crear cuenta")}
-            fields={[
-              { name: "email", label: x("Email"), type: "email", autoComplete: "email" },
-              { name: "password", label: x("Contraseña"), type: "password", autoComplete: "new-password", maxLength: 128, hint: x("Mínimo 12 caracteres.") },
-            ]}
-          />
+          <PasswordForm action={upgradeGuest} submit={x("Crear cuenta")} leading={[{ name: "email", label: x("Email"), type: "email", autoComplete: "email" }]} />
         </div>
       )}
 
@@ -142,6 +135,14 @@ export default async function MorePage() {
           <form action={toggleDiscreet} className="flex items-center justify-between gap-3 rounded-card border border-border bg-surface p-3 text-sm text-ink-2">
             <span>{t("discreetHelp")}</span><button className="min-h-11 rounded-full border border-border px-4 font-semibold text-ink">{t("discreet")}</button>
           </form>
+        </>
+      )}
+      {!user.is_anonymous && (
+        <>
+          <h2 className="mt-2 text-lg font-semibold">{x("Cambiar contraseña")}</h2>
+          <div className="rounded-card border border-border bg-surface p-4">
+            <PasswordForm action={changePassword} submit={x("Cambiar contraseña")} withCurrent clearOnSuccess />
+          </div>
         </>
       )}
       <h2 className="mt-2 text-lg font-semibold">{t("lock")}</h2>

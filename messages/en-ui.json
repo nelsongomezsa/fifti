@@ -668,6 +668,21 @@
   "Crear enlace de resumen": "Create summary link",
   "Más opciones": "More options",
   "No se ha podido leer el ticket.": "Couldn't read the receipt.",
+  "Mostrar contraseña": "Show password",
+  "Ocultar contraseña": "Hide password",
+  "Repetir contraseña": "Repeat password",
+  "Contraseña actual": "Current password",
+  "Al menos 12 caracteres": "At least 12 characters",
+  "Las dos coinciden": "Both match",
+  "cumplido": "met",
+  "pendiente": "pending",
+  "Las contraseñas no coinciden": "Passwords don't match",
+  "Esta contraseña ha aparecido en filtraciones, elige otra": "This password has appeared in data leaks, choose another one",
   "Ahora mismo no podemos enviar más correos. Inténtalo de nuevo en una hora.": "We can't send more emails right now. Try again in an hour.",
-  "Ese email no es válido.": "That email isn't valid."
+  "Ese email no es válido.": "That email isn't valid.",
+  "Cambiar contraseña": "Change password",
+  "Contraseña cambiada.": "Password changed.",
+  "La contraseña actual no es correcta.": "The current password isn't correct.",
+  "La contraseña nueva debe ser distinta de la actual.": "The new password must be different from the current one.",
+  "Escribe tu contraseña actual": "Enter your current password"
 }

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { redirect } from "next/navigation";
-import { AuthForm } from "@/components/ui/AuthForm";
+import { PasswordForm } from "@/components/ui/PasswordForm";
 import { createClient } from "@/lib/supabase/server";
 import { updatePassword } from "@/server/actions/auth";
 
@@ -15,14 +15,7 @@ export default async function ResetPage() {
   return (
     <>
       <h1 className="text-2xl font-bold">{t("reset")}</h1>
-      <AuthForm
-        action={updatePassword}
-        submit={t("savePassword")}
-        fields={[
-          { name: "password", label: t("newPassword"), type: "password", autoComplete: "new-password", maxLength: 128,
-            hint: t("minChars") },
-        ]}
-      />
+      <PasswordForm action={updatePassword} submit={t("savePassword")} />
     </>
   );
 }
