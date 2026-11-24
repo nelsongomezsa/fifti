@@ -726,5 +726,18 @@
   "Dónde ponerlo": "Where to put it",
   "Pantalla de bloqueo: mantén pulsada la pantalla de bloqueo, toca Personalizar y añade el control del atajo.": "Lock screen: long-press the lock screen, tap Customize and add the shortcut control.",
   "Botón de acción (iPhone 15 Pro o posterior): Ajustes › Botón de acción › Atajo › Gasto en Fifti.": "Action button (iPhone 15 Pro or later): Settings › Action Button › Shortcut › Expense in Fifti.",
-  "Siri: di «Oye Siri, Gasto en Fifti», el mismo nombre del atajo.": "Siri: say “Hey Siri, Expense in Fifti”, the same name as the shortcut."
+  "Siri: di «Oye Siri, Gasto en Fifti», el mismo nombre del atajo.": "Siri: say “Hey Siri, Expense in Fifti”, the same name as the shortcut.",
+  "Escribe una frase más corta.": "Write a shorter phrase.",
+  "Inicia sesión para continuar.": "Sign in to continue.",
+  "Has llegado al límite diario de frases con IA. Se ha usado el analizador básico.": "You've reached the daily limit of AI phrases. The basic parser was used.",
+  "Usar IA para entender frases": "Use AI to understand phrases",
+  "Activada. La frase se envía a Google para interpretarla (máx. 30 al día).": "On. The phrase is sent to Google to interpret it (max. 30 a day).",
+  "Desactivada. Las frases se entienden en tu dispositivo, sin enviar nada.": "Off. Phrases are understood on your device, nothing is sent.",
+  "Desactivar": "Turn off",
+  "Activar": "Turn on",
+  "Parece un gasto recurrente: puedes crearlo como pago fijo en Calendario.": "This looks recurring: you can create it as a fixed payment in Calendar.",
+  "Escríbelo en una frase: 23 cena con Leo a medias": "Type it as a sentence: 23 dinner with Leo split",
+  "Escríbelo en una frase": "Type it as a sentence",
+  "Rellenar": "Fill in",
+  "La frase se envía a Google para interpretarla": "The phrase is sent to Google to interpret it"
 }

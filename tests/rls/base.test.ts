@@ -23,6 +23,17 @@ describe.skipIf(!rlsConfigured)("RLS fase 1", () => {
     expect(profile).toEqual([{ display_name: "Ana" }]);
   });
 
+  it("la IA para frases está desactivada por defecto y solo la cambia su dueño", async () => {
+    const { data: mine } = await ana.client.from("profiles").select("ai_phrases");
+    expect(mine).toEqual([{ ai_phrases: false }]);
+    await ana.client.from("profiles").update({ ai_phrases: true }).eq("id", ana.id);
+    const { data: on } = await ana.client.from("profiles").select("ai_phrases");
+    expect(on).toEqual([{ ai_phrases: true }]);
+    await ana.client.from("profiles").update({ ai_phrases: true }).eq("id", leo.id);
+    const { data: leoRow } = await admin().from("profiles").select("ai_phrases").eq("id", leo.id);
+    expect(leoRow).toEqual([{ ai_phrases: false }]);
+  });
+
   it("un usuario no ve los espacios, miembros ni perfiles de otro (IDOR)", async () => {
     const { data: leoSpaces } = await leo.client.from("spaces").select("id");
     const leoSpaceId = leoSpaces![0]!.id;

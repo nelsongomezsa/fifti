@@ -1,6 +1,8 @@
 "use client";
 
 
+import { parsePhrase, type NlResult } from "@/lib/nl/parse";
+import { interpretPhrase } from "@/server/actions/phrase";
 import { useTx } from "@/i18n/tx-client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { buildSplits, currencySymbol, formatMoney, groupTyped, parseToCents, BP_TOTAL, type SplitMode } from "@/lib/money";
@@ -77,6 +79,34 @@ export function ExpenseSheet({
   const error = errState && errState.sig === sig ? errState.msg : null;
   const setError = (m: string | null) => setErrState(m ? { msg: m, sig } : null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const [phrase, setPhrase] = useState("");
+  const [phraseBusy, setPhraseBusy] = useState(false);
+  const [phraseNote, setPhraseNote] = useState<string | null>(null);
+
+  /** Rellena la hoja con lo entendido de la frase. Nunca guarda: la persona revisa y pulsa Guardar. */
+  const applyPhrase = (r: NlResult) => {
+    const target = (r.spaceId && ctx.spaces.find((s) => s.id === r.spaceId)) || space;
+    if (target.id !== space.id) changeSpace(target);
+    if (r.amountCents) setAmount((r.amountCents / 100).toFixed(2).replace(".", ",").replace(/,00$/, ""));
+    if (r.description) setDesc(r.description);
+    if (r.categoryId) setCategoryId(r.categoryId);
+    if (r.splitMode === "equal" && r.participantIds?.length) { setMode("equal"); setIncluded(new Set(r.participantIds)); }
+    setPhraseNote(r.recurring ? x("Parece un gasto recurrente: puedes crearlo como pago fijo en Calendario.") : null);
+  };
+  const runPhrase = async () => {
+    const text = phrase.trim();
+    if (!text || phraseBusy) return;
+    setPhraseBusy(true); setPhraseNote(null);
+    if (ctx.ai && !demo) {
+      const r = await interpretPhrase({ phrase: text, currentSpaceId: space.id }).catch(() => null);
+      if (r?.ok) { applyPhrase(r.result); if (r.note) setPhraseNote(r.note); }
+      else setPhraseNote(r && !r.ok ? r.error : x("No se ha podido completar."));
+    } else {
+      const spaces = ctx.spaces.map((s) => ({ id: s.id, name: s.name, kind: s.kind, meId: s.meId, members: s.members, categories: s.categories }));
+      applyPhrase(parsePhrase(text, spaces, space.id));
+    }
+    setPhraseBusy(false);
+  };
 
   useEffect(() => {
     dialogRef.current?.focus();
@@ -203,6 +233,15 @@ export function ExpenseSheet({
             })}
           </div>
 
+          <form className="mb-2" onSubmit={(e) => { e.preventDefault(); void runPhrase(); }}>
+            <div className="flex gap-2">
+              <input value={phrase} onChange={(e) => setPhrase(e.target.value)} maxLength={200} placeholder={x("Escríbelo en una frase: 23 cena con Leo a medias")} aria-label={x("Escríbelo en una frase")}
+                className="min-h-11 min-w-0 flex-1 rounded-card border border-border bg-surface px-3 text-sm text-ink placeholder:text-ink-3" />
+              <button type="submit" disabled={!phrase.trim() || phraseBusy} className="min-h-11 shrink-0 rounded-full border border-border px-4 text-sm font-semibold disabled:opacity-50">{phraseBusy ? x("Leyendo…") : x("Rellenar")}</button>
+            </div>
+            {ctx.ai && !demo && <p className="mt-1 text-xs text-ink-3">{x("La frase se envía a Google para interpretarla")}</p>}
+            {phraseNote && <p role="status" className="mt-1 text-xs text-ink-2">{phraseNote}</p>}
+          </form>
           <div className="mb-2 flex items-center justify-between gap-2">
             <output aria-live="polite" className="min-w-0 truncate font-mono text-4xl font-semibold tabular-nums">
               {amount === "" ? "0" : groupTyped(amount, x.locale)} <span className="text-2xl text-ink-3">{symbol}</span>

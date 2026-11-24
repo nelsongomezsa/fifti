@@ -41,6 +41,15 @@ export async function toggleDiscreet() {
   revalidatePath("/", "layout");
 }
 
+export async function toggleAiPhrases() {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  if (!data.user || data.user.is_anonymous) return;
+  const { data: p } = await supabase.from("profiles").select("ai_phrases").eq("id", data.user.id).maybeSingle();
+  await supabase.from("profiles").update({ ai_phrases: !p?.ai_phrases }).eq("id", data.user.id);
+  revalidatePath("/", "layout");
+}
+
 /** Borrar la cuenta: pide la contraseña, traspasa/borra grupos, anonimiza el nombre y elimina el usuario. */
 export async function deleteAccount(_prev: FormState, fd: FormData): Promise<FormState> {
   const x = await getTx();

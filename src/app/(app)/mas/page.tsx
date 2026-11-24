@@ -14,7 +14,7 @@ import { savePrefs } from "@/server/actions/push";
 import { cookies } from "next/headers";
 import { getLocale, getTranslations } from "next-intl/server";
 import { LockSettings } from "@/components/lock/LockSettings";
-import { deleteAccount, setLocale, setTheme, toggleDiscreet } from "@/server/actions/prefs";
+import { deleteAccount, setLocale, setTheme, toggleAiPhrases, toggleDiscreet } from "@/server/actions/prefs";
 import { requireUser, listMySpaces } from "@/server/spaces";
 import { changePassword, signOut, upgradeGuest } from "@/server/actions/auth";
 
@@ -33,6 +33,8 @@ export default async function MorePage() {
   const { data: prefs } = await supabase.from("mirror_prefs").select("space_id, enabled, fund_id");
   const { data: archived } = await supabase.from("spaces").select("id, name").eq("kind", "group").not("archived_at", "is", null).order("archived_at", { ascending: false });
   const { data: prefRow } = user.is_anonymous ? { data: null } : await supabase.from("notification_prefs").select("*").maybeSingle();
+  const { data: aiRow } = user.is_anonymous ? { data: null } : await supabase.from("profiles").select("ai_phrases").maybeSingle();
+  const aiOn = !!aiRow?.ai_phrases;
   const { data: favs } = await supabase.from("favorites").select("id, label, amount_cents").order("label");
   return (
     <section className="flex flex-col gap-4 pt-2">
@@ -134,6 +136,15 @@ export default async function MorePage() {
           <h2 className="mt-2 text-lg font-semibold">{t("discreet")}</h2>
           <form action={toggleDiscreet} className="flex items-center justify-between gap-3 rounded-card border border-border bg-surface p-3 text-sm text-ink-2">
             <span>{t("discreetHelp")}</span><button className="min-h-11 rounded-full border border-border px-4 font-semibold text-ink">{t("discreet")}</button>
+          </form>
+        </>
+      )}
+      {!user.is_anonymous && (
+        <>
+          <h2 className="mt-2 text-lg font-semibold">{x("Usar IA para entender frases")}</h2>
+          <form action={toggleAiPhrases} className="flex items-center justify-between gap-3 rounded-card border border-border bg-surface p-3 text-sm text-ink-2">
+            <span>{aiOn ? x("Activada. La frase se envía a Google para interpretarla (máx. 30 al día).") : x("Desactivada. Las frases se entienden en tu dispositivo, sin enviar nada.")}</span>
+            <button aria-pressed={aiOn} className="min-h-11 shrink-0 rounded-full border border-border px-4 font-semibold text-ink">{aiOn ? x("Desactivar") : x("Activar")}</button>
           </form>
         </>
       )}
