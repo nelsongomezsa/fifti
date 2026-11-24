@@ -46,7 +46,7 @@ test("cerrar el mes deja el plan en solo lectura", async ({ page }) => {
   const p = await personalOf(ana);
   await seedExpense(ana, p.spaceId, p.memberId, "Alquiler", 90000);
   await login(page, ana);
-  await page.goto("/plan?vista=lista");
+  await page.goto("/plan");
   await page.getByText("Cerrar el mes", { exact: true }).click();
   await page.getByRole("button", { name: "Cerrar mes", exact: true }).click();
   await expect.poll(async () => (await admin().from("monthly_plans").select("status").eq("space_id", p.spaceId)).data?.[0]?.status, { timeout: 15_000 }).toBe("closed");

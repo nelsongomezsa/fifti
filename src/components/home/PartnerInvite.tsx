@@ -34,16 +34,18 @@ export function PartnerInvite({ spaceId, dismissible = true }: { spaceId?: strin
   };
 
   return (
-    <section aria-labelledby="partner-title" className="rounded-card border border-border bg-surface p-5">
-      <h2 id="partner-title" className="text-lg font-bold">{x("¿Compartes gastos con tu pareja?")}</h2>
+    <section aria-labelledby="partner-title" className={link ? "rounded-card border border-border bg-surface p-5" : "rounded-card border border-dashed border-border p-3"}>
       {!link ? (
         <>
-          <p className="mt-1 text-sm text-ink-2">{x("Crea vuestro hogar con un toque y mándale la invitación. Cada uno ve el reparto y quién debe a quién.")}</p>
-          {error && <p role="alert" className="mt-2 text-sm text-over-text">{error}</p>}
-          <div className="mt-4 flex flex-wrap gap-3">
-            <button onClick={start} disabled={busy} className="min-h-12 rounded-full bg-accent px-6 font-semibold text-on-accent disabled:opacity-60">{busy ? x("Un momento…") : spaceId ? x("Invitar a mi pareja") : x("Crear hogar e invitar")}</button>
-            {dismissible && <button onClick={() => { try { localStorage.setItem(DISMISS, "1"); } catch { /* sin almacenamiento */ } setHidden(true); }} className="min-h-12 px-4 text-sm text-ink-2">{x("Ahora no")}</button>}
+          <div className="flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <h2 id="partner-title" className="text-sm font-semibold">{x("¿Compartes gastos con tu pareja?")}</h2>
+              <p className="text-xs text-ink-3">{x("Crea vuestro hogar y mándale la invitación.")}</p>
+            </div>
+            <button onClick={start} disabled={busy} aria-label={spaceId ? x("Invitar a mi pareja") : x("Crear hogar e invitar")} className="min-h-11 shrink-0 rounded-full bg-lime px-4 text-sm font-semibold text-on-accent disabled:opacity-60">{busy ? x("Un momento…") : x("Invitar")}</button>
+            {dismissible && <button onClick={() => { try { localStorage.setItem(DISMISS, "1"); } catch { /* sin almacenamiento */ } setHidden(true); }} aria-label={x("Ahora no")} className="grid min-h-11 min-w-11 shrink-0 place-items-center text-ink-3">✕</button>}
           </div>
+          {error && <p role="alert" className="mt-2 text-sm text-over-text">{error}</p>}
         </>
       ) : (
         <div className="mt-2 flex flex-col gap-3 text-sm">

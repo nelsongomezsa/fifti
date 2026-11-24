@@ -6,7 +6,7 @@ import puppeteer from "puppeteer-core";
 const BASE = process.env.BASE_URL ?? "http://localhost:3113";
 const cookiesPath = process.argv[process.argv.indexOf("--cookies") + 1];
 const cookies = cookiesPath && fs.existsSync(cookiesPath) ? JSON.parse(fs.readFileSync(cookiesPath, "utf8")) : [];
-const AUTH = ["/inicio", "/movimientos", "/plan", "/plan?vista=lista", "/ahorro", "/mas", "/calendario", "/calendario?vista=proximos", "/tendencias", "/resumen-mensual", "/prestamos", "/reglas", "/csv", "/atajo", "/compra", "/balance", "/inicio/ingresos", "/inicio/ahorro", "/inicio/prevision"];
+const AUTH = ["/inicio", "/movimientos", "/plan", "/plan?vista=fijos", "/plan?vista=ahorro", "/ajustes", "/fijos/nuevo", "/calendario?vista=proximos", "/calendario", "/calendario?vista=proximos", "/tendencias", "/resumen-mensual", "/prestamos", "/reglas", "/csv", "/atajo", "/compra", "/balance", "/inicio/ingresos", "/inicio/ahorro", "/inicio/prevision"];
 const PUBLIC = ["/", "/demo", "/login", "/registro", "/recuperar"];
 const fails = [];
 const browser = await puppeteer.launch({ executablePath: process.env.CHROME_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", headless: "new", args: ["--no-sandbox"] });

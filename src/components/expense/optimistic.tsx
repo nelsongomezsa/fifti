@@ -59,9 +59,10 @@ export function OptimisticLeftover({ base, spaceId, kind, currency, className }:
 }
 
 /** "Llevas gastado X": suma al instante los gastos pendientes de confirmar. */
-export function OptimisticSpent({ base, spaceId, kind, currency }: { base: number; spaceId: string; kind: "personal" | "household" | "group"; currency: string }) {
+export function OptimisticSpent({ base, spaceId, kind, currency, inline }: { base: number; spaceId: string; kind: "personal" | "household" | "group"; currency: string; inline?: boolean }) {
   const x = useTx();
   const { items } = usePendingExpenses();
   const delta = items.filter((i) => i.spaceId === spaceId).reduce((a, i) => a + (kind === "personal" ? i.shareCents : i.baseCents), 0);
-  return <p className="text-sm text-ink-2">{x("Llevas gastado")} <AnimatedMoney cents={base + delta} currency={currency} className="money font-mono text-ink" /></p>;
+  const amount = <AnimatedMoney cents={base + delta} currency={currency} className="money font-mono text-ink" />;
+  return inline ? amount : <p className="text-sm text-ink-2">{x("Llevas gastado")} {amount}</p>;
 }

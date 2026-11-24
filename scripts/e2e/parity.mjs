@@ -7,7 +7,7 @@ import puppeteer from "puppeteer-core";
 const BASE = process.env.BASE_URL ?? "http://localhost:3113";
 const cookiesPath = process.argv[process.argv.indexOf("--cookies") + 1];
 const cookies = JSON.parse(fs.readFileSync(cookiesPath, "utf8"));
-const ROUTES = ["/inicio", "/movimientos", "/plan", "/plan?vista=lista", "/ahorro", "/mas", "/calendario", "/calendario?vista=proximos", "/tendencias", "/resumen-mensual", "/prestamos", "/reglas", "/csv", "/atajo", "/compra", "/balance", "/inicio/ingresos", "/inicio/ahorro", "/inicio/prevision"];
+const ROUTES = ["/inicio", "/movimientos", "/plan", "/plan?vista=fijos", "/plan?vista=ahorro", "/ajustes", "/fijos/nuevo", "/calendario?vista=proximos", "/calendario", "/calendario?vista=proximos", "/tendencias", "/resumen-mensual", "/prestamos", "/reglas", "/csv", "/atajo", "/compra", "/balance", "/inicio/ingresos", "/inicio/ahorro", "/inicio/prevision"];
 // Elementos que dependen de los datos concretos o que solo tienen sentido en uno de los dos modos
 const IGNORE = /^(a:\/movimientos\/:id|a:\/ahorro\/:id|a:\/inicio\/fondo\/:id|a:\/espacio\/:id.*|a:\/demo\/salir|a:\/registro|b:(Salir|Salir de la demo|Crear cuenta|Cerrar sesión|Borrar mi cuenta|Cambiar contraseña|Guardar contraseña)$)/;
 
