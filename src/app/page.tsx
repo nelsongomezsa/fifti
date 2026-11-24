@@ -31,7 +31,7 @@ export default async function Home() {
       <header className="mx-auto flex max-w-5xl items-center justify-between px-4 py-5">
         <Logo height={30} />
         <nav aria-label={x("Cuenta")} className="flex gap-2">
-          <Link href="/login" className="min-h-11 rounded-full px-4 py-2.5 text-sm font-semibold text-ink-2">{x("Entrar")}</Link>
+          <Link href="/login" prefetch={false} className="min-h-11 rounded-full px-4 py-2.5 text-sm font-semibold text-ink-2">{x("Entrar")}</Link>
           <Link href="/registro" className="min-h-11 rounded-full border border-border px-4 py-2.5 text-sm font-semibold">{x("Crear cuenta")}</Link>
         </nav>
       </header>
@@ -41,7 +41,7 @@ export default async function Home() {
           <h1 className="text-4xl font-bold tracking-tight md:text-5xl">{x("Cuentas claras en casa, en pareja y de fiesta.")}</h1>
           <p className="text-lg text-ink-2">{x("Fifti junta tu dinero personal, el del hogar y el de los planes con amigos en un solo sitio, sin que nadie vea lo que no debe.")}</p>
           <div className="flex flex-wrap gap-3">
-            <Link href="/demo" className="min-h-12 rounded-full bg-lime px-7 py-3 text-base font-semibold text-on-accent">{x("Probar la demo")}</Link>
+            <Link href="/demo" prefetch={false} className="min-h-12 rounded-full bg-lime px-7 py-3 text-base font-semibold text-on-accent">{x("Probar la demo")}</Link>
             <Link href="/registro" className="min-h-12 rounded-full border border-border px-7 py-3 text-base font-semibold">{x("Crear cuenta")}</Link>
           </div>
           <p className="text-sm text-ink-3">{x("La demo funciona en tu navegador, con datos ficticios y sin registro.")}</p>
