@@ -23,11 +23,24 @@ export function toCsv(rows: readonly (readonly (string | number)[])[]): string {
   return rows.map((r) => r.map(cell).join(",")).join("\r\n") + "\r\n";
 }
 
+/** Separador más frecuente (; , o tabulador) en las primeras líneas, para archivos con líneas de cabecera antes de la tabla. */
+export function detectSeparator(text: string): string {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "").slice(0, 20);
+  let best = ",", bestScore = 0;
+  for (const c of [";", ",", "\t"]) {
+    const counts = lines.map((l) => l.replace(/"[^"]*"/g, "").split(c).length - 1).filter((n) => n > 0);
+    if (counts.length === 0) continue;
+    const mode = [...counts].sort((a, b) => counts.filter((v) => v === b).length - counts.filter((v) => v === a).length)[0]!;
+    const score = counts.filter((v) => v === mode).length * 100 + mode;
+    if (score > bestScore) { best = c; bestScore = score; }
+  }
+  return best;
+}
+
 /** Parser CSV con comillas, comillas escapadas y saltos de línea dentro de campos. Separador coma o punto y coma. */
-export function parseCsv(text: string): string[][] {
+export function parseCsv(text: string, sepOverride?: string): string[][] {
   const t = text.replace(/^﻿/, "");
-  const firstLine = t.split(/\r?\n/, 1)[0] ?? "";
-  const sep = (firstLine.match(/;/g)?.length ?? 0) > (firstLine.match(/,/g)?.length ?? 0) ? ";" : ",";
+  const sep = sepOverride ?? detectSeparator(t);
   const rows: string[][] = [];
   let row: string[] = [], field = "", inQ = false;
   for (let i = 0; i < t.length; i++) {

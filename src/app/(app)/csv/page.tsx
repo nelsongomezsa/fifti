@@ -20,7 +20,7 @@ export default async function CsvPage() {
       </div>
       <div className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold">{x("Importar en")}{" "}{active.kind === "personal" ? x("Personal") : active.name}</h2>
-        <p className="text-sm text-ink-3">{x("Columnas: fecha, concepto, importe y (opcional) categoria. Máximo 500 filas y 1 MB. Verás una vista previa antes de guardar.")}</p>
+        <p className="text-sm text-ink-3">{x("Sube el extracto de tu banco (Santander, BBVA, CaixaBank, ING, Revolut, N26) o un CSV con fecha, concepto e importe. Máximo 500 filas y 1 MB. Verás una vista previa, podrás elegir filas y categorías, y se marcan los duplicados.")}</p>
         <CsvImport spaceId={active.id} />
       </div>
     </section>
