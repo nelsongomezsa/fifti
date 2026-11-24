@@ -11,7 +11,7 @@ import { PendingIndicator } from "@/components/pwa/PendingIndicator";
 import { BubbleSwitcher } from "@/components/nav/BubbleSwitcher";
 import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
 
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({ children, sheet }: { children: React.ReactNode; sheet: React.ReactNode }) {
   // Usuario, burbujas, perfil y textos se piden a la vez (antes iban en serie)
   const x = await getTx();
   const [user, spaces, t, profile] = await Promise.all([
@@ -60,6 +60,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       {active && <BubbleSwitcher spaces={spaces} activeId={active.id} canCreate={!user.is_anonymous} />}
       <PendingIndicator />
       <main id="main" className="px-4">{children}</main>
+      {sheet}
       {active && <BottomNav activeSpaceId={active.id} />}
       </PendingExpensesProvider>
       </AppLock>

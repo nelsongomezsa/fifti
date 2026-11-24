@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { useTx } from "@/i18n/tx-client";
 import { formatMoney, parseToCents } from "@/lib/money";
 import { addShoppingItem, finishShopping, realtimeAccess, removeShoppingItem, toggleShoppingItem, type ShoppingItem } from "@/server/actions/shopping";
@@ -24,6 +25,7 @@ export function ShoppingList({ spaceId, items: initial, names, currency }: { spa
   const [done, setDone] = useState<string | null>(null);
   const [live, setLive] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Cuando el servidor trae una lista nueva (refresh), sustituye a la local
   if (initial !== seen) { setSeen(initial); setItems(initial); }
@@ -113,14 +115,18 @@ export function ShoppingList({ spaceId, items: initial, names, currency }: { spa
     <div className="flex flex-col gap-4">
       <p className="text-xs text-ink-3" aria-live="polite">{live ? x("En directo: los cambios de los demás aparecen al momento.") : x("Se actualiza cada pocos segundos.")}</p>
       <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); void add(); }}>
-        <input value={text} onChange={(e) => setText(e.target.value)} maxLength={120} placeholder={x("Leche")} aria-label={x("Artículo")} className="min-h-12 min-w-0 flex-1 rounded-card border border-border bg-surface px-4 text-base text-ink placeholder:text-ink-3" />
+        <input ref={inputRef} value={text} onChange={(e) => setText(e.target.value)} maxLength={120} placeholder={x("Leche")} aria-label={x("Artículo")} className="min-h-12 min-w-0 flex-1 rounded-card border border-border bg-surface px-4 text-base text-ink placeholder:text-ink-3" />
         <input type="number" inputMode="numeric" min={1} max={999} value={qty} onChange={(e) => setQty(Math.max(1, Math.min(999, Number(e.target.value) || 1)))} aria-label={x("Cantidad")} className="min-h-12 w-16 rounded-card border border-border bg-surface px-2 text-center font-mono text-ink" />
         <button type="submit" disabled={!text.trim()} className="min-h-12 shrink-0 rounded-full bg-accent px-5 font-semibold text-on-accent disabled:opacity-50">{x("Añadir")}</button>
       </form>
       {error && <p role="alert" className="text-sm text-over-text">{error}</p>}
       {done && <p role="status" className="text-sm text-ink-2">{x("Compra guardada.")} <Link href={`/movimientos/${done}`} className="underline">{x("Ver el gasto")}</Link></p>}
 
-      {items.length === 0 ? <p className="rounded-card border border-border bg-surface p-4 text-ink-2">{x("La lista está vacía. Añade lo que falte en casa.")}</p> : (
+      {items.length === 0 ? (
+        <EmptyState title={x("La lista está vacía")} text={x("Aquí apuntáis lo que falta en casa y todos lo veis al momento. Al terminar la compra se convierte en un gasto.")}>
+          <button type="button" onClick={() => inputRef.current?.focus()} className="inline-flex min-h-12 items-center rounded-full bg-accent px-6 font-semibold text-on-accent">{x("Añadir el primero")}</button>
+        </EmptyState>
+      ) : (
         <>
           <ul className="flex flex-col gap-2">{pending.map(row)}</ul>
           {got.length > 0 && (<><h2 className="text-sm text-ink-3">{x("En el carro")} ({got.length})</h2><ul className="flex flex-col gap-2">{got.map(row)}</ul></>)}

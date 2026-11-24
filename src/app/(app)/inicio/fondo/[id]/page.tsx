@@ -44,6 +44,9 @@ export default async function FundDetailPage({ params }: { params: Promise<{ id:
   const byCat = new Map<string | null, number>();
   for (const l of lines) byCat.set(l.categoryId, (byCat.get(l.categoryId) ?? 0) + l.cents);
   const catName = (cid: string | null) => { const c = cats?.find((k) => k.id === cid); return c ? displayName(x, c.name, c.system_key) : cid === null && isDaily ? x("Sin categoría") : x("Gastos compartidos"); };
+  const dayNow = new Date().getUTCDate(), dim = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate();
+  const daysLeft = dim - dayNow + 1; // contando hoy
+  const dailyPace = row.remaining > 0 && daysLeft > 0 ? Math.floor(row.remaining / daysLeft) : 0;
   const tone = fund.kind === "savings" ? "text-ink" : row.status === "over" ? "text-over-text" : row.status === "warn" ? "text-warn" : "text-ink";
 
   return (
@@ -63,6 +66,18 @@ export default async function FundDetailPage({ params }: { params: Promise<{ id:
         </div>
         <p className={`money mt-1 text-right font-mono text-sm ${tone}`}>{Math.round(row.usedBp / 100)} %</p>
       </div>
+
+      {fund.kind !== "savings" && (
+        <div className="rounded-card border border-border bg-surface p-4">
+          <p className="t-label">{x("Ritmo diario recomendado")}</p>
+          {row.remaining > 0 ? (
+            <>
+              <p className="money t-figure mt-1">{fmt(dailyPace)} <span className="text-sm font-normal text-ink-3">{x("al día")}</span></p>
+              <p className="mt-1 text-xs text-ink-3">{x("Lo que te queda")} ({fmt(row.remaining)}) {x("entre los")} {daysLeft} {daysLeft === 1 ? x("día") : x("días")} {x("que faltan del mes.")}</p>
+            </>
+          ) : <p className="mt-1 text-sm text-ink-2">{x("Ya has gastado todo lo previsto de este fondo este mes.")}</p>}
+        </div>
+      )}
 
       <div className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold">{x("Categorías")}</h2>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { ActionForm, inputClass } from "@/components/ui/ActionForm";
 import { getTx } from "@/i18n/tx";
 import { formatMoney } from "@/lib/money";
@@ -57,11 +58,11 @@ export default async function LoansPage() {
       <h1 className="text-2xl font-bold">{x("Préstamos")}</h1>
       <p className="text-sm text-ink-2">{x("Lo que has dejado o te han dejado. Es privado: solo lo ves tú, salvo que lo compartas con alguien de tus burbujas.")}</p>
       <p className="money font-mono text-lg">{x("Te deben")} {fmt(t.owedToMe)} · {x("Debes")} {fmt(t.iOwe)}</p>
-      {open.length === 0 ? <p className="rounded-card border border-border bg-surface p-4 text-ink-2">{x("No hay préstamos pendientes.")}</p> : <ul className="flex flex-col gap-2">{open.map(item)}</ul>}
+      {open.length === 0 ? <EmptyState title={x("No hay préstamos pendientes")} text={x("Apunta lo que dejas o te dejan y Fifti te recuerda lo que falta por devolver, sin mezclarlo con tus gastos.")} actionLabel={x("Apuntar un préstamo")} href="#nuevo-prestamo" /> : <ul className="flex flex-col gap-2">{open.map(item)}</ul>}
       {closed.length > 0 && <details><summary className="min-h-11 cursor-pointer py-2 text-sm text-ink-3">{x("Devueltos")} ({closed.length})</summary><ul className="mt-2 flex flex-col gap-2">{closed.map(item)}</ul></details>}
 
       <h2 className="text-lg font-semibold">{x("Apuntar un préstamo")}</h2>
-      <div className="rounded-card border border-border bg-surface p-4">
+      <div id="nuevo-prestamo" className="scroll-mt-4 rounded-card border border-border bg-surface p-4">
         <ActionForm action={createLoan} submit={x("Guardar préstamo")} className="flex flex-col gap-3">
           <select name="direction" defaultValue="lent" aria-label={x("Tipo")} className={inputClass}><option value="lent">{x("Le dejé dinero")}</option><option value="borrowed">{x("Me dejaron dinero")}</option></select>
           <input name="personName" required maxLength={40} placeholder={x("Marta")} aria-label={x("Persona")} className={inputClass} />

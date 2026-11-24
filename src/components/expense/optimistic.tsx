@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { formatMoney } from "@/lib/money";
+import { AnimatedMoney } from "@/components/ui/AnimatedMoney";
 import { useTx } from "@/i18n/tx-client";
 
 /** Gasto que ya se ve en pantalla aunque el servidor todavía no haya confirmado el guardado. */
@@ -54,5 +55,5 @@ export function OptimisticLeftover({ base, spaceId, kind, currency, className }:
   const { items } = usePendingExpenses();
   const delta = items.filter((i) => i.spaceId === spaceId).reduce((a, i) => a + (kind === "personal" ? i.shareCents : i.baseCents), 0);
   const v = base - delta;
-  return <p className={`money font-mono text-5xl font-semibold ${v < 0 ? "text-over-text" : ""} ${className ?? ""}`}>{formatMoney(v, currency, x.locale)}</p>;
+  return <p className={`money font-mono text-5xl font-semibold ${v < 0 ? "text-over-text" : ""} ${className ?? ""}`}><AnimatedMoney cents={v} currency={currency} /></p>;
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { FundTrendChart, type FundPoint } from "@/components/charts/FundTrendChart";
 import { getTx } from "@/i18n/tx";
 import { addMonths, formatMoney, monthStart } from "@/lib/money";
@@ -77,7 +78,7 @@ export default async function TrendsPage() {
       <Link href="/mas" className="min-h-11 self-start text-sm text-ink-2">{x("‹ Más")}</Link>
       <h1 className="text-2xl font-bold">{x("Tendencias")}</h1>
       <p className="text-sm text-ink-3">{personal ? x("Personal") : active.name}</p>
-      {empty ? <p className="rounded-card border border-border bg-surface p-4 text-ink-2">{x("Todavía no hay gastos para comparar.")}</p> : (
+      {empty ? <EmptyState title={x("Todavía no hay gastos para comparar")} text={x("Cuando apuntes gastos verás aquí cómo cambia tu mes frente al año pasado y a la media de 3 meses, y qué categorías suben o bajan.")} actionLabel={x("Añadir un gasto")} href="/nuevo" /> : (
         <>
           <div className="grid grid-cols-1 gap-3">
             {compare(`${x("Este mes frente a")} ${lastYear}`, t.lastYearCents, t.vsLastYearBp)}

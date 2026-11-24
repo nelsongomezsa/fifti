@@ -1,6 +1,7 @@
 import { getTx } from "@/i18n/tx";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { addMonths, formatMoney, monthStart } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 import { loadOverview } from "@/server/overview";
@@ -17,6 +18,15 @@ export default async function MonthlySummaryPage() {
   const o = await loadOverview(await createClient(), active.id, active.kind, month, addMonths(month, 1));
   const name = new Date(`${month}T00:00:00Z`).toLocaleDateString(x.locale, { month: "long", year: "numeric", timeZone: "UTC" });
   const top = [...o.funds].sort((a, b) => b.spent - a.spent).slice(0, 3).filter((f) => f.spent > 0);
+  if (o.income === 0 && o.spent === 0) {
+    return (
+      <section className="flex flex-col gap-4 pt-2">
+        <Link href="/inicio" className="text-sm text-ink-2">{x("‹ Inicio")}</Link>
+        <h1 className="text-2xl font-bold first-letter:uppercase">{x("Resumen de")}{" "}{name}</h1>
+        <EmptyState title={x("Aún no hay resumen de este mes")} text={x("Cuando termine un mes con ingresos y gastos apuntados, aquí verás cuánto te sobró y dónde gastaste más, y podrás descargarlo en PDF.")} actionLabel={x("Ver el mes en curso")} href="/inicio" />
+      </section>
+    );
+  }
   return (
     <section className="flex flex-col gap-4 pt-2">
       <Link href="/inicio" className="text-sm text-ink-2">{x("‹ Inicio")}</Link>
