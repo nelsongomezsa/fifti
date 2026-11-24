@@ -103,6 +103,7 @@ export async function typeAmount(page: Page, amount: string) {
 
 export async function openSheet(page: Page) {
   await page.getByRole("button", { name: "Añadir gasto" }).click();
+  await page.getByRole("dialog", { name: "¿Qué quieres apuntar?" }).getByRole("button", { name: /^Gasto/ }).click(); // selector del +
   await expect(page.getByRole("dialog", { name: "Nuevo gasto" })).toBeVisible();
   await expect(page.getByRole("group", { name: "Teclado numérico" })).toBeVisible(); // la hoja ya cargó su contexto (no es el esqueleto)
 }
