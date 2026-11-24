@@ -56,3 +56,44 @@ jobs:
           eval "$(supabase status -o env | sed 's/^/export /')"
           export TEST_SUPABASE_URL="$API_URL" TEST_SUPABASE_ANON_KEY="$ANON_KEY" TEST_SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
           npm run test:rls
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - uses: supabase/setup-cli@v1
+      - name: Supabase local con las migraciones
+        run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector
+      - name: Variables de la app y de las pruebas
+        run: |
+          eval "$(supabase status -o env | sed 's/^/export /')"
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "NEXT_PUBLIC_SITE_URL=http://localhost:3113"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+            echo "TEST_SUPABASE_URL=$API_URL"
+            echo "TEST_SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "TEST_SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+            echo "MAILPIT_URL=http://127.0.0.1:54324"
+          } >> "$GITHUB_ENV"
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Pruebas de punta a punta (móvil y escritorio)
+        run: npx playwright test
+        env:
+          E2E_START_SERVER: "1"
+          CI: "true"
+      - name: Trazas y capturas (solo si algo falla)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-fallos
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7

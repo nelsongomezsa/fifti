@@ -2,27 +2,41 @@
 
 *Cuentas claras en casa, en pareja y de fiesta.*
 
-PWA de finanzas personales, de pareja y de grupo. El dinero se organiza en **burbujas**:
+PWA de finanzas personales, de pareja y de grupo. El dinero se organiza en **espacios**:
 
 - **Personal**: privada. Ingresos, gastos, plan del mes y metas.
 - **Hogar** (fija): pareja o piso, con bote común proporcional a los ingresos, gastos fijos y ahorro.
 - **Plan espontáneo**: una cena o un viaje. Se comparte por enlace o QR, entran sin cuenta y al cerrarlo sale quién paga a quién.
 
-**Qué la diferencia de Tricount:** todo está conectado. Tu parte de cada gasto de grupo entra sola en tu plan personal, así sabes lo que gastas de verdad en el mes (casa + pareja + salidas). Además tiene plan mensual por fondos, previsión de fin de mes, cierre de mes, bote común y metas de ahorro.
+**Qué la diferencia de Tricount:** todo está conectado. Tu parte de cada gasto de grupo entra sola en tu plan personal, así sabes lo que gastas de verdad en el mes (casa + pareja + salidas). Además tiene presupuesto mensual por partidas, previsión de fin de mes, cierre de mes, bote común y metas de ahorro.
 
 Prueba la demo (datos ficticios, sin registro) en `/demo`.
 
+## Funciones
+
+- **Inicio**: cuánto te sobrará a final de mes, lo que puedes gastar esta semana, ahorro previsto, próximos cobros, presupuesto por partidas y últimos movimientos.
+- **Apuntar rápido**: el botón **+** ofrece gasto, gasto fijo, ingreso, aportación a una meta y préstamo; también acepta una frase («12 cena con Leo a medias»), un atajo de Siri y favoritos con pulsación larga.
+- **Calendario** de gastos fijos (mensual, semanal, trimestral, anual) con avisos antes del cobro y «saltar este mes».
+- **Plan**: Presupuesto (reparto por partidas y cierre de mes), Fijos y Ahorro (metas con ritmo).
+- **Pareja y grupos**: invitación a la pareja, lista de la compra, préstamos, pagador rotativo y balance de quién debe a quién.
+- **Importar del banco** (CSV) con detección de formato y duplicados, reglas de categoría y resumen mensual en PDF.
+- **Tendencias** por partida y recordatorio diario opcional.
+
 ## Capturas
 
-Capturas reales de la demo (`/demo`, datos ficticios: Ana, Leo, «Viaje Lisboa»).
+Capturas reales de la demo (`/demo`, datos ficticios: Ana, Leo, «Viaje Lisboa»), a 390 px.
 
-| Inicio (personal) | Inicio (hogar) | Quién paga a quién |
+| Inicio | Calendario | Plan: Presupuesto |
 |---|---|---|
-| ![Inicio personal](docs/capturas/01-inicio-personal.png) | ![Inicio hogar](docs/capturas/02-inicio-hogar.png) | ![Viaje Lisboa](docs/capturas/03-viaje-quien-paga-a-quien.png) |
+| ![Inicio](docs/capturas/01-inicio.png) | ![Calendario](docs/capturas/02-calendario.png) | ![Presupuesto](docs/capturas/03-plan-presupuesto.png) |
 
-| Movimientos | Plan por fondos | Nuevo gasto en grupo |
+| Plan: Fijos | Movimientos | Nuevo gasto fijo |
 |---|---|---|
-| ![Movimientos](docs/capturas/04-movimientos-viaje.png) | ![Plan](docs/capturas/05-plan-fondos.png) | ![Nuevo gasto](docs/capturas/06-nuevo-gasto-grupo.png) |
+| ![Fijos](docs/capturas/04-plan-fijos.png) | ![Movimientos](docs/capturas/05-movimientos.png) | ![Nuevo gasto fijo](docs/capturas/06-nuevo-gasto-fijo.png) |
+
+| Ajustes |
+|---|
+| ![Ajustes](docs/capturas/07-ajustes.png) |
 
 ## Stack
 
@@ -57,12 +71,13 @@ Variables: URL y clave anónima de Supabase, `SUPABASE_SERVICE_ROLE_KEY`, `RATE_
 
 Scripts: `npm test` (lógica de dinero, validación, CSV, cola offline…), `npm run test:rls` (políticas contra Supabase), `npm run lint`, `npm run typecheck`, `npm run check` (todo + build), `npm run icons` (logo e iconos).
 
-## Pruebas
+## Calidad
 
-- `npm test`: lógica de dinero, validación, CSV, cola offline y service worker.
+- `npm test`: lógica de dinero, previsión, calendario, validación, CSV, parser de frases, cola offline y contraste de color (AA) del tema oscuro y claro.
 - `npm run test:rls`: políticas de RLS contra Supabase local.
-- `npm run e2e:sheet`: comprueba en el navegador (375×812) que «Guardar» y «Tu parte» quedan dentro de la pantalla en la demo y en la app.
-- `scripts/e2e/walkthrough.mjs`: recorrido completo con una cuenta ficticia y un invitado.
+- `npx playwright test`: pruebas de punta a punta con sesión real (apuntar un gasto y deshacer, sin conexión, hogar y balance, lista de la compra, importación CSV, cierre de mes, Ajustes), en móvil (390×844) y escritorio. Necesitan la app compilada y un Supabase local; cada prueba crea sus usuarios ficticios y los borra. La del invitado con Turnstile solo se ejecuta si la app se compiló con las claves de prueba de Cloudflare (`E2E_TURNSTILE_TEST=1`).
+- `npm run e2e:overflow` y `npm run e2e:parity`: sin desbordes horizontales a 390 px en oscuro y claro, y mismos elementos tocables en la demo y en una cuenta real.
+- **CI** (GitHub Actions): lint, tipos, tests, auditoría de dependencias, gitleaks, OSV, RLS y e2e con Playwright sobre Supabase local; las trazas y capturas solo se suben si algo falla.
 
 ## Licencia
 
