@@ -16,7 +16,8 @@
     "check": "npm run typecheck && npm run lint && npm test && npm run build:ci",
     "prebuild": "node scripts/copy-ocr-assets.mjs",
     "predev": "node scripts/copy-ocr-assets.mjs",
-    "e2e:sheet": "node scripts/e2e/sheet-fits.mjs"
+    "e2e:sheet": "node scripts/e2e/sheet-fits.mjs",
+    "e2e:nuevo": "node scripts/e2e/quick-new.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
