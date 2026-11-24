@@ -711,5 +711,20 @@
   "fila válida ·": "valid row ·",
   "con errores": "with errors",
   "Previsión día 30": "Day-30 forecast",
-  "Pendiente de pago": "Pending payment"
+  "Pendiente de pago": "Pending payment",
+  "Atajo de Siri": "Siri shortcut",
+  "Apunta un gasto sin abrir la app": "Log an expense without opening the app",
+  "El atajo te pregunta el importe y el concepto y abre Fifti con la hoja ya rellena. No guarda nada solo: tú confirmas con un toque.": "The shortcut asks for the amount and description and opens Fifti with the sheet pre-filled. It never saves by itself: you confirm with one tap.",
+  "Abre la app Atajos del iPhone y toca + para crear un atajo nuevo.": "Open the Shortcuts app on your iPhone and tap + to create a new shortcut.",
+  "Ponle de nombre «Gasto en Fifti».": "Name it “Expense in Fifti”.",
+  "Añade la acción «Solicitar entrada», tipo Número, con el aviso «¿Cuánto has gastado?». Es el importe.": "Add the “Ask for Input” action, type Number, with the prompt “How much did you spend?”. This is the amount.",
+  "Añade otra «Solicitar entrada», tipo Texto, con el aviso «¿En qué?». Es el concepto.": "Add another “Ask for Input”, type Text, with the prompt “On what?”. This is the description.",
+  "Añade la acción «URL» y pega la dirección de abajo. En importe y concepto inserta las dos respuestas anteriores.": "Add the “URL” action and paste the address below. For amount and description, insert the two previous answers.",
+  "Añade «Abrir URL». Guarda el atajo.": "Add “Open URLs”. Save the shortcut.",
+  "Dirección para la acción URL": "Address for the URL action",
+  "Opcional: añade &burbuja=personal o &categoria=Súper.": "Optional: add &burbuja=personal or &categoria=Súper.",
+  "Dónde ponerlo": "Where to put it",
+  "Pantalla de bloqueo: mantén pulsada la pantalla de bloqueo, toca Personalizar y añade el control del atajo.": "Lock screen: long-press the lock screen, tap Customize and add the shortcut control.",
+  "Botón de acción (iPhone 15 Pro o posterior): Ajustes › Botón de acción › Atajo › Gasto en Fifti.": "Action button (iPhone 15 Pro or later): Settings › Action Button › Shortcut › Expense in Fifti.",
+  "Siri: di «Oye Siri, Gasto en Fifti», el mismo nombre del atajo.": "Siri: say “Hey Siri, Expense in Fifti”, the same name as the shortcut."
 }

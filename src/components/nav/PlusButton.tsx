@@ -7,6 +7,7 @@ import { usePendingExpenses } from "@/components/expense/optimistic";
 import { useTx } from "@/i18n/tx-client";
 import { submitExpense } from "@/lib/offline/submit";
 import { formatMoney } from "@/lib/money";
+import { parseQuickExpense, sameText, type QuickExpense } from "@/lib/validation/quick-expense";
 import type { ExpenseInput } from "@/lib/validation/expense";
 import { deleteExpense } from "@/server/actions/expenses";
 import { loadSheetContext, type SheetContext } from "@/server/actions/sheet";
@@ -21,6 +22,15 @@ const readCached = (): SheetContext | null => {
   try { return JSON.parse(localStorage.getItem(CTX_CACHE_KEY) ?? "null") as SheetContext | null; } catch { return null; }
 };
 
+/** Convierte los parámetros del enlace en el relleno de la hoja (burbuja y categoría por id o por nombre). */
+function quickPrefill(q: QuickExpense, ctx: SheetContext): SheetPrefill {
+  const sp = q.bubble
+    ? ctx.spaces.find((s) => s.id === q.bubble) ?? (sameText(q.bubble, "personal") ? ctx.spaces.find((s) => s.kind === "personal") : undefined) ?? ctx.spaces.find((s) => sameText(s.name, q.bubble!))
+    : undefined;
+  const cat = q.category && sp ? sp.categories.find((c) => c.id === q.category || sameText(c.name, q.category!)) : undefined;
+  return { ...(sp ? { spaceId: sp.id } : {}), ...(q.amountCents ? { amountCents: q.amountCents } : {}), ...(q.description ? { description: q.description } : {}), ...(cat ? { categoryId: cat.id } : {}) };
+}
+
 /**
  * Botón "+" central. Es un enlace real (?nuevo=gasto): si se toca antes de que la página termine de cargar, igualmente abre la hoja.
  * Con la página lista abre al instante (usa el contexto guardado y lo refresca en segundo plano) y guarda de forma optimista.
@@ -31,6 +41,7 @@ export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
   const pending = usePendingExpenses();
   const [ctx, setCtx] = useState<SheetContext | null>(null);
   const [sheet, setSheet] = useState<SheetPrefill | null>(null);
+  const [quick, setQuick] = useState<QuickExpense | null>(null);
   const [favs, setFavs] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const [refreshing, startRefresh] = useTransition();
@@ -58,7 +69,9 @@ export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
       const q = new URLSearchParams(window.location.search);
       if (q.get("nuevo") === "gasto") {
         setSheet({});
-        q.delete("nuevo");
+        const qe = parseQuickExpense({ importe: q.get("importe") ?? undefined, concepto: q.get("concepto") ?? undefined, burbuja: q.get("burbuja") ?? undefined, categoria: q.get("categoria") ?? undefined });
+        if (Object.keys(qe).length) setQuick(qe);
+        for (const k of ["nuevo", "importe", "concepto", "burbuja", "categoria"]) q.delete(k);
         const rest = q.toString();
         window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
       }
@@ -194,7 +207,7 @@ export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
         </div>
       )}
       {sheet && ctx && ctx.spaces.length > 0 && (
-        <ExpenseSheet ctx={ctx} defaultSpaceId={activeSpaceId} prefill={sheet} onClose={() => setSheet(null)} onSaved={() => undefined} optimistic={(i, info) => void submitOptimistic(i, info)} />
+        <ExpenseSheet ctx={ctx} defaultSpaceId={activeSpaceId} prefill={quick ? quickPrefill(quick, ctx) : sheet} onClose={() => { setSheet(null); setQuick(null); }} onSaved={() => undefined} optimistic={(i, info) => void submitOptimistic(i, info)} />
       )}
 
       {toast && (

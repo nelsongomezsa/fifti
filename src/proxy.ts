@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/session";
 
-const PROTECTED = ["/inicio", "/movimientos", "/plan", "/ahorro", "/mas", "/nueva", "/espacio", "/ingreso", "/balance", "/calendario", "/resumen-mensual", "/csv", "/tu-ano", "/bienvenida"];
+const PROTECTED = ["/inicio", "/movimientos", "/plan", "/ahorro", "/mas", "/nueva", "/espacio", "/ingreso", "/balance", "/calendario", "/resumen-mensual", "/csv", "/tu-ano", "/bienvenida", "/nuevo", "/atajo"];
 const AUTH_PAGES = ["/login", "/registro", "/recuperar"];
 
 const matches = (path: string, list: string[]) => list.some((p) => path === p || path.startsWith(`${p}/`));
@@ -12,8 +12,9 @@ export async function proxy(request: NextRequest) {
 
   if (!user && matches(path, PROTECTED)) {
     const url = request.nextUrl.clone();
+    const back = request.nextUrl.pathname + request.nextUrl.search;
     url.pathname = "/login";
-    url.search = "";
+    url.search = back.length < 400 ? `?next=${encodeURIComponent(back)}` : "";
     return NextResponse.redirect(url);
   }
   if (user && matches(path, AUTH_PAGES)) {
