@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ExpenseSheet, type SheetPrefill } from "@/components/expense/ExpenseSheet";
 import { usePendingExpenses } from "@/components/expense/optimistic";
@@ -20,6 +21,9 @@ type Toast =
   | { type: "error"; message: string; retry: SheetPrefill };
 
 /** Contexto guardado en el dispositivo, comprobado: si le falta algo, se descarta en vez de romper la hoja. */
+/** El aviso que devuelve la demo al intentar guardar (ya traducido por el servidor según el idioma). */
+const isDemoMessage = (m: string) => m === "Crea una cuenta para guardar" || m === "Create an account to save";
+
 const readCached = (): SheetContext | null => {
   try {
     localStorage.removeItem("fifti:sheetCtx");
@@ -231,7 +235,9 @@ export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
           ) : (
             <>
               <span className="text-sm text-over-text">{x(toast.message)}</span>
-              <button type="button" onClick={() => { const r = toast.retry; setToast(null); openSheet(r); }} className="min-h-11 px-3 text-sm font-semibold">{x("Reintentar")}</button>
+              {isDemoMessage(toast.message)
+                ? <Link href="/registro" prefetch={false} className="inline-flex min-h-11 items-center whitespace-nowrap rounded-full bg-lime px-4 text-sm font-semibold text-on-accent">{x("Crear cuenta")}</Link>
+                : <button type="button" onClick={() => { const r = toast.retry; setToast(null); openSheet(r); }} className="min-h-11 px-3 text-sm font-semibold">{x("Reintentar")}</button>}
             </>
           )}
         </div>
