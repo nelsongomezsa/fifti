@@ -19,7 +19,9 @@ export type Overview = {
   plan: PlanData;
 };
 
-async function seriesFor(supabase: SupabaseClient, spaceId: string, personal: boolean, from: string) {
+export type SeriesData = Awaited<ReturnType<typeof seriesFor>>;
+
+export async function seriesFor(supabase: SupabaseClient, spaceId: string, personal: boolean, from: string) {
   const [{ data: spend }, { data: inc }, { data: mir }] = await Promise.all([
     supabase.rpc("monthly_spend", { p_space: spaceId, p_from: from }),
     supabase.rpc("monthly_income", { p_space: spaceId, p_from: from }),
@@ -29,13 +31,29 @@ async function seriesFor(supabase: SupabaseClient, spaceId: string, personal: bo
 }
 
 /** Panel de Inicio / seguimiento de un mes: sobra, tasa de ahorro, previsión y gasto de 6 meses. */
-export async function loadOverview(supabase: SupabaseClient, spaceId: string, kind: "personal" | "household" | "group", month = monthStart(new Date()), today = new Date().toISOString().slice(0, 10), locale = "es-ES"): Promise<Overview> {
+/** Arranca la petición de la serie de 6 meses (se puede esperar más tarde, p. ej. dentro de Suspense). */
+export function startSeries(supabase: SupabaseClient, spaceId: string, kind: string, month = monthStart(new Date())) {
+  return seriesFor(supabase, spaceId, kind === "personal", lastMonths(month, 6)[0]!);
+}
+
+/** Serie de gasto, mes anterior y variación a partir de los datos de la serie. */
+export function seriesView(s: SeriesData, month: string, leftover: number, locale: string) {
+  const months = lastMonths(month, 6);
+  const spendSeries = fillSeries(months, s.spend).map((v, i) => v + fillSeries(months, s.mir)[i]!);
+  const incSeries = fillSeries(months, s.inc);
+  const prevLeftover = (incSeries[4]! > 0 ? incSeries[4]! : 0) - spendSeries[4]!;
+  const full = (m: string) => { const n = new Date(`${m}T00:00:00Z`).toLocaleDateString(locale, { month: "long", timeZone: "UTC" }); return n.charAt(0).toLocaleUpperCase(locale) + n.slice(1); };
+  const label = (m: string) => new Date(`${m}T00:00:00Z`).toLocaleDateString(locale, { month: "short", timeZone: "UTC" }).replace(".", "");
+  return { change: monthChange(leftover, prevLeftover), series: months.map((m, i) => ({ label: label(m), full: full(m), cents: spendSeries[i]!, current: m === month })) };
+}
+
+export async function loadOverview(supabase: SupabaseClient, spaceId: string, kind: "personal" | "household" | "group", month = monthStart(new Date()), today = new Date().toISOString().slice(0, 10), locale = "es-ES", deferSeries = false): Promise<Overview> {
   const personal = kind === "personal";
   const months = lastMonths(month, 6);
   // El plan del mes y la serie de 6 meses no dependen entre sí: se piden a la vez.
   const [plan, s, x] = await Promise.all([
     (async () => loadPlan(supabase, spaceId, month, personal ? await loadMirrorByFund(supabase, month) : {}, { uncategorizedToDaily: personal }))(),
-    seriesFor(supabase, spaceId, personal, months[0]!),
+    deferSeries ? Promise.resolve({ spend: [], inc: [], mir: [] } as SeriesData) : seriesFor(supabase, spaceId, personal, months[0]!),
     getTx(),
   ]);
   plan.funds = plan.funds.map((f) => ({ ...f, name: displayName(x, f.name, f.system_key) }));

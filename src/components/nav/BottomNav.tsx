@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { PlusButton } from "./PlusButton";
 
@@ -29,6 +30,7 @@ function Item({ href, label, icon, active }: { href: string; label: string; icon
   return (
     <Link
       href={href}
+      prefetch
       aria-current={active ? "page" : undefined}
       className={`flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium ${
         active ? "text-ink" : "text-ink-3"
@@ -45,6 +47,13 @@ function Item({ href, label, icon, active }: { href: string; label: string; icon
 
 export function BottomNav({ activeSpaceId }: { activeSpaceId: string }) {
   const path = usePathname();
+  const router = useRouter();
+  // Precarga de las rutas de la barra (y Balance/Más) cuando el navegador está libre
+  useEffect(() => {
+    const go = () => { for (const h of ["/inicio", "/movimientos", "/plan", "/ahorro", "/balance", "/mas"]) router.prefetch(h); };
+    const w = window as Window & { requestIdleCallback?: (cb: () => void) => number };
+    if (w.requestIdleCallback) w.requestIdleCallback(go); else setTimeout(go, 500);
+  }, [router]);
   const t = useTranslations("nav");
   const on = (href: string) => path === href || path.startsWith(`${href}/`);
   return (

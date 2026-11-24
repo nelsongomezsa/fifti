@@ -4,12 +4,13 @@ import Link from "next/link";
 import { SetupPlanCard } from "@/components/plan/SetupPlanCard";
 import { OptimisticLeftover } from "@/components/expense/optimistic";
 import { getLocale, getTranslations } from "next-intl/server";
-import { SpendChart } from "@/components/charts/SpendChart";
 import { dailyBudgetLeft } from "@/lib/fx";
 import { formatMoney, monthStart } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 import { loadSpaceBalance } from "@/server/balance";
-import { loadOverview } from "@/server/overview";
+import { Suspense } from "react";
+import { ChangeLine, ChartCard } from "@/components/home/Deferred";
+import { loadOverview, startSeries } from "@/server/overview";
 import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
 
 export const metadata: Metadata = { title: "Inicio" };
@@ -20,9 +21,11 @@ export default async function HomePage() {
   if (!active) return null;
   const supabase = await createClient();
 
+  // La serie de 6 meses arranca ya, pero no bloquea las cifras: la gráfica y la variación llegan después (Suspense)
+  const seriesP = startSeries(supabase, active.id, active.kind);
   // Resumen, saldo del grupo y presupuesto del día no dependen entre sí: se piden a la vez.
   const [o, balance, budget] = await Promise.all([
-    loadOverview(supabase, active.id, active.kind, undefined, undefined, x.locale),
+    loadOverview(supabase, active.id, active.kind, undefined, undefined, x.locale, true),
     active.kind !== "personal" ? loadSpaceBalance(supabase, active.id) : Promise.resolve(null),
     (async () => {
       if (active.kind !== "group") return null;
@@ -66,20 +69,14 @@ export default async function HomePage() {
             <p className="money font-mono text-5xl font-semibold">{formatMoney(o.spent, "EUR", x.locale)}</p>
           </div>
           <SetupPlanCard />
-      <div className="rounded-card border border-border bg-surface p-4">
-        <h2 className="mb-2 text-sm text-ink-3">{t("chartTitle")}</h2>
-        <SpendChart data={o.series} currency="EUR" />
-      </div>
+      <Suspense fallback={<div className="h-56 animate-pulse rounded-card border border-border bg-surface" />}><ChartCard seriesP={seriesP} month={o.month} leftover={o.leftover} locale={x.locale} title={t("chartTitle")} /></Suspense>
         </>
       ) : (
         <>
       <div>
         <p className="text-sm text-ink-3">{t("leftIn", { month: monthName })}</p>
         <OptimisticLeftover base={o.leftover} spaceId={active.id} kind={active.kind} currency="EUR" />
-        <p className="money mt-1 font-mono text-sm text-ink-2" aria-label={x("Variación frente al mes anterior")}>
-          {o.change.deltaCents >= 0 ? "+" : ""}{formatMoney(o.change.deltaCents, "EUR", x.locale)} {t("vsPrev")}
-          {o.change.percentBp !== null && ` (${o.change.percentBp >= 0 ? "+" : ""}${pctText(o.change.percentBp)})`}
-        </p>
+        <Suspense fallback={<div className="mt-2 h-5 w-48 animate-pulse rounded bg-track" />}><ChangeLine seriesP={seriesP} month={o.month} leftover={o.leftover} locale={x.locale} vsPrev={t("vsPrev")} label={x("Variación frente al mes anterior")} /></Suspense>
       </div>
 
       {budgetLeft !== null && (
@@ -101,10 +98,7 @@ export default async function HomePage() {
         <p className="rounded-card border border-border bg-surface p-4 text-ink-2">{t("empty")}</p>
       )}
 
-      <div className="rounded-card border border-border bg-surface p-4">
-        <h2 className="mb-2 text-sm text-ink-3">{t("chartTitle")}</h2>
-        <SpendChart data={o.series} currency="EUR" />
-      </div>
+      <Suspense fallback={<div className="h-56 animate-pulse rounded-card border border-border bg-surface" />}><ChartCard seriesP={seriesP} month={o.month} leftover={o.leftover} locale={x.locale} title={t("chartTitle")} /></Suspense>
 
         </>
       )}
