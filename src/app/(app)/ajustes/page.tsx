@@ -58,13 +58,7 @@ export default async function SettingsPage() {
       </div>
 
       {!user.is_anonymous && !demo ? (
-        <RowSheet title={x("Tu cuenta y contraseña")} trigger={(open) => (
-          <button type="button" onClick={open} aria-haspopup="dialog" className="flex w-full items-center gap-4 rounded-card border border-border bg-surface p-4 text-left">
-            <span aria-hidden className="grid size-12 shrink-0 place-items-center rounded-full bg-lilac text-lg font-bold text-on-accent">{initial}</span>
-            <span className="min-w-0 flex-1"><span className="block truncate font-semibold">{name}</span><span className="block truncate text-sm text-ink-3">{x("Tu cuenta y contraseña")}</span></span>
-            <span aria-hidden className="text-ink-3">›</span>
-          </button>
-        )}>
+        <RowSheet title={x("Tu cuenta y contraseña")} card={{ initial, name, hint: x("Tu cuenta y contraseña") }}>
           <div className="rounded-card border border-border bg-surface p-4">
             <PasswordForm action={changePassword} submit={x("Cambiar contraseña")} withCurrent clearOnSuccess />
           </div>

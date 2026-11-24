@@ -61,7 +61,7 @@ export function NewFixedExpense({ spaceId, categories, rules, notify, initial }:
         <p className="t-label">{x(every)}</p>
         <div className="mt-1 flex items-baseline gap-2 rounded-card border border-border bg-surface px-4 py-3 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent">
           <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0,00" aria-label={x("Importe")} autoFocus
-            className="t-display w-full min-w-0 border-0 bg-transparent p-0 text-ink outline-none focus-visible:outline-none placeholder:text-ink-3" />
+            className="t-display w-full min-w-0 border-0 bg-transparent p-0 text-ink !outline-none placeholder:text-ink-3" />
           <span className="t-figure text-ink-3">€</span>
         </div>
         {cents > 0 && <p className="money text-xs text-ink-3">{formatMoney(cents, "EUR", x.locale)}</p>}
