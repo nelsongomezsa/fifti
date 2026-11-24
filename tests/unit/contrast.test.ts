@@ -26,6 +26,9 @@ describe.each([["oscuro", dark], ["claro", light]] as const)("contraste AA en mo
     expect(ratio(t.warn!, t.track!)).toBeGreaterThanOrEqual(3);
     expect(ratio(t.over!, t.track!)).toBeGreaterThanOrEqual(3);
   });
+  it("acentos como gráficos sobre la tarjeta: ≥ 3:1", () => {
+    for (const c of [t.lime!, t.lilac!, t.tangerine!]) expect(ratio(c, t.surface!)).toBeGreaterThanOrEqual(_n === "claro" ? 3 : 1.5);
+  });
   it("texto de acento sobre los colores de burbuja: ≥ 4,5:1", () => {
     for (const c of [t.lime!, t.lilac!, t.tangerine!]) expect(ratio(t["on-accent"]!, c)).toBeGreaterThanOrEqual(4.5);
   });

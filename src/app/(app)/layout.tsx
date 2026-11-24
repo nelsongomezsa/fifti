@@ -9,6 +9,7 @@ import { Logo } from "@/components/brand/Logo";
 import { BottomNav } from "@/components/nav/BottomNav";
 import { PendingIndicator } from "@/components/pwa/PendingIndicator";
 import { BubbleSwitcher } from "@/components/nav/BubbleSwitcher";
+import { HideOn } from "@/components/nav/HideOn";
 import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
 
 export default async function AppLayout({ children, sheet }: { children: React.ReactNode; sheet: React.ReactNode }) {
@@ -56,7 +57,7 @@ export default async function AppLayout({ children, sheet }: { children: React.R
         </Link>
         </div>
       </header>
-      {active && <BubbleSwitcher spaces={spaces} activeId={active.id} canCreate={!user.is_anonymous} />}
+      {active && <HideOn prefixes={["/ajustes"]}><BubbleSwitcher spaces={spaces} activeId={active.id} canCreate={!user.is_anonymous} /></HideOn>}
       <PendingIndicator />
       <main id="main" className="px-4">{children}</main>
       {sheet}

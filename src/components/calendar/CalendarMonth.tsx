@@ -53,7 +53,7 @@ export function CalendarMonth({ label, offset, days, events, todayDay, advanceDa
             <span key={day} role="gridcell">
               <button type="button" onClick={() => setSel(on ? null : day)} aria-pressed={on}
                 aria-label={list.length ? `${day}: ${list.map((e) => `${e.label} ${fmt(e.cents)}${e.skipped ? ` (${x("saltado")})` : ""}`).join(", ")}` : String(day)}
-                className={`flex min-h-14 w-full flex-col items-center justify-start gap-0.5 rounded-card border px-0.5 py-1 transition-colors ${on ? "border-lilac bg-surface-2" : "border-border bg-surface"} ${isToday ? "ring-1 ring-ink-3" : ""}`}>
+                className={`flex min-h-14 w-full flex-col items-center justify-start gap-0.5 rounded-card border px-0.5 py-1 transition-colors ${on ? "border-lilac bg-surface-2" : list.length ? "border-border bg-surface" : "border-transparent"} ${isToday ? "ring-2 ring-lilac" : ""}`}>
                 <span className={`font-mono text-[11px] leading-none ${isToday ? "font-bold text-ink" : "text-ink-3"}`}>{day}</span>
                 {live.length > 0 && (
                   <>

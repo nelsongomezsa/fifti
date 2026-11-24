@@ -57,6 +57,26 @@ export default async function SettingsPage() {
         <h1 className="text-2xl font-bold">{x("Ajustes")}</h1>
       </div>
 
+      {!user.is_anonymous && !demo ? (
+        <RowSheet title={x("Tu cuenta y contraseña")} trigger={(open) => (
+          <button type="button" onClick={open} aria-haspopup="dialog" className="flex w-full items-center gap-4 rounded-card border border-border bg-surface p-4 text-left">
+            <span aria-hidden className="grid size-12 shrink-0 place-items-center rounded-full bg-lilac text-lg font-bold text-on-accent">{initial}</span>
+            <span className="min-w-0 flex-1"><span className="block truncate font-semibold">{name}</span><span className="block truncate text-sm text-ink-3">{x("Tu cuenta y contraseña")}</span></span>
+            <span aria-hidden className="text-ink-3">›</span>
+          </button>
+        )}>
+          <div className="rounded-card border border-border bg-surface p-4">
+            <PasswordForm action={changePassword} submit={x("Cambiar contraseña")} withCurrent clearOnSuccess />
+          </div>
+          <div className="mt-4 flex flex-col gap-2 rounded-card border border-over p-4">
+          <h2 className="font-semibold text-over-text">{t("danger")}</h2>
+          <p className="text-sm text-ink-2">{t("deleteHelp")}</p>
+          <ActionForm action={deleteAccount} submit={t("deleteAccount")} tone="plain">
+            <input name="password" type="password" autoComplete="current-password" required maxLength={128} aria-label={t("confirmPassword")} placeholder={t("confirmPassword")} className={inputClass} />
+          </ActionForm>
+        </div>
+        </RowSheet>
+      ) : (
       <div className="flex items-center gap-4 rounded-card border border-border bg-surface p-4">
         <span aria-hidden className="grid size-12 shrink-0 place-items-center rounded-full bg-lilac text-lg font-bold text-on-accent">{initial}</span>
         <div className="min-w-0 flex-1">
@@ -64,6 +84,7 @@ export default async function SettingsPage() {
           <p className="truncate text-sm text-ink-3">{user.is_anonymous ? x("Sin cuenta") : user.email}</p>
         </div>
       </div>
+      )}
 
       {user.is_anonymous && (
         <div className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4">
@@ -72,28 +93,6 @@ export default async function SettingsPage() {
         </div>
       )}
 
-      {!user.is_anonymous && !demo && (
-        <SettingsGroup title={x("Cuenta")}>
-          <RowSheet label={x("Tu cuenta y contraseña")} value={user.email ?? ""}>
-      {!user.is_anonymous && !demo && (
-        <>
-          <div className="rounded-card border border-border bg-surface p-4">
-            <PasswordForm action={changePassword} submit={x("Cambiar contraseña")} withCurrent clearOnSuccess />
-          </div>
-        </>
-      )}
-      {!user.is_anonymous && !demo && (
-        <div className="mt-4 flex flex-col gap-2 rounded-card border border-over p-4">
-          <h2 className="font-semibold text-over-text">{t("danger")}</h2>
-          <p className="text-sm text-ink-2">{t("deleteHelp")}</p>
-          <ActionForm action={deleteAccount} submit={t("deleteAccount")} tone="plain">
-            <input name="password" type="password" autoComplete="current-password" required maxLength={128} aria-label={t("confirmPassword")} placeholder={t("confirmPassword")} className={inputClass} />
-          </ActionForm>
-        </div>
-      )}
-          </RowSheet>
-        </SettingsGroup>
-      )}
 
       <SettingsGroup title={x("Espacios")}>
         {spaces.map((s) => s.kind === "personal"

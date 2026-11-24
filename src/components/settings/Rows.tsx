@@ -25,13 +25,13 @@ export function RowLink({ href, label, value }: { href: string; label: string; v
 }
 
 /** Fila que abre una hoja con su contenido. */
-export function RowSheet({ label, value, title, children }: { label: string; value?: string; title?: string; children: React.ReactNode }) {
+export function RowSheet({ label, value, title, trigger, children }: { label?: string; value?: string; title?: string; trigger?: (open: () => void) => React.ReactNode; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" className={ROW}><span>{label}</span><Value value={value} /></button>
+      {trigger ? trigger(() => setOpen(true)) : <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" className={ROW}><span>{label}</span><Value value={value} /></button>}
       {open && (
-        <SheetShell onClose={() => setOpen(false)} label={title ?? label}>
+        <SheetShell onClose={() => setOpen(false)} label={title ?? label ?? ""}>
           <h2 className="mb-3 text-xl font-bold">{title ?? label}</h2>
           <div className="flex flex-col gap-3">{children}</div>
         </SheetShell>

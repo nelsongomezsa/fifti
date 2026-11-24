@@ -1,4 +1,4 @@
-import { SpendChartLazy } from "@/components/charts/SpendChartLazy";
+import { SpendChart } from "@/components/charts/SpendChart";
 import { formatMoney } from "@/lib/money";
 import { seriesView, type SeriesData } from "@/server/overview";
 
@@ -21,7 +21,7 @@ export async function ChartCard({ seriesP, month, leftover, locale, title }: { s
   return (
     <div className="rounded-card border border-border bg-surface p-4">
       <h2 className="mb-2 text-sm text-ink-3">{title}</h2>
-      <SpendChartLazy data={series} currency="EUR" />
+      <SpendChart data={series} currency="EUR" />
     </div>
   );
 }

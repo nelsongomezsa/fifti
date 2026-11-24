@@ -46,19 +46,25 @@
   /* en claro, relleno más oscuro para llegar a 3:1 sobre la pista de barra */
   --warn: #a87400;
   --over: #d93636;
+  /* acentos más oscuros en claro: ≥ 4,5:1 con texto blanco y ≥ 3:1 sobre blanco */
+  --lime: #4a7c0a; --lilac: #7c5cdb; --tangerine: #b45309; --on-accent: #ffffff;
   --elev-1: 0 1px 2px rgb(11 13 16 / 0.06), 0 10px 22px -14px rgb(11 13 16 / 0.22);
   --elev-2: 0 2px 4px rgb(11 13 16 / 0.08), 0 20px 40px -18px rgb(11 13 16 / 0.28);
   color-scheme: light;
 }
+/* colores de partida (guardados en la base, pensados para oscuro): en claro se oscurecen para que puntos y barras lleguen a 3:1 */
+:root[data-theme="light"] [style*="background:#"], :root[data-theme="light"] [style*="background: #"] { filter: brightness(0.62) saturate(1.15); }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
     --bg: #f6f7f2; --surface: #ffffff; --surface-2: #eef0e8; --border: #dfe2d8; --track: #e3e6dc;
     --text: #0b0d10; --text-2: #2b3038; --text-3: #5b6470; --over-text: #b42323; --logo-dot: #3d7a12;
     --warn: #a87400; --over: #d93636;
+    --lime: #4a7c0a; --lilac: #7c5cdb; --tangerine: #b45309; --on-accent: #ffffff;
     --elev-1: 0 1px 2px rgb(11 13 16 / 0.06), 0 10px 22px -14px rgb(11 13 16 / 0.22);
     --elev-2: 0 2px 4px rgb(11 13 16 / 0.08), 0 20px 40px -18px rgb(11 13 16 / 0.28);
     color-scheme: light;
   }
+  :root:not([data-theme="dark"]) [style*="background:#"], :root:not([data-theme="dark"]) [style*="background: #"] { filter: brightness(0.62) saturate(1.15); }
 }
 [data-bubble="personal"] { --accent: var(--lilac); }
 [data-bubble="household"] { --accent: var(--lime); }

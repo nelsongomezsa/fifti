@@ -59,9 +59,9 @@ export function NewFixedExpense({ spaceId, categories, rules, notify, initial }:
     <form className="flex flex-col gap-6" onSubmit={(e) => { e.preventDefault(); if (valid) submit(); }}>
       <div>
         <p className="t-label">{x(every)}</p>
-        <div className="flex items-baseline gap-2">
+        <div className="mt-1 flex items-baseline gap-2 rounded-card border border-border bg-surface px-4 py-3 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent">
           <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0,00" aria-label={x("Importe")} autoFocus
-            className="t-display w-full min-w-0 border-0 bg-transparent p-0 text-ink outline-none placeholder:text-ink-3" />
+            className="t-display w-full min-w-0 border-0 bg-transparent p-0 text-ink outline-none focus-visible:outline-none placeholder:text-ink-3" />
           <span className="t-figure text-ink-3">€</span>
         </div>
         {cents > 0 && <p className="money text-xs text-ink-3">{formatMoney(cents, "EUR", x.locale)}</p>}
@@ -69,9 +69,11 @@ export function NewFixedExpense({ spaceId, categories, rules, notify, initial }:
 
       <div className="flex flex-col gap-2">
         <input value={description} onChange={(e) => onDescription(e.target.value)} maxLength={120} placeholder={x("Concepto")} aria-label={x("Concepto")} className={FIELD} />
-        <label className="flex items-center gap-2 text-sm text-ink-2">
-          <span>{category ? (touched ? x("Categoría") : x("Categoría sugerida")) : x("Categoría")}</span>
-          <select value={category} onChange={(e) => { setCategory(e.target.value); setTouched(true); }} aria-label={x("Categoría")} className="min-h-11 rounded-full border border-border bg-surface-2 px-4 text-sm font-medium text-ink">
+        <label className="relative inline-flex min-h-11 w-fit max-w-full items-center gap-2 rounded-full border border-border bg-surface-2 px-4 text-sm focus-within:ring-2 focus-within:ring-accent">
+          <span className="text-ink-3">{category && !touched ? x("Sugerida") : x("Categoría")}:</span>
+          <span className="truncate font-medium text-ink">{categories.find((c) => c.id === category)?.name ?? x("Sin categoría")}</span>
+          <span aria-hidden className="text-ink-3">▾</span>
+          <select value={category} onChange={(e) => { setCategory(e.target.value); setTouched(true); }} aria-label={x("Categoría")} className="absolute inset-0 h-full w-full cursor-pointer opacity-0">
             <option value="">{x("Sin categoría")}</option>
             {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
