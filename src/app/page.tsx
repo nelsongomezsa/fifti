@@ -64,9 +64,9 @@ export default async function Home() {
         </div>
       </section>
 
-      <section aria-labelledby="burbujas" className="border-t border-border bg-surface py-14">
+      <section aria-labelledby="espacios" className="border-t border-border bg-surface py-14">
         <div className="mx-auto max-w-5xl px-4">
-          <h2 id="burbujas" className="text-2xl font-bold">{x("Tres tipos de burbuja")}</h2>
+          <h2 id="espacios" className="text-2xl font-bold">{x("Tres tipos de burbuja")}</h2>
           <ul className="mt-6 grid gap-4 md:grid-cols-3">
             {BUBBLES.map((b) => (
               <li key={b.name} className="rounded-card border border-border bg-bg p-5">

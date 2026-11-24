@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { uuidSchema } from "@/lib/validation/spaces";
 import { requireUser } from "@/server/spaces";
 
-export const metadata: Metadata = { title: "Ajustes de burbuja" };
+export const metadata: Metadata = { title: "Ajustes del espacio" };
 
 const pct = (bp: number | null) => (bp === null ? "" : (bp / 100).toFixed(2).replace(".", ","));
 

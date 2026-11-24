@@ -5,7 +5,7 @@ import { ActionForm, inputClass } from "@/components/ui/ActionForm";
 import { createSpace } from "@/server/actions/spaces";
 import { requireUser } from "@/server/spaces";
 
-export const metadata: Metadata = { title: "Nueva burbuja" };
+export const metadata: Metadata = { title: "Nuevo espacio" };
 
 const TEMPLATES = [
   ["night", "Noche"], ["dinner", "Cena"], ["trip", "Viaje"], ["flat", "Piso"],

@@ -8,8 +8,8 @@ const tx = (l: "es" | "en") => (s: string) => (l === "en" ? (dict[s] ?? s) : s);
 
 describe("nombres de fondos y categorías del sistema", () => {
   it("los del sistema se traducen según el idioma", () => {
-    expect(displayName(tx("es"), "Gastos fijos", "fund.fixed")).toBe("Gastos fijos");
-    expect(displayName(tx("en"), "Gastos fijos", "fund.fixed")).toBe("Fixed expenses");
+    expect(displayName(tx("es"), "Gastos fijos", "fund.fixed")).toBe("Fijos");
+    expect(displayName(tx("en"), "Gastos fijos", "fund.fixed")).toBe("Fixed");
     expect(displayName(tx("en"), "Supermercado", "cat.groceries")).toBe("Groceries");
   });
   it("los que crea el usuario (sin clave) conservan su nombre en cualquier idioma", () => {

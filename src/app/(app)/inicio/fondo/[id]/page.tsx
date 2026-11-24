@@ -7,7 +7,7 @@ import { uuidSchema } from "@/lib/validation/spaces";
 import { detailContext } from "@/server/inicio-detail";
 import { loadMirrorByFund, loadPlan } from "@/server/plan";
 
-export const metadata: Metadata = { title: "Fondo" };
+export const metadata: Metadata = { title: "Partida" };
 
 type Line = { id: string; date: string; label: string; cents: number; categoryId: string | null; from?: string };
 

@@ -1,5 +1,6 @@
 import "server-only";
 import { getLocale } from "next-intl/server";
+import { renameEs } from "./es-rename";
 import enUi from "../../messages/en-ui.json";
 
 import type { Tx } from "./tx-types";
@@ -9,7 +10,7 @@ export type { Tx };
 export async function getTx(): Promise<Tx> {
   const l = await getLocale();
   const dict = enUi as Record<string, string>;
-  const fn = ((es: string) => (l === "en" ? (dict[es] ?? es) : es)) as Tx;
+  const fn = ((es: string) => (l === "en" ? (dict[es] ?? es) : renameEs(es))) as Tx;
   fn.locale = l === "en" ? "en-GB" : "es-ES";
   return fn;
 }

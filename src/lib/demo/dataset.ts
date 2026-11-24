@@ -41,7 +41,7 @@ export function buildDemoDb(now: Date = new Date()): Db {
 
   // ───── Fondos y categorías (con system_key: la interfaz los traduce)
   type FundKey = "fixed" | "daily" | "leisure" | "savings" | "general";
-  const FUND = { fixed: ["Gastos fijos", "fixed", "#9AA3AF"], daily: ["Día a día", "variable", "#7DD3FC"], leisure: ["Ocio", "leisure", "#FF9F43"], savings: ["Ahorro", "savings", "#A78BFA"], general: ["General", "other", "#FF9F43"] } as const;
+  const FUND = { fixed: ["Gastos fijos", "fixed", "#9AA3AF"], daily: ["Día a día", "variable", "#7DD3FC"], leisure: ["Ocio", "leisure", "#FDBA74"], savings: ["Ahorro", "savings", "#A78BFA"], general: ["General", "other", "#FF9F43"] } as const;
   const fundsOf: Record<string, Record<string, string>> = { [P]: {}, [H]: {}, [G]: {} };
   const catsOf: Record<string, Record<string, string>> = { [P]: {}, [H]: {}, [G]: {} };
   const mkFunds = (space: string, keys: FundKey[]) => keys.forEach((k, i) => { fundsOf[space]![k] = add("funds", { id: id(), space_id: space, name: FUND[k][0], kind: FUND[k][1], color: FUND[k][2], icon: null, rollover: false, linked_space_id: null, position: i, system_key: `fund.${k === "general" ? "general" : k}` }).id as string; });

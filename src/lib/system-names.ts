@@ -1,6 +1,6 @@
 /** Nombres de fábrica (en español) de los fondos y categorías del sistema, por clave interna (`system_key`). La interfaz los traduce según el idioma. */
 export const SYSTEM_NAMES: Record<string, string> = {
-  "fund.fixed": "Gastos fijos", "fund.daily": "Día a día", "fund.leisure": "Ocio", "fund.savings": "Ahorro", "fund.emergency": "Imprevistos",
+  "fund.fixed": "Fijos", "fund.daily": "Día a día", "fund.leisure": "Ocio", "fund.savings": "Ahorro", "fund.emergency": "Imprevistos",
   "fund.investment": "Inversión", "fund.contribution": "Aportación al hogar", "fund.general": "General",
   "cat.rent": "Alquiler", "cat.electricity": "Luz", "cat.water": "Agua", "cat.internet": "Internet", "cat.subscriptions": "Suscripciones",
   "cat.groceries": "Supermercado", "cat.transport": "Transporte", "cat.health": "Salud", "cat.home": "Casa",

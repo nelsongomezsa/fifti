@@ -8,15 +8,15 @@ const fundAlert = (name: string, key: string | null): PushContent => (t) => ({
 
 describe("notificaciones en el idioma del destinatario", () => {
   it("español por defecto y para perfiles sin idioma", () => {
-    expect(localizePayload(fundAlert("Gastos fijos", "fund.fixed"), "es").body).toBe("Vas por el 80 % del fondo Gastos fijos.");
-    expect(localizePayload(fundAlert("Gastos fijos", "fund.fixed"), null).body).toBe("Vas por el 80 % del fondo Gastos fijos.");
+    expect(localizePayload(fundAlert("Gastos fijos", "fund.fixed"), "es").body).toBe("Vas por el 80 % de la partida Fijos.");
+    expect(localizePayload(fundAlert("Gastos fijos", "fund.fixed"), null).body).toBe("Vas por el 80 % de la partida Fijos.");
   });
   it("inglés con el nombre del fondo del sistema traducido", () => {
-    expect(localizePayload(fundAlert("Gastos fijos", "fund.fixed"), "en").body).toBe("You're at 80 % of the fund Fixed expenses.");
+    expect(localizePayload(fundAlert("Gastos fijos", "fund.fixed"), "en").body).toBe("You're at 80 % of the budget line Fixed.");
   });
   it("un fondo creado por el usuario conserva su nombre en cualquier idioma", () => {
-    expect(localizePayload(fundAlert("Ocio", null), "en").body).toBe("You're at 80 % of the fund Ocio.");
-    expect(localizePayload(fundAlert("Mis caprichos", null), "en").body).toBe("You're at 80 % of the fund Mis caprichos.");
+    expect(localizePayload(fundAlert("Ocio", null), "en").body).toBe("You're at 80 % of the budget line Ocio.");
+    expect(localizePayload(fundAlert("Mis caprichos", null), "en").body).toBe("You're at 80 % of the budget line Mis caprichos.");
   });
   it("el título que puso el usuario (p. ej. nombre del grupo) no se traduce", () => {
     const c: PushContent = (t) => ({ title: "Viaje", body: t("Hay un gasto nuevo."), url: "/movimientos" });

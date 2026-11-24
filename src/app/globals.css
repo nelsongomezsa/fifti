@@ -2,17 +2,17 @@
 
 /* Tokens de Fifti. Oscuro por defecto; claro con data-theme="light". */
 :root {
-  --bg: #0b0d10;
-  --surface: #15181d;
-  --surface-2: #1a1e24;
-  --border: #22262d;
-  --track: #2a2f37;
-  --text: #f2f4f7;
-  --text-2: #d0d5dd;
-  --text-3: #9aa3af;
+  --bg: #15181d;
+  --surface: #1e2229;
+  --surface-2: #232831;
+  --border: #2e343d;
+  --track: #2a2f38;
+  --text: #f1f3f5;
+  --text-2: #b4bac4;
+  --text-3: #8f96a1;
 
-  --lime: #c6f432;
-  --logo-dot: #c6f432;
+  --lime: #c8f060;
+  --logo-dot: #c8f060;
   --lilac: #a78bfa;
   --tangerine: #ff9f43;
   --info: #7dd3fc;
@@ -20,7 +20,7 @@
   /* aviso del 80 %: ámbar, distinto de la mandarina de los planes espontáneos */
   --warn: #f5c542;
   --over-text: #ff8a8a;
-  --on-accent: #0b0d10;
+  --on-accent: #15181d;
 
   /* espaciado en rejilla de 4/8 px, radios y elevación: se usan desde las utilidades de abajo */
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px; --space-6: 32px;
@@ -84,7 +84,7 @@
   --color-over-text: var(--over-text);
   --font-sans: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, monospace;
-  --radius-card: 16px;
+  --radius-card: 20px;
   --radius-sheet: 24px;
   --shadow-card: var(--elev-1);
 }
