@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ScrollToHash } from "@/components/ui/ScrollToHash";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ActionForm, inputClass } from "@/components/ui/ActionForm";
 import { getTx } from "@/i18n/tx";
@@ -55,6 +56,7 @@ export default async function LoansPage() {
   return (
     <section className="flex flex-col gap-4 pt-2">
       {back}
+      <ScrollToHash />
       <h1 className="text-2xl font-bold">{x("Préstamos")}</h1>
       <p className="text-sm text-ink-2">{x("Lo que has dejado o te han dejado. Es privado: solo lo ves tú, salvo que lo compartas con alguien de tus burbujas.")}</p>
       <p className="money font-mono text-lg">{x("Te deben")} {fmt(t.owedToMe)} · {x("Debes")} {fmt(t.iOwe)}</p>

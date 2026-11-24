@@ -6,6 +6,7 @@ import { ActionForm, inputClass } from "@/components/ui/ActionForm";
 import { rotationPayer } from "@/lib/calendar";
 import { FixedExpenseFields } from "@/components/plan/FixedExpenseFields";
 import { CategoryIcon } from "@/components/ui/CategoryIcon";
+import { ScrollToHash } from "@/components/ui/ScrollToHash";
 import { SetupPlanCard } from "@/components/plan/SetupPlanCard";
 import { PlanBubbles } from "@/components/charts/PlanBubbles";
 import { detectSubscriptions } from "@/lib/detect";
@@ -57,6 +58,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
 
   return (
     <section className="flex flex-col gap-6 pt-2">
+      <ScrollToHash />
       <h1 className="text-2xl font-bold">{x("Plan")}</h1>
       <div className="flex items-center justify-between">
         <Link href={`/plan?mes=${addMonths(month, -1)}`} aria-label={x("Mes anterior")} className="grid min-h-11 min-w-11 place-items-center rounded-full border border-border">‹</Link>
