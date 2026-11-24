@@ -155,7 +155,11 @@ class Query implements PromiseLike<{ data: unknown; error: unknown; count?: numb
     let out = rows.map((r) => this.project(this.table, r, this.cols)).filter((r): r is Row => r !== null);
     for (const f of emb) {
       const [rel, col] = f.col.split(".") as [string, string];
-      out = out.filter((r) => { const o = r[rel]; return o && !Array.isArray(o) ? test(o as Row, { ...f, col }) : true; });
+      out = out.filter((r) => {
+        const o = r[rel];
+        if (Array.isArray(o)) { const keep = o.filter((c) => test(c as Row, { ...f, col })); r[rel] = keep; return keep.length > 0; } // relación hija con !inner: se quedan solo los hijos que cumplen
+        return o ? test(o as Row, { ...f, col }) : true;
+      });
     }
     if (this.mode === "list") return { data: out, error: null, count: this.count ? total : null };
     if (out.length > 1 && this.mode === "one") return { data: null, error: { code: "PGRST116", message: "varias filas" } };
