@@ -36,13 +36,23 @@ export async function removePushSubscription(endpoint: string): Promise<void> {
 
 const KEYS = ["new_expense", "fixed_tomorrow", "fund_threshold", "goal_reached", "monthly_summary", "contribution_pending", "offset_proposal"] as const;
 
+const reminderSchema = z.object({
+  hour: z.number().int().min(0).max(23),
+  timezone: z.string().max(64).refine((tz) => { try { new Intl.DateTimeFormat("es", { timeZone: tz }); return true; } catch { return false; } }),
+}).strict();
+
 export async function savePrefs(_prev: FormState, fd: FormData): Promise<FormState> {
   const x = await getTx();
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
   if (!data.user) return { error: x("Sesión caducada.") };
-  const row: Record<string, boolean | string> = { user_id: data.user.id };
+  const row: Record<string, boolean | string | number> = { user_id: data.user.id };
   for (const k of KEYS) row[k] = fd.get(k) === "on";
+  const rem = reminderSchema.safeParse({ hour: Number(fd.get("reminder_hour") ?? 21), timezone: String(fd.get("timezone") || "Europe/Madrid") });
+  if (!rem.success) return { error: x("Hora o zona horaria no válida.") };
+  row.daily_reminder = fd.get("daily_reminder") === "on";
+  row.reminder_hour = rem.data.hour;
+  row.timezone = rem.data.timezone;
   const { error } = await supabase.from("notification_prefs").upsert(row, { onConflict: "user_id" });
   if (error) return { error: x("No se ha podido guardar.") };
   revalidatePath("/mas");

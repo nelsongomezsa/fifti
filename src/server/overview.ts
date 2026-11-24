@@ -15,7 +15,7 @@ export type Overview = {
   savingsBp: number;
   forecastLeftover: number;
   series: { label: string; full: string; cents: number; current: boolean }[];
-  funds: (FundRow & { name: string; color: string })[];
+  funds: (FundRow & { name: string; color: string; kind: string })[];
   plan: PlanData;
 };
 

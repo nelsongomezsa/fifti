@@ -7,6 +7,7 @@ import { formatMoney } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 import { addFavoriteForm, deleteFavorite } from "@/server/actions/expenses";
 import { setMirrorPref } from "@/server/actions/plan";
+import { TimezoneField } from "@/components/ui/TimezoneField";
 import { PasswordForm } from "@/components/ui/PasswordForm";
 import { PushSettings } from "@/components/pwa/PushSettings";
 import { vapidPublicKey } from "@/lib/vapid";
@@ -51,7 +52,7 @@ export default async function MorePage() {
         </div>
       )}
 
-      {[["/calendario", "Calendario de pagos"], ["/resumen-mensual", "Resumen del mes"], ["/tu-ano", "Tu año en Fifti"], ["/csv", "Importar y exportar CSV"], ["/compra", "Lista de la compra"], ["/prestamos", "Préstamos"], ["/reglas", "Reglas de categoría"], ["/atajo", "Atajo de Siri"]].map(([href, label]) => (
+      {[["/calendario", "Calendario de pagos"], ["/resumen-mensual", "Resumen del mes"], ["/tu-ano", "Tu año en Fifti"], ["/csv", "Importar y exportar CSV"], ["/tendencias", "Tendencias"], ["/compra", "Lista de la compra"], ["/prestamos", "Préstamos"], ["/reglas", "Reglas de categoría"], ["/atajo", "Atajo de Siri"]].map(([href, label]) => (
         <Link key={href} href={href!} className="flex min-h-12 items-center justify-between rounded-card border border-border bg-surface px-4">{x(label!)}<span aria-hidden className="text-ink-3">›</span></Link>
       ))}
       <Link href="/balance" className="flex min-h-12 items-center justify-between rounded-card border border-border bg-surface px-4">{x("Balance y saldar deudas")}<span aria-hidden className="text-ink-3">›</span></Link>
@@ -100,6 +101,16 @@ export default async function MorePage() {
             {([["new_expense", "Gasto nuevo"], ["fixed_tomorrow", "Gasto fijo mañana"], ["fund_threshold", "Fondo al 80 % / 100 %"], ["goal_reached", "Meta alcanzada"], ["monthly_summary", "Resumen mensual"], ["contribution_pending", "Aportación pendiente"], ["offset_proposal", "Propuesta de compensación"]] as const).map(([k, l]) => (
               <label key={k} className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" name={k} defaultChecked={(prefRow as Record<string, boolean> | null)?.[k] ?? true} /> {x(l)}</label>
             ))}
+            <div className="mt-2 flex flex-col gap-2 border-t border-border pt-3">
+              <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" name="daily_reminder" defaultChecked={!!(prefRow as { daily_reminder?: boolean } | null)?.daily_reminder} /> {x("Recordarme apuntar gastos")}</label>
+              <label className="flex items-center justify-between gap-3 text-sm text-ink-2">{x("Hora del recordatorio")}
+                <select name="reminder_hour" defaultValue={String((prefRow as { reminder_hour?: number } | null)?.reminder_hour ?? 21)} aria-label={x("Hora del recordatorio")} className="min-h-11 rounded-card border border-border bg-surface px-3 font-mono text-ink">
+                  {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, "0")}:00</option>)}
+                </select>
+              </label>
+              <TimezoneField initial={(prefRow as { timezone?: string } | null)?.timezone ?? "Europe/Madrid"} />
+              <p className="text-xs text-ink-3">{x("Solo si ese día aún no has apuntado nada. El aviso no lleva importes.")}</p>
+            </div>
           </ActionForm>
         </>
       )}

@@ -24,6 +24,7 @@ export const RULES = {
   shopping: { action: "shopping", limit: 400, windowSeconds: 3600 },
   loans: { action: "loans", limit: 120, windowSeconds: 3600 },
   realtimeToken: { action: "realtime-token", limit: 60, windowSeconds: 3600 },
+  report: { action: "report", limit: 20, windowSeconds: 3600 },
   passwordChange: { action: "password-change", limit: 5, windowSeconds: 3600 },
 } as const satisfies Record<string, RateRule>;
 

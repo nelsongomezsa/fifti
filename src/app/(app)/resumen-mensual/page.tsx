@@ -27,6 +27,7 @@ export default async function MonthlySummaryPage() {
         <p className="money mt-2 flex justify-between font-mono text-sm text-ink-2"><span>{x("Ingresos")}{" "}{formatMoney(o.income, "EUR", x.locale)}</span><span>{x("Gasto")}{" "}{formatMoney(o.spent, "EUR", x.locale)}</span></p>
         <p className="mt-1 text-sm text-ink-2">{x("Tasa de ahorro")}{" "}<span className="money font-mono">{(o.savingsBp / 100).toFixed(0)} %</span></p>
       </div>
+      <a href={`/api/informe?space=${active.id}&mes=${month}`} download className="inline-flex min-h-12 items-center justify-center rounded-full bg-accent px-6 font-semibold text-on-accent">{x("Descargar informe en PDF")}</a>
       {top.length > 0 && (
         <div className="rounded-card border border-border bg-surface p-4">
           <h2 className="mb-2 font-semibold">{x("Donde más gastaste")}</h2>

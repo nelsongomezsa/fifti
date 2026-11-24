@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/server";
 import { loadSpaceBalance } from "@/server/balance";
 import { Suspense } from "react";
 import { ChangeLine, ChartCard } from "@/components/home/Deferred";
+import { weeklyBudget } from "@/lib/weekly";
 import { loadLoans, loanTotals } from "@/server/loans";
 import { loadOverview, startSeries } from "@/server/overview";
 import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
@@ -54,6 +55,7 @@ export default async function HomePage() {
     if (tr) transfer = { from: balance.members.find((m) => m.id === tr.from)?.display_name ?? "—", to: balance.members.find((m) => m.id === tr.to)?.display_name ?? "—", amountCents: tr.amountCents };
   }
   const budgetLeft: number | null = budget;
+  const weekly = o.plan.configured && active.kind !== "group" ? weeklyBudget(o.funds, new Date().toISOString().slice(0, 10)) : null;
   const today = new Date();
   const showSummary = today.getUTCDate() <= 3 && o.month === monthStart(today);
 
@@ -96,6 +98,15 @@ export default async function HomePage() {
         <p className="rounded-card border border-border bg-surface p-4 text-sm text-ink-2">
           {t("budgetLeft", { amount: formatMoney(budgetLeft, "EUR", locale) })}
         </p>
+      )}
+
+      {weekly && (
+        <div className={`rounded-card border bg-surface p-4 ${weekly.status === "over" ? "border-over" : weekly.status === "warn" ? "border-warn" : "border-border"}`} role="status">
+          <p className={`money font-mono text-2xl font-semibold ${weekly.status === "over" ? "text-over-text" : weekly.status === "warn" ? "text-warn" : ""}`}>
+            {weekly.status === "over" ? `${x("Te has pasado")} ${formatMoney(-weekly.leftCents, "EUR", x.locale)}` : `${x("Te quedan")} ${formatMoney(weekly.leftCents, "EUR", x.locale)} ${x("esta semana")}`}
+          </p>
+          <p className="mt-1 text-xs text-ink-3">{weekly.status === "over" ? x("de tu gasto variable de este mes.") : x("de tu gasto variable, repartido por los días que faltan del mes.")}</p>
+        </div>
       )}
 
       <dl className="grid grid-cols-3 gap-2">
