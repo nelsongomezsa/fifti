@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parsePhrase, type NlSpace } from "@/lib/nl/parse";
+import { parsePhrase, suggestCategory, type NlSpace } from "@/lib/nl/parse";
+import { matchRule } from "@/lib/rules/match";
 
 const cats = [{ id: "c-super", name: "Supermercado" }, { id: "c-rest", name: "Restaurantes" }, { id: "c-sub", name: "Suscripciones" }, { id: "c-taxi", name: "Transporte" }];
 const personal: NlSpace = { id: "p", name: "Personal", kind: "personal", meId: "ana-p", members: [{ id: "ana-p", name: "Ana" }], categories: cats };
@@ -58,5 +59,12 @@ describe("parsePhrase", () => {
   it("una regla de la burbuja manda sobre las palabras clave", () => {
     const conRegla: NlSpace = { ...personal, rules: [{ id: "r", matchText: "mercadona", matchType: "contains", categoryId: "c-taxi", priority: 10 }] };
     expect(parsePhrase("12 mercadona", [conRegla], "p").categoryId).toBe("c-taxi");
+  });
+  it("gasto fijo: «Spotify» sugiere Suscripciones y una regla del usuario manda sobre el diccionario", () => {
+    const cats2 = [...cats, { id: "c-ocio", name: "Ocio" }];
+    expect(suggestCategory("Spotify", cats2)).toBe("c-sub");
+    expect(suggestCategory("Netflix", cats2)).toBe("c-sub");
+    const rules = [{ id: "r", matchText: "spotify", matchType: "contains" as const, categoryId: "c-ocio", priority: 10 }];
+    expect(matchRule(rules, "Spotify familiar")?.categoryId).toBe("c-ocio");
   });
 });

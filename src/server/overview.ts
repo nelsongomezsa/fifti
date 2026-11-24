@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { addMonths, fillSeries, forecastMonthEnd, lastMonths, monthChange, monthStart, savingsRateBp, summarizeFund, type FundRow } from "@/lib/money";
+import { addMonths, fillSeries, lastMonths, monthChange, monthOutlook, monthStart, plannedSavingsBp, savingsRateBp, summarizeFund, type FundRow, type MonthOutlook } from "@/lib/money";
 import { getTx } from "@/i18n/tx";
 import { displayName } from "@/lib/system-names";
 import { loadMirrorByFund, loadPlan, type PlanData } from "./plan";
@@ -14,6 +14,10 @@ export type Overview = {
   change: { deltaCents: number; percentBp: number | null };
   savingsBp: number;
   forecastLeftover: number;
+  /** previsión realista: ingresos − gastado − lo que queda previsto de fijos y variable */
+  outlook: MonthOutlook;
+  /** tasa de ahorro PREVISTA del plan (la real solo tiene sentido al cierre del mes) */
+  plannedSavingsBp: number;
   series: { label: string; full: string; cents: number; current: boolean; month: string }[];
   funds: (FundRow & { name: string; color: string; kind: string })[];
   plan: PlanData;
@@ -44,7 +48,8 @@ export function seriesView(s: SeriesData, month: string, leftover: number, local
   const prevLeftover = (incSeries[4]! > 0 ? incSeries[4]! : 0) - spendSeries[4]!;
   const full = (m: string) => { const n = new Date(`${m}T00:00:00Z`).toLocaleDateString(locale, { month: "long", timeZone: "UTC" }); return n.charAt(0).toLocaleUpperCase(locale) + n.slice(1); };
   const label = (m: string) => new Date(`${m}T00:00:00Z`).toLocaleDateString(locale, { month: "short", timeZone: "UTC" }).replace(".", "");
-  return { change: monthChange(leftover, prevLeftover), series: months.map((m, i) => ({ label: label(m), full: full(m), cents: spendSeries[i]!, current: m === month, month: m })) };
+  const prevHasData = incSeries[4]! > 0 || spendSeries[4]! > 0;
+  return { change: monthChange(leftover, prevLeftover), prevHasData, series: months.map((m, i) => ({ label: label(m), full: full(m), cents: spendSeries[i]!, current: m === month, month: m })) };
 }
 
 export async function loadOverview(supabase: SupabaseClient, spaceId: string, kind: "personal" | "household" | "group", month = monthStart(new Date()), today = new Date().toISOString().slice(0, 10), locale = "es-ES", deferSeries = false): Promise<Overview> {
@@ -72,16 +77,12 @@ export async function loadOverview(supabase: SupabaseClient, spaceId: string, ki
     ...summarizeFund(f.id, (plan.allocations[f.id]?.planned ?? 0) + (plan.allocations[f.id]?.carry ?? 0), plan.spentByFund[f.id] ?? 0),
     name: f.name, color: f.color, kind: f.kind,
   }));
-  const fixed = funds.filter((f) => f.kind === "fixed");
-  const spentFixed = fixed.reduce((a, f) => a + f.spent, 0);
-  const forecast = forecastMonthEnd({
-    monthIso: month, today, spentVariable: spent - spentFixed, spentFixed, plannedFixed: fixed.reduce((a, f) => a + f.planned, 0), income,
-  });
+  const outlook = monthOutlook(income, spent, funds);
   const full = (m: string) => { const n = new Date(`${m}T00:00:00Z`).toLocaleDateString(locale, { month: "long", timeZone: "UTC" }); return n.charAt(0).toLocaleUpperCase(locale) + n.slice(1); };
   const label = (m: string) => new Date(`${m}T00:00:00Z`).toLocaleDateString(locale, { month: "short", timeZone: "UTC" }).replace(".", "");
   return {
     month, income, spent, leftover, prevLeftover, change: monthChange(leftover, prevLeftover), savingsBp: savingsRateBp(income, spent),
-    forecastLeftover: forecast.projectedLeftover,
+    forecastLeftover: outlook.projectedLeftover, outlook, plannedSavingsBp: plannedSavingsBp(income, funds),
     series: months.map((m, i) => ({ label: label(m), full: full(m), cents: spendSeries[i]!, current: m === month, month: m })),
     funds, plan,
   };

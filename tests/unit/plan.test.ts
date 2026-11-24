@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contributionTargets, daysInMonth, forecastBreakdown, forecastMonthEnd, fundStatus, plannedFor, potBalance, summarizeFund } from "@/lib/money";
+import { contributionTargets, daysInMonth, forecastMonthEnd, monthOutlook, plannedSavingsBp, fundStatus, plannedFor, potBalance, summarizeFund } from "@/lib/money";
 
 describe("plan por fondos", () => {
   it("reparte por % con mayor resto y por importe tal cual", () => {
@@ -74,21 +74,30 @@ describe("gasto por fondo", () => {
   });
 });
 
-describe("desglose de la previsión de fin de mes", () => {
-  const p = { monthIso: "2026-11-01", today: "2026-11-15", spentVariable: 30000, spentFixed: 60000, plannedFixed: 90000, income: 200000 };
-  it("las partes suman la previsión", () => {
-    const b = forecastBreakdown(p);
-    expect(b.spentSoFar).toBe(90000);
-    expect(b.variableToGo).toBe(30000); // 30000 en 15 días → 60000 al mes
-    expect(b.fixedPending).toBe(30000);
-    expect(b.income - (b.spentSoFar + b.variableToGo + b.fixedPending)).toBe(b.projectedLeftover);
-    expect(b.projectedLeftover).toBe(forecastMonthEnd(p).projectedLeftover);
-    expect(b.daysLeft).toBe(15);
+describe("previsión realista de fin de mes", () => {
+  const funds = [
+    { kind: "fixed", planned: 90000, spent: 60000 }, { kind: "variable", planned: 40000, spent: 10000 },
+    { kind: "leisure", planned: 25000, spent: 30000 }, { kind: "savings", planned: 30000, spent: 0 },
+  ];
+  it("ingresos − gastado − lo que queda previsto de fijos y variable", () => {
+    const o = monthOutlook(210000, 100000, funds);
+    expect(o.pendingFixed).toBe(30000);
+    expect(o.pendingVariable).toBe(30000); // 40000 − 10000; el ocio ya se pasó y no resta ni suma
+    expect(o.projectedLeftover).toBe(210000 - 100000 - 30000 - 30000);
   });
-  it("si los fijos ya se pagaron no queda pendiente y si el mes acabó no hay variable por venir", () => {
-    const b = forecastBreakdown({ ...p, spentFixed: 95000, today: "2026-11-30" });
-    expect(b.fixedPending).toBe(0);
-    expect(b.variableToGo).toBe(0);
-    expect(b.income - (b.spentSoFar + b.variableToGo + b.fixedPending)).toBe(b.projectedLeftover);
+  it("el ahorro previsto no resta: no es un gasto", () => {
+    expect(monthOutlook(100000, 0, [{ kind: "savings", planned: 50000, spent: 0 }]).projectedLeftover).toBe(100000);
+  });
+  it("un fondo pasado de lo previsto no añade previsión negativa", () => {
+    expect(monthOutlook(100000, 20000, [{ kind: "variable", planned: 10000, spent: 20000 }]).projectedLeftover).toBe(80000);
+  });
+  it("con 23,45 € gastados en un plan de 2.100 € la previsión no se parece a «te sobra 2.076»", () => {
+    const o = monthOutlook(210000, 2345, [{ kind: "fixed", planned: 105000, spent: 0 }, { kind: "variable", planned: 63000, spent: 2345 }, { kind: "savings", planned: 42000, spent: 0 }]);
+    expect(o.projectedLeftover).toBe(210000 - 2345 - 105000 - 60655);
+  });
+  it("tasa de ahorro prevista = lo que va a ahorro / ingresos, no la real a mitad de mes", () => {
+    expect(plannedSavingsBp(210000, funds)).toBe(1429); // 300 / 2.100 ≈ 14,29 %
+    expect(plannedSavingsBp(0, funds)).toBe(0);
+    expect(plannedSavingsBp(100, [{ kind: "savings", planned: 500, spent: 0 }])).toBe(10000);
   });
 });

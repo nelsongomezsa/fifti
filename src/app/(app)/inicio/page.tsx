@@ -4,7 +4,7 @@ import Link from "next/link";
 import { FundRowLink } from "@/components/home/FundRowLink";
 import { PartnerInvite } from "@/components/home/PartnerInvite";
 import { SetupPlanCard } from "@/components/plan/SetupPlanCard";
-import { OptimisticLeftover } from "@/components/expense/optimistic";
+import { OptimisticSpent } from "@/components/expense/optimistic";
 import { getLocale, getTranslations } from "next-intl/server";
 import { dailyBudgetLeft } from "@/lib/fx";
 import { formatMoney, monthStart } from "@/lib/money";
@@ -97,10 +97,13 @@ export default async function HomePage() {
         </>
       ) : (
         <>
-      <div>
-        <p className="text-sm text-ink-3">{t("leftIn", { month: monthName })}</p>
-        <OptimisticLeftover base={o.leftover} spaceId={active.id} kind={active.kind} currency="EUR" />
-        <Suspense fallback={<div className="mt-2 h-5 w-48 animate-pulse rounded bg-track" />}><ChangeLine seriesP={seriesP} month={o.month} leftover={o.leftover} locale={x.locale} vsPrev={t("vsPrev")} label={x("Variación frente al mes anterior")} /></Suspense>
+      <Link href="/inicio/prevision" aria-label={`${x("Te sobrará a final de mes")}. ${x("Ver detalle")}`} className="block rounded-card transition-colors active:opacity-80">
+        <p className="text-sm text-ink-3">{x("Te sobrará a final de mes")} <span aria-hidden>›</span></p>
+        <AnimatedMoney cents={o.forecastLeftover} className={`money t-display block ${o.forecastLeftover < 0 ? "text-over-text" : ""}`} />
+      </Link>
+      <div className="-mt-3">
+        <OptimisticSpent base={o.spent} spaceId={active.id} kind={active.kind} currency="EUR" />
+        <Suspense fallback={<div className="mt-2 h-5 w-48 animate-pulse rounded bg-track" />}><ChangeLine seriesP={seriesP} month={o.month} leftover={o.forecastLeftover} locale={x.locale} vsPrev={t("vsPrev")} label={x("Variación frente al mes anterior")} /></Suspense>
       </div>
 
       {budgetLeft !== null && (
@@ -118,7 +121,7 @@ export default async function HomePage() {
       )}
 
       <ul className="grid grid-cols-3 gap-2">
-        {([["/inicio/ingresos", t("income"), <AnimatedMoney key="i" cents={o.income} />], ["/inicio/ahorro", t("savingsRate"), pctText(o.savingsBp)], ["/inicio/prevision", t("forecast"), <AnimatedMoney key="f" cents={o.forecastLeftover} />]] as const).map(([href, k, v]) => (
+        {([["/inicio/ingresos", t("income"), <AnimatedMoney key="i" cents={o.income} />], ["/inicio/ahorro", x("Ahorro previsto"), pctText(o.plannedSavingsBp)], ["/inicio/prevision", x("Aún por gastar"), <AnimatedMoney key="f" cents={o.outlook.pendingFixed + o.outlook.pendingVariable} />]] as const).map(([href, k, v]) => (
           <li key={href} className="@container min-w-0">
             <Link href={href} aria-label={`${k}. ${x("Ver detalle")}`} className="block h-full rounded-card border border-border bg-surface p-3 transition-colors hover:bg-surface-2 active:bg-surface-2 focus-visible:outline-2 focus-visible:outline-accent">
               <span className="flex items-start justify-between gap-1 text-xs leading-tight text-ink-3"><span className="min-w-0">{k}</span><span aria-hidden className="shrink-0">›</span></span>

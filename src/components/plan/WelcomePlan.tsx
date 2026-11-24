@@ -11,10 +11,10 @@ type Member = { id: string; name: string; mine: boolean };
 type Fund = { id: string; name: string; color: string; suggested: number | null };
 
 /** Bienvenida en 2 pasos: ingresos del mes y plan sugerido editable. Se guarda con la misma acción (y validación) que el plan normal. */
-export function WelcomePlan({ spaceId, month, currency, members, funds }: { spaceId: string; month: string; currency: string; members: Member[]; funds: Fund[] }) {
+export function WelcomePlan({ initialStep = 1, spaceId, month, currency, members, funds }: { initialStep?: 1 | 2 | 3; spaceId: string; month: string; currency: string; members: Member[]; funds: Fund[] }) {
   const x = useTx();
   const router = useRouter();
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(initialStep);
   const [fixed, setFixed] = useState({ description: "", amount: "", day: "1" });
   const [fixedState, fixedAction, fixedPending] = useActionState(saveRecurring, {});
   const [income, setIncome] = useState<Record<string, string>>({});

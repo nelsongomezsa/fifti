@@ -21,9 +21,12 @@ export default async function WelcomePage() {
   const d = await loadPlan(await createClient(), active.id, month);
   const me = d.members.find((m) => m.user_id === user.id);
   if (!me || me.role === "guest") redirect("/inicio");
-  if (d.configured) redirect("/plan");
+  // Con el plan ya guardado la persona sigue en el paso 3 (primer gasto fijo); si ya tiene gastos fijos, no hay nada que hacer aquí
+  const supabase = await createClient();
+  const { count: fixedCount } = await supabase.from("recurring_expenses").select("id", { count: "exact", head: true }).eq("space_id", active.id);
+  if (d.configured && (fixedCount ?? 0) > 0) redirect("/inicio");
 
   const members = [me, ...d.members.filter((m) => m.id !== me.id)].map((m) => ({ id: m.id, name: m.display_name, mine: m.id === me.id }));
   const funds = d.funds.map((f) => ({ id: f.id, name: displayName(x, f.name, f.system_key), color: f.color, suggested: SUGGESTED[f.kind] ?? null }));
-  return <WelcomePlan spaceId={active.id} month={month} currency="EUR" members={members} funds={funds} />;
+  return <WelcomePlan initialStep={d.configured ? 3 : 1} spaceId={active.id} month={month} currency="EUR" members={members} funds={funds} />;
 }

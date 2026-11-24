@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis } from "recharts";
+import { Bar, BarChart, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { useTx } from "@/i18n/tx-client";
 import { formatMoney } from "@/lib/money";
 
@@ -13,10 +13,13 @@ export function SpendChart({ data, currency }: { data: SpendPoint[]; currency: s
   const x = useTx();
   const router = useRouter();
   const fmt = (c: number) => formatMoney(c, currency, x.locale);
+  const short = (c: number) => new Intl.NumberFormat(x.locale, { style: "currency", currency, maximumFractionDigits: 0, useGrouping: "always" }).format(c / 100);
+  const withData = data.filter((d) => d.cents > 0).length;
   return (
+    <div>
     <div className="h-40 w-full" role="img" aria-label={`${x("Gasto de los últimos 6 meses")}: ${data.map((d) => `${d.full} ${fmt(d.cents)}`).join(", ")}`}>
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 4, right: 0, left: 0, bottom: 0 }} accessibilityLayer={false}>
+        <BarChart data={data} margin={{ top: 18, right: 0, left: 0, bottom: 0 }} accessibilityLayer={false}>
           <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "var(--text-3)", fontSize: 11, fontFamily: "var(--font-plex-mono)" }} />
           <Tooltip
             cursor={{ fill: "transparent" }}
@@ -35,9 +38,12 @@ export function SpendChart({ data, currency }: { data: SpendPoint[]; currency: s
             {data.map((d, i) => (
               <Cell key={i} fill={d.current ? "var(--accent)" : "var(--track)"} />
             ))}
+            <LabelList dataKey="cents" position="top" formatter={(v) => (Number(v) > 0 ? short(Number(v)) : "")} fill="var(--text-2)" fontSize={10} fontFamily="var(--font-plex-mono)" />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+    </div>
+      {withData <= 1 && <p className="mt-2 text-center text-sm text-ink-2">{x("Tu primer mes en Fifti")}</p>}
       {/* Mismo acceso para teclado y lector de pantalla: cada mes lleva a sus movimientos */}
       <ul className="sr-only">{data.filter((d) => d.month).map((d) => <li key={d.month}><Link href={`/movimientos?mes=${d.month}`}>{d.full}: {fmt(d.cents)}</Link></li>)}</ul>
     </div>

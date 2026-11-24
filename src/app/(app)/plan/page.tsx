@@ -4,10 +4,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ActionForm, inputClass } from "@/components/ui/ActionForm";
 import { rotationPayer } from "@/lib/calendar";
+import { FixedExpenseFields } from "@/components/plan/FixedExpenseFields";
+import { CategoryIcon } from "@/components/ui/CategoryIcon";
 import { SetupPlanCard } from "@/components/plan/SetupPlanCard";
 import { PlanBubbles } from "@/components/charts/PlanBubbles";
 import { detectSubscriptions } from "@/lib/detect";
-import { addMonths, formatMoney, forecastMonthEnd, fundLeftover, isMonthStart, monthStart, summarizeFund } from "@/lib/money";
+import { addMonths, formatMoney, fundLeftover, isMonthStart, monthOutlook, monthStart, summarizeFund } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 import { closePlan, copyPreviousPlan, deleteRecurring, generateContributions, markContributionPaid, reopenPlan, saveContributionRule, savePlan, saveRecurring } from "@/server/actions/plan";
 import { loadMirrorByFund, loadPlan } from "@/server/plan";
@@ -28,13 +30,14 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
   // Todas las consultas de la página en una sola ronda de red
   const sideQueries = Promise.all([
     supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, next_run, active, category_id, paid_from, rotation, rotation_pos").eq("space_id", active.id).order("next_run"),
-    supabase.from("categories").select("id, name, system_key").eq("space_id", active.id).order("name"),
+    supabase.from("categories").select("id, name, system_key, fund_id").eq("space_id", active.id).order("name"),
+    supabase.from("category_rules").select("id, match_text, match_type, category_id, priority").eq("space_id", active.id),
     active.kind === "household" ? supabase.from("contribution_rules").select("mode, monthly_target_cents, values").eq("space_id", active.id).maybeSingle() : Promise.resolve({ data: null }),
     active.kind === "household" ? supabase.from("contributions").select("id, member_id, expected_cents, paid_cents").eq("space_id", active.id).eq("month", month) : Promise.resolve({ data: [] }),
     supabase.from("savings_goals").select("id, name").eq("space_id", active.id),
     supabase.from("expenses").select("description, amount_base_cents, spent_at").eq("space_id", active.id).eq("is_private", false).is("recurring_id", null).gte("spent_at", addMonths(month, -6)).limit(2000),
   ]);
-  const [d, [{ data: recurring }, { data: cats }, { data: rule }, { data: contribs }, { data: goals }, { data: hist }]] = await Promise.all([
+  const [d, [{ data: recurring }, { data: cats }, { data: catRules }, { data: rule }, { data: contribs }, { data: goals }, { data: hist }]] = await Promise.all([
     (async () => loadPlan(supabase, active.id, month, active.kind === "personal" ? await loadMirrorByFund(supabase, month) : {}, { uncategorizedToDaily: active.kind === "personal" }))(),
     sideQueries,
   ]);
@@ -44,9 +47,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
   const me = d.members.find((m) => m.user_id === user.id);
   const canEdit = !!me && me.role !== "guest" && d.plan?.status !== "closed";
   const label = new Date(`${month}T00:00:00Z`).toLocaleDateString(x.locale, { month: "long", year: "numeric", timeZone: "UTC" });
-  const fixedRows = rows.filter(({ f }) => f.kind === "fixed");
-  const spentFixed = fixedRows.reduce((a, { row }) => a + row.spent, 0);
-  const fc = forecastMonthEnd({ monthIso: month, today: new Date().toISOString().slice(0, 10), spentVariable: d.totalSpent - spentFixed, spentFixed, plannedFixed: fixedRows.reduce((a, { row }) => a + row.planned, 0), income: Object.values(d.actual).reduce((a, b) => a + b, 0) || Object.values(d.expected).reduce((a, b) => a + b, 0) });
+  const outlook = monthOutlook(Object.values(d.actual).reduce((a, b) => a + b, 0) || Object.values(d.expected).reduce((a, b) => a + b, 0), d.totalSpent, rows.map(({ f, row }) => ({ kind: f.kind, planned: row.planned, spent: row.spent })));
   const expectedTotal = Object.values(d.expected).reduce((a, b) => a + b, 0);
   const actualTotal = Object.values(d.actual).reduce((a, b) => a + b, 0);
 
@@ -81,7 +82,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
 
       <div className="rounded-card border border-border bg-surface p-4">
         <p className="text-sm text-ink-3">{x("Previsión de fin de mes")}</p>
-        <p className={`money font-mono text-2xl ${fc.projectedLeftover < 0 ? "text-over-text" : ""}`}>{formatMoney(fc.projectedLeftover, "EUR", x.locale)}</p>
+        <p className={`money font-mono text-2xl ${outlook.projectedLeftover < 0 ? "text-over-text" : ""}`}>{formatMoney(outlook.projectedLeftover, "EUR", x.locale)}</p>
         <p className="mt-1 text-xs text-ink-3">{x("Según tu ritmo de gasto variable y los fijos que quedan por pagar.")}</p>
       </div>
 
@@ -194,8 +195,9 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
         {myRecurring.length === 0 ? <p className="text-sm text-ink-3">{x("Aún no hay gastos fijos.")}</p> : (
           <ul className="flex flex-col gap-2">
             {myRecurring.map((r) => (
-              <li key={r.id} className="flex items-center justify-between rounded-card border border-border bg-surface px-4 py-3 text-sm">
-                <span>{r.description}<span className="block text-xs text-ink-3">{x(FREQ[r.frequency as keyof typeof FREQ])} {x("· próximo")}{" "}{r.next_run}{r.paid_from === "pot" ? " · del bote" : ""}</span>{(r.rotation?.length ?? 0) > 1 && <span className="block text-xs text-ink-2">{x("Turnos")}: {r.rotation.map(nm).join(" → ")} · {x("Le toca a")} {nm(rotationPayer(r.rotation, r.rotation_pos, 0) ?? "")}</span>}</span>
+              <li key={r.id} className="flex items-center justify-between gap-3 rounded-card border border-border bg-surface px-3 py-3 text-sm">
+                <CategoryIcon systemName={cats?.find((c) => c.id === r.category_id)?.system_key} color={d.funds.find((f) => f.id === cats?.find((c) => c.id === r.category_id)?.fund_id)?.color} />
+                <span className="min-w-0 flex-1">{r.description}<span className="block text-xs text-ink-3">{x(FREQ[r.frequency as keyof typeof FREQ])} {x("· próximo")}{" "}{new Date(`${r.next_run}T00:00:00Z`).toLocaleDateString(x.locale, { day: "numeric", month: "short", timeZone: "UTC" }).replace(".", "")}{r.paid_from === "pot" ? ` · ${x("del bote")}` : ""}</span>{(r.rotation?.length ?? 0) > 1 && <span className="block text-xs text-ink-2">{x("Turnos")}: {r.rotation.map(nm).join(" → ")} · {x("Le toca a")} {nm(rotationPayer(r.rotation, r.rotation_pos, 0) ?? "")}</span>}</span>
                 <span className="flex items-center gap-2">
                   <span className="money font-mono">{formatMoney(r.amount_cents, "EUR", x.locale)}</span>
                   <form action={deleteRecurring}><input type="hidden" name="recurringId" value={r.id} /><button aria-label={`Borrar ${r.description}`} className="min-h-11 min-w-11 text-over-text">✕</button></form>
@@ -209,14 +211,12 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
             <summary className="min-h-11 cursor-pointer font-semibold">{x("Añadir gasto fijo")}</summary>
             <ActionForm action={saveRecurring} submit={x("Guardar gasto fijo")} className="mt-3 flex flex-col gap-3">
               <input type="hidden" name="spaceId" value={active.id} />
-              <input name="description" required maxLength={120} placeholder={x("Alquiler")} aria-label={x("Concepto")} className={inputClass} />
-              <input name="amount" required inputMode="decimal" placeholder="650,00" aria-label={x("Importe")} className={`${inputClass} font-mono`} />
+              <FixedExpenseFields categories={(cats ?? []).map((c) => ({ id: c.id, name: displayName(x, c.name, c.system_key) }))} rules={(catRules ?? []).map((r) => ({ id: r.id, matchText: r.match_text, matchType: r.match_type as "contains" | "starts_with" | "exact", categoryId: r.category_id, priority: r.priority }))} />
               <div className="grid grid-cols-2 gap-3">
                 <select name="frequency" defaultValue="monthly" aria-label={x("Frecuencia")} className={inputClass}>{Object.entries(FREQ).map(([v, l]) => <option key={v} value={v}>{x(l)}</option>)}</select>
                 <input name="day" type="number" min={1} max={31} defaultValue={1} aria-label={x("Día del mes")} className={inputClass} />
               </div>
               <label className="flex flex-col gap-1 text-xs text-ink-3">{x("Primer cobro")}<input name="nextRun" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} className={inputClass} /></label>
-              <select name="categoryId" defaultValue="" aria-label={x("Categoría")} className={inputClass}><option value="">{x("Sin categoría")}</option>{cats?.map((c) => <option key={c.id} value={c.id}>{displayName(x, c.name, c.system_key)}</option>)}</select>
               {active.kind !== "personal" && d.members.length > 1 && (
                 <fieldset className="flex flex-col gap-2 rounded-card border border-border p-3">
                   <legend className="px-1 text-sm text-ink-2">{x("Paga por turnos")}</legend>

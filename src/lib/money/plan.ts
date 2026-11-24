@@ -108,16 +108,24 @@ export function sumByFund(
   return out;
 }
 
-export type ForecastBreakdown = {
-  income: Cents; spentSoFar: Cents; variableToGo: Cents; fixedPending: Cents; projectedSpend: Cents; projectedLeftover: Cents; dailyRate: Cents; daysLeft: number;
-};
+export type OutlookFund = { kind: string; planned: Cents; spent: Cents };
+export type MonthOutlook = { income: Cents; spent: Cents; pendingFixed: Cents; pendingVariable: Cents; projectedLeftover: Cents };
 
-/** Desglose de la previsión de fin de mes: ingresos − (gastado hasta hoy + variable que falta al ritmo actual + fijos aún por pagar). Cuadra con `forecastMonthEnd`. */
-export function forecastBreakdown(p: Parameters<typeof forecastMonthEnd>[0]): ForecastBreakdown {
-  const f = forecastMonthEnd(p);
-  const dim = daysInMonth(p.monthIso);
-  const elapsed = Math.min(dim, Math.max(0, p.today < p.monthIso ? 0 : Number(p.today.slice(8, 10))));
-  const projectedVariable = elapsed >= dim ? p.spentVariable : elapsed === 0 ? 0 : Math.round((p.spentVariable * dim) / elapsed);
-  const fixedPending = Math.max(0, p.plannedFixed - p.spentFixed);
-  return { income: p.income, spentSoFar: f.spentSoFar, variableToGo: projectedVariable - p.spentVariable, fixedPending, projectedSpend: f.projectedSpend, projectedLeftover: f.projectedLeftover, dailyRate: f.dailyRate, daysLeft: dim - elapsed };
+/**
+ * Previsión realista de fin de mes (la misma en Inicio, Plan y su detalle):
+ * ingresos − gastado − lo que queda previsto de gastos fijos − lo que queda previsto de gasto variable.
+ * El ahorro, la inversión, los imprevistos y la aportación no son gastos: no restan.
+ */
+export function monthOutlook(income: Cents, spentTotal: Cents, funds: readonly OutlookFund[]): MonthOutlook {
+  const left = (f: OutlookFund) => Math.max(0, f.planned - f.spent);
+  const pendingFixed = funds.filter((f) => f.kind === "fixed").reduce((a, f) => a + left(f), 0);
+  const pendingVariable = funds.filter((f) => ["variable", "leisure", "other"].includes(f.kind)).reduce((a, f) => a + left(f), 0);
+  return { income, spent: spentTotal, pendingFixed, pendingVariable, projectedLeftover: income - spentTotal - pendingFixed - pendingVariable };
+}
+
+/** Tasa de ahorro PREVISTA del plan: lo que va a fondos de ahorro entre los ingresos del mes (puntos básicos, 0 si no hay ingresos). */
+export function plannedSavingsBp(income: Cents, funds: readonly OutlookFund[]): number {
+  if (income <= 0) return 0;
+  const saved = funds.filter((f) => f.kind === "savings").reduce((a, f) => a + f.planned, 0);
+  return Math.max(0, Math.min(10000, Math.round((saved * 10000) / income)));
 }

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { projectRecurring } from "@/lib/calendar";
-import { forecastBreakdown, formatMoney } from "@/lib/money";
+import { formatMoney } from "@/lib/money";
 import { detailContext } from "@/server/inicio-detail";
 import { loadOverview } from "@/server/overview";
 
@@ -16,10 +16,9 @@ export default async function ForecastPage() {
     loadOverview(supabase, active.id, active.kind, month, today, x.locale, true),
     supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, next_run").eq("space_id", active.id).eq("active", true),
   ]);
-  const fixed = o.funds.filter((f) => f.kind === "fixed");
-  const spentFixed = fixed.reduce((a, f) => a + f.spent, 0);
-  const plannedFixed = fixed.reduce((a, f) => a + f.planned, 0);
-  const b = forecastBreakdown({ monthIso: month, today, spentVariable: o.spent - spentFixed, spentFixed, plannedFixed, income: o.income });
+  const b = o.outlook;
+  const plannedFixed = o.funds.filter((f) => f.kind === "fixed").reduce((a2, f) => a2 + f.planned, 0);
+  const spentFixed = o.funds.filter((f) => f.kind === "fixed").reduce((a2, f) => a2 + f.spent, 0);
   const fmt = (c: number) => formatMoney(c, "EUR", x.locale);
 
   // Cobros fijos programados que aún faltan este mes (hoy incluido)
@@ -42,12 +41,12 @@ export default async function ForecastPage() {
         <h1 className="text-2xl font-bold">{x("Previsión día 30")}</h1>
         <p className="text-sm text-ink-3 first-letter:uppercase">{monthName}</p>
       </div>
-      <p className="text-sm text-ink-2">{x("Cuánto te sobrará a final de mes si sigues a este ritmo: ingresos menos lo ya gastado, menos el gasto del día a día que falta al ritmo de hasta hoy, menos los gastos fijos que aún no se han pagado.")}</p>
+      <p className="text-sm text-ink-2">{x("Cuánto te sobrará a final de mes si cumples tu plan: ingresos, menos lo que ya has gastado, menos lo que aún queda previsto de gastos fijos y de gasto del día a día.")}</p>
       <ul className="divide-y divide-border rounded-card border border-border bg-surface px-4">
         {line(x("Ingresos del mes"), b.income)}
-        {line(x("Gastado hasta hoy"), b.spentSoFar, { sign: "−" })}
-        {line(x("Gasto del día a día que falta"), b.variableToGo, { sign: "−", hint: `${fmt(b.dailyRate)} ${x("al día")} × ${b.daysLeft} ${b.daysLeft === 1 ? x("día") : x("días")}` })}
-        {line(x("Gastos fijos pendientes"), b.fixedPending, { sign: "−", hint: `${x("El plan prevé")} ${fmt(plannedFixed)} ${x("y llevas")} ${fmt(spentFixed)}` })}
+        {line(x("Llevas gastado"), b.spent, { sign: "−" })}
+        {line(x("Gastos fijos que quedan por pagar"), b.pendingFixed, { sign: "−", hint: `${x("El plan prevé")} ${fmt(plannedFixed)} ${x("y llevas")} ${fmt(spentFixed)}` })}
+        {line(x("Gasto del día a día que queda previsto"), b.pendingVariable, { sign: "−", hint: x("Lo que falta de tus fondos de día a día y ocio") })}
         {line(x("Te sobrará el día 30"), b.projectedLeftover, { sign: "=", strong: true })}
       </ul>
 
