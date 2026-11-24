@@ -69,13 +69,15 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
         </ActionForm>
       )}
 
-      {d.configured ? (
-        <>
       <nav aria-label={x("Vista")} className="flex gap-2">
         <Link href={`/plan?mes=${month}`} aria-current={!list ? "page" : undefined} className={`min-h-11 rounded-full border px-4 py-2.5 text-sm ${!list ? "border-accent bg-surface-2" : "border-border text-ink-2"}`}>{x("Burbujas")}</Link>
         <Link href={`/plan?mes=${month}&vista=lista`} aria-current={list ? "page" : undefined} className={`min-h-11 rounded-full border px-4 py-2.5 text-sm ${list ? "border-accent bg-surface-2" : "border-border text-ink-2"}`}>{x("Lista")}</Link>
         <Link href="/calendario" className="min-h-11 rounded-full border border-border px-4 py-2.5 text-sm text-ink-2">{x("Calendario")}</Link>
       </nav>
+
+      {d.configured ? (
+        <>
+
 
       <div className="rounded-card border border-border bg-surface p-4">
         <p className="text-sm text-ink-3">{x("Previsión de fin de mes")}</p>
@@ -187,7 +189,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
         </div>
       ))}
 
-      <div className="flex flex-col gap-3">
+      <div id="gastos-fijos" className="flex scroll-mt-4 flex-col gap-3">
         <h2 className="text-lg font-semibold">{x("Gastos fijos")}</h2>
         {myRecurring.length === 0 ? <p className="text-sm text-ink-3">{x("Aún no hay gastos fijos.")}</p> : (
           <ul className="flex flex-col gap-2">
@@ -203,7 +205,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
           </ul>
         )}
         {me && me.role !== "guest" && (
-          <details className="rounded-card border border-border bg-surface p-4">
+          <details open={myRecurring.length === 0} className="rounded-card border border-border bg-surface p-4">
             <summary className="min-h-11 cursor-pointer font-semibold">{x("Añadir gasto fijo")}</summary>
             <ActionForm action={saveRecurring} submit={x("Guardar gasto fijo")} className="mt-3 flex flex-col gap-3">
               <input type="hidden" name="spaceId" value={active.id} />
