@@ -34,7 +34,7 @@ export async function loadOverview(supabase: SupabaseClient, spaceId: string, ki
   const months = lastMonths(month, 6);
   // El plan del mes y la serie de 6 meses no dependen entre sí: se piden a la vez.
   const [plan, s, x] = await Promise.all([
-    (async () => loadPlan(supabase, spaceId, month, personal ? await loadMirrorByFund(supabase, month) : {}))(),
+    (async () => loadPlan(supabase, spaceId, month, personal ? await loadMirrorByFund(supabase, month) : {}, { uncategorizedToDaily: personal }))(),
     seriesFor(supabase, spaceId, personal, months[0]!),
     getTx(),
   ]);

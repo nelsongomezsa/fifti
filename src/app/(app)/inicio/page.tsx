@@ -1,6 +1,7 @@
 import { getTx } from "@/i18n/tx";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SetupPlanCard } from "@/components/plan/SetupPlanCard";
 import { OptimisticLeftover } from "@/components/expense/optimistic";
 import { getLocale, getTranslations } from "next-intl/server";
 import { SpendChart } from "@/components/charts/SpendChart";
@@ -58,6 +59,20 @@ export default async function HomePage() {
         </Link>
       )}
 
+      {!o.plan.configured ? (
+        <>
+          <div>
+            <p className="text-sm text-ink-3">{x("Gastado este mes")}</p>
+            <p className="money font-mono text-5xl font-semibold">{formatMoney(o.spent, "EUR", x.locale)}</p>
+          </div>
+          <SetupPlanCard />
+      <div className="rounded-card border border-border bg-surface p-4">
+        <h2 className="mb-2 text-sm text-ink-3">{t("chartTitle")}</h2>
+        <SpendChart data={o.series} currency="EUR" />
+      </div>
+        </>
+      ) : (
+        <>
       <div>
         <p className="text-sm text-ink-3">{t("leftIn", { month: monthName })}</p>
         <OptimisticLeftover base={o.leftover} spaceId={active.id} kind={active.kind} currency="EUR" />
@@ -91,6 +106,9 @@ export default async function HomePage() {
         <SpendChart data={o.series} currency="EUR" />
       </div>
 
+        </>
+      )}
+
       {transfer && (
         <div className="flex items-center justify-between rounded-card border border-border bg-surface p-4">
           <p><span className="block text-xs text-ink-3">{t("pending")}</span>{transfer.from} → {transfer.to} <span className="money font-mono">{formatMoney(transfer.amountCents, "EUR", x.locale)}</span></p>
@@ -98,12 +116,13 @@ export default async function HomePage() {
         </div>
       )}
 
+      {o.plan.configured && (
       <div className="rounded-card border border-border bg-surface">
         <h2 className="px-4 pt-4 text-sm text-ink-3">{t("funds")}</h2>
         <table className="w-full text-sm">
           <caption className="sr-only">{x("Uso de cada fondo este mes")}</caption>
           <tbody>
-            {o.funds.filter((f) => f.planned > 0 || f.spent > 0).map((f) => (
+            {o.funds.filter((f) => f.planned > 0).map((f) => (
               <tr key={f.fundId} className="border-t border-border first:border-t-0">
                 <td className="px-4 py-3">
                   <span className="flex items-center gap-2"><span aria-hidden className="size-2.5 rounded-full" style={{ background: f.color }} />{f.name}</span>
@@ -114,8 +133,9 @@ export default async function HomePage() {
             ))}
           </tbody>
         </table>
-        {o.funds.every((f) => f.planned === 0 && f.spent === 0) && <p className="px-4 pb-4 pt-2 text-sm text-ink-3">{t("definePlan")}</p>}
+        {o.funds.every((f) => f.planned === 0) && <p className="px-4 pb-4 pt-2 text-sm text-ink-3">{t("definePlan")}</p>}
       </div>
+      )}
     </section>
   );
 }

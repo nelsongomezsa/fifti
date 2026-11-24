@@ -11,7 +11,7 @@ export type BubbleFund = { id: string; name: string; color: string; planned: num
 export function PlanBubbles({ funds, currency }: { funds: BubbleFund[]; currency: string }) {
   const x = useTx();
   const size = 320;
-  const items = funds.filter((f) => f.planned > 0 || f.spent > 0).map((f) => ({ ...f, weight: Math.max(f.planned, f.spent, 1) }));
+  const items = funds.filter((f) => f.planned > 0).map((f) => ({ ...f, weight: Math.max(f.planned, f.spent, 1) }));
   if (items.length === 0) return <p className="text-sm text-ink-3">{x("Define el plan para ver las burbujas.")}</p>;
   const root = hierarchy<{ children?: typeof items; weight?: number }>({ children: items }).sum((d) => ("weight" in d ? (d.weight ?? 0) : 0));
   const leaves = pack<{ children?: typeof items; weight?: number }>().size([size, size]).padding(6)(root).leaves();

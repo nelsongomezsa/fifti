@@ -3,6 +3,7 @@ import { displayName } from "@/lib/system-names";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ActionForm, inputClass } from "@/components/ui/ActionForm";
+import { SetupPlanCard } from "@/components/plan/SetupPlanCard";
 import { PlanBubbles } from "@/components/charts/PlanBubbles";
 import { detectSubscriptions } from "@/lib/detect";
 import { addMonths, formatMoney, forecastMonthEnd, fundLeftover, isMonthStart, monthStart, summarizeFund } from "@/lib/money";
@@ -33,7 +34,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
     supabase.from("expenses").select("description, amount_base_cents, spent_at").eq("space_id", active.id).eq("is_private", false).is("recurring_id", null).gte("spent_at", addMonths(month, -6)).limit(2000),
   ]);
   const [d, [{ data: recurring }, { data: cats }, { data: rule }, { data: contribs }, { data: goals }, { data: hist }]] = await Promise.all([
-    (async () => loadPlan(supabase, active.id, month, active.kind === "personal" ? await loadMirrorByFund(supabase, month) : {}))(),
+    (async () => loadPlan(supabase, active.id, month, active.kind === "personal" ? await loadMirrorByFund(supabase, month) : {}, { uncategorizedToDaily: active.kind === "personal" }))(),
     sideQueries,
   ]);
   d.funds = d.funds.map((f) => ({ ...f, name: displayName(x, f.name, f.system_key) }));
@@ -67,6 +68,8 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
         </ActionForm>
       )}
 
+      {d.configured ? (
+        <>
       <nav aria-label={x("Vista")} className="flex gap-2">
         <Link href={`/plan?mes=${month}`} aria-current={!list ? "page" : undefined} className={`min-h-11 rounded-full border px-4 py-2.5 text-sm ${!list ? "border-accent bg-surface-2" : "border-border text-ink-2"}`}>{x("Burbujas")}</Link>
         <Link href={`/plan?mes=${month}&vista=lista`} aria-current={list ? "page" : undefined} className={`min-h-11 rounded-full border px-4 py-2.5 text-sm ${list ? "border-accent bg-surface-2" : "border-border text-ink-2"}`}>{x("Lista")}</Link>
@@ -78,7 +81,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
         <p className="mt-1 text-xs text-ink-3">{x("Según tu ritmo de gasto variable y los fijos que quedan por pagar.")}</p>
       </div>
 
-      {!list && <PlanBubbles currency="EUR" funds={rows.map(({ f, row }) => ({ id: f.id, name: f.name, color: f.color, planned: row.planned, spent: row.spent }))} />}
+      {!list && <PlanBubbles currency="EUR" funds={rows.filter(({ row }) => row.planned > 0).map(({ f, row }) => ({ id: f.id, name: f.name, color: f.color, planned: row.planned, spent: row.spent }))} />}
 
       <ul className={`flex flex-col gap-3 ${!list ? "sr-only" : ""}`} aria-label={x("Fondos")}>
         {rows.map(({ f, row }) => {
@@ -102,6 +105,10 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
         })}
       </ul>
       {d.uncategorized > 0 && <p className="text-sm text-ink-3">{x("Sin categoría:")}{" "}<span className="money font-mono">{formatMoney(d.uncategorized, "EUR", x.locale)}</span></p>}
+        </>
+      ) : (
+        <SetupPlanCard />
+      )}
 
       <p className="money flex justify-between rounded-card border border-border bg-surface p-4 font-mono text-sm">
         <span>{x("Ingresos previstos")}{" "}{formatMoney(expectedTotal, "EUR", x.locale)}</span><span>{x("Reales")}{" "}{formatMoney(actualTotal, "EUR", x.locale)}</span>

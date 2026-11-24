@@ -13,10 +13,12 @@ export type PlanData = {
   spentByFund: Record<string, number>;
   uncategorized: number;
   totalSpent: number;
+  /** Hay un plan con al menos un fondo asignado. Sin plan no se muestran porcentajes ni rojos. */
+  configured: boolean;
 };
 
 /** Datos del plan de un mes: previsto, ingresos reales y gasto por fondo. Todo por RLS. */
-export async function loadPlan(supabase: SupabaseClient, spaceId: string, month: string, extraByFund: Record<string, number> = {}): Promise<PlanData> {
+export async function loadPlan(supabase: SupabaseClient, spaceId: string, month: string, extraByFund: Record<string, number> = {}, opts: { uncategorizedToDaily?: boolean } = {}): Promise<PlanData> {
   const next = addMonths(month, 1);
   const [{ data: plan }, { data: members }, { data: funds }, { data: cats }, { data: incomes }, { data: expenses }] = await Promise.all([
     supabase.from("monthly_plans").select("id, status, notes, plan_incomes(member_id, expected_cents), plan_allocations(fund_id, mode, value, planned_cents, carry_cents)").eq("space_id", spaceId).eq("month", month).maybeSingle(),
@@ -35,6 +37,9 @@ export async function loadPlan(supabase: SupabaseClient, spaceId: string, month:
   const spentByFund: Record<string, number> = {};
   let totalSpent = 0;
   for (const [k, v] of sums) { totalSpent += v; if (k) spentByFund[k] = v; }
+  // En la burbuja personal, lo que no tiene categoría cuenta en el fondo "Día a día"
+  const daily = opts.uncategorizedToDaily ? (funds ?? []).find((f) => f.system_key === "fund.daily") : undefined;
+  if (daily && (sums.get(null) ?? 0) > 0) { spentByFund[daily.id] = (spentByFund[daily.id] ?? 0) + sums.get(null)!; sums.delete(null); }
   for (const [k, v] of Object.entries(extraByFund)) { spentByFund[k] = (spentByFund[k] ?? 0) + v; totalSpent += v; }
 
   const actual: Record<string, number> = {};
@@ -45,7 +50,7 @@ export async function loadPlan(supabase: SupabaseClient, spaceId: string, month:
     expected: Object.fromEntries(pi.map((r) => [r.member_id, r.expected_cents])),
     actual,
     allocations: Object.fromEntries(pa.map((a) => [a.fund_id, { mode: a.mode, value: a.value, planned: a.planned_cents, carry: a.carry_cents }])),
-    spentByFund, uncategorized: sums.get(null) ?? 0, totalSpent,
+    spentByFund, uncategorized: sums.get(null) ?? 0, totalSpent, configured: !!plan && pa.length > 0,
   };
 }
 
