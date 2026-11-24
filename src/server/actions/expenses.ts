@@ -131,7 +131,7 @@ export async function deleteExpense(id: string): Promise<{ ok: boolean; error?: 
   if (!user) return { ok: false, error: x("Sesión caducada.") };
   const { error } = await supabase.rpc("delete_expense", { p_id: id });
   if (error) return { ok: false, error: x(rpcMessage(error)) };
-  revalidatePath("/", "layout");
+  // Sin revalidatePath: quien borra navega y refresca él mismo (si no, la hoja del gasto borrado se vuelve a pintar y da 404 un instante)
   return { ok: true };
 }
 

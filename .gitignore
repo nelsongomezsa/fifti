@@ -27,3 +27,7 @@ public/tesseract/
 INFORME.local.md
 .vercel
 .env*
+
+# pruebas e2e
+test-results/
+playwright-report/

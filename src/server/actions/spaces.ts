@@ -203,6 +203,6 @@ export async function startPartnerInvite(input: unknown): Promise<{ ok: true; sp
   const { token, hash } = generateToken();
   const { error } = await supabase.rpc("create_share_link", { p_space: spaceId, p_kind: "invite", p_token_hash: hash, p_ttl_seconds: 7 * 86400, p_max_uses: 1 });
   if (error) return { ok: false, error: x(rpcMessage(error)) };
-  revalidatePath("/", "layout");
+  // Sin revalidatePath: el enlace se muestra una sola vez dentro de la tarjeta y esta se refresca al pulsar «Hecho»
   return { ok: true, spaceId, link: `${publicEnv().NEXT_PUBLIC_SITE_URL}/unirse/${token}` };
 }

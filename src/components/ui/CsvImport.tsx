@@ -20,6 +20,7 @@ export function CsvImport({ spaceId, currency = "EUR" }: { spaceId: string; curr
   const [map, setMap] = useState({ date: 0, description: 1, amount: 2, positiveIsExpense: false });
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const [inputKey, setInputKey] = useState(0); // al terminar se vacía el selector de archivo: así se puede volver a elegir el mismo archivo
 
   const run = async (mapping?: object) => {
     if (!file) return;
@@ -40,7 +41,7 @@ export function CsvImport({ spaceId, currency = "EUR" }: { spaceId: string; curr
   return (
     <div className="flex flex-col gap-3">
       <form className="flex flex-col gap-3" onSubmit={(e) => { e.preventDefault(); void run(); }}>
-        <input type="file" accept=".csv,text/csv" required aria-label={x("Archivo CSV")} onChange={(e) => { setFile(e.target.files?.[0] ?? null); setPreview(null); }}
+        <input key={inputKey} type="file" accept=".csv,text/csv" required aria-label={x("Archivo CSV")} onChange={(e) => { setFile(e.target.files?.[0] ?? null); setPreview(null); }}
           className="min-h-11 rounded-card border border-border bg-surface p-2 text-sm" />
         <button disabled={busy || !file} className="min-h-11 rounded-full border border-border px-5 font-semibold disabled:opacity-60">{busy ? x("Leyendo…") : x("Ver vista previa")}</button>
       </form>
@@ -106,7 +107,7 @@ export function CsvImport({ spaceId, currency = "EUR" }: { spaceId: string; curr
                 const r = await confirmImport({ spaceId, rows: chosen.map((c) => ({ date: c.date, description: c.description, amountCents: c.amountCents, categoryId: cats[c.line] || null })) });
                 setBusy(false);
                 setResult(r.ok ? `${x("Importados")} ${r.imported}${r.failed ? `, ${r.failed} ${x("no se han podido guardar")}` : ""}.` : (r.error ?? x("Error")));
-                if (r.ok) { setPreview(null); setFile(null); }
+                if (r.ok) { setPreview(null); setFile(null); setInputKey((k) => k + 1); }
               }}>
               {x("Importar")} {chosen.length} {chosen.length === 1 ? x("gasto") : x("gastos")} · {formatMoney(total, currency, x.locale)}</button>
           )}

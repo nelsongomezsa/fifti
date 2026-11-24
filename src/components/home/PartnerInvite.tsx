@@ -30,8 +30,7 @@ export function PartnerInvite({ spaceId, dismissible = true }: { spaceId?: strin
     setBusy(false);
     if (!r) return setError(x("No se ha podido completar."));
     if (!r.ok) return setError(r.error);
-    setLink({ url: r.link, spaceId: r.spaceId });
-    router.refresh();
+    setLink({ url: r.link, spaceId: r.spaceId }); // no se refresca aquí: al existir ya el hogar, la tarjeta desaparecería con el enlace dentro
   };
 
   return (
@@ -59,6 +58,7 @@ export function PartnerInvite({ spaceId, dismissible = true }: { spaceId?: strin
             </div>
           </div>
           <p className="text-xs text-ink-3">{x("Caduca en 7 días y sirve para una persona.")}</p>
+          <button type="button" onClick={() => router.refresh()} className="min-h-12 self-start rounded-full bg-accent px-6 font-semibold text-on-accent">{x("Hecho")}</button>
         </div>
       )}
     </section>
