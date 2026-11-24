@@ -1,10 +1,9 @@
 import { getTx } from "@/i18n/tx";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ActionForm, inputClass } from "@/components/ui/ActionForm";
+import { NewGoalSheet } from "@/components/savings/NewGoalSheet";
 import { formatMoney, goalProgress } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
-import { createGoal } from "@/server/actions/savings";
 import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
 
 export const metadata: Metadata = { title: "Ahorro" };
@@ -45,18 +44,7 @@ export default async function SavingsPage() {
           );
         })}
       </ul>
-      <details className="rounded-card border border-border bg-surface p-4">
-        <summary className="min-h-11 cursor-pointer font-semibold">{x("Nueva meta")}</summary>
-        <ActionForm action={createGoal} submit={x("Crear meta")} className="mt-3 flex flex-col gap-3">
-          <input type="hidden" name="spaceId" value={active.id} />
-          <select name="kind" defaultValue="simple" aria-label={x("Tipo")} className={inputClass}>
-            <option value="simple">{x("Meta simple")}</option><option value="big_event">{x("Meta grande con pagos (boda, piso)")}</option><option value="challenge">{x("Reto de las 52 semanas")}</option>
-          </select>
-          <input name="name" required maxLength={60} placeholder={x("Viaje Lisboa")} aria-label={x("Nombre")} className={inputClass} />
-          <input name="target" inputMode="decimal" placeholder={x("Objetivo (1.500,00). No hace falta en el reto")} aria-label={x("Objetivo")} className={`${inputClass} font-mono`} />
-          <label className="flex flex-col gap-1 text-xs text-ink-3">{x("Fecha límite (opcional)")}<input type="date" name="deadline" className={inputClass} /></label>
-        </ActionForm>
-      </details>
+      <NewGoalSheet spaceId={active.id} />
     </section>
   );
 }

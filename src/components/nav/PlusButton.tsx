@@ -198,7 +198,7 @@ export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
       )}
 
       {toast && (
-        <div role="status" className="anim-fade fixed inset-x-4 bottom-28 z-50 mx-auto flex max-w-md items-center justify-between gap-3 rounded-card border border-border bg-surface-2 px-4 py-3 shadow-lg">
+        <div role="status" className="anim-fade fixed inset-x-4 bottom-[calc(7rem+env(safe-area-inset-bottom))] z-50 mx-auto flex max-w-md items-center justify-between gap-3 rounded-card border border-border bg-surface-2 px-4 py-3 shadow-lg">
           {toast.type === "saved" ? (
             <>
               <span className="text-sm">

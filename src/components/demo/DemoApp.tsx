@@ -56,7 +56,7 @@ export function DemoApp() {
   };
 
   return (
-    <div data-bubble={bubble.kind} className="mx-auto min-h-dvh max-w-md pb-28">
+    <div data-bubble={bubble.kind} className="mx-auto min-h-dvh max-w-md pb-[calc(8rem+env(safe-area-inset-bottom))]">
       <p role="note" className="bg-surface-2 px-4 py-2 text-center text-xs text-ink-2">{x("Modo demo · datos ficticios · nada se guarda")}</p>
       <nav aria-label={x("Burbujas")} className="flex gap-2 overflow-x-auto px-4 py-3 [scrollbar-width:none]">
         {DEMO_BUBBLES.map((b) => {
@@ -93,7 +93,7 @@ export function DemoApp() {
           demo={{ submit: async (input) => saveDemoExpense(input) }} />
       )}
       {toast && (
-        <div role="status" className="anim-fade fixed inset-x-4 bottom-28 z-50 mx-auto flex max-w-md items-center justify-between gap-3 rounded-card border border-border bg-surface-2 px-4 py-3 shadow-lg">
+        <div role="status" className="anim-fade fixed inset-x-4 bottom-[calc(7rem+env(safe-area-inset-bottom))] z-50 mx-auto flex max-w-md items-center justify-between gap-3 rounded-card border border-border bg-surface-2 px-4 py-3 shadow-lg">
           <span className="text-sm">{x("Guardado en ")}{toast.text}</span>
           <button type="button" className="min-h-11 px-3 text-sm font-semibold" onClick={() => { setExtra((p) => ({ ...p, [toast.bubbleId]: (p[toast.bubbleId] ?? []).filter((e) => e.id !== toast.id) })); setToast(null); }}>{x("Deshacer")}</button>
         </div>

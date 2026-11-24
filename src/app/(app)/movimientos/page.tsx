@@ -2,6 +2,7 @@ import { getTx } from "@/i18n/tx";
 import { displayName } from "@/lib/system-names";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { MovementFilters } from "@/components/movements/MovementFilters";
 import { PendingExpenseRows } from "@/components/expense/optimistic";
 import { addMonths, formatMoney, isMonthStart, monthStart } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
@@ -64,26 +65,12 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
         <Link href={href({ mes: next })} aria-label={x("Mes siguiente")} className="grid min-h-11 min-w-11 place-items-center rounded-full border border-border">›</Link>
       </div>
 
-      <form className="flex flex-wrap gap-2" action="/movimientos">
-        <input type="hidden" name="mes" value={month} />
-        <input name="q" defaultValue={sp.q} placeholder={x("Buscar")} aria-label={x("Buscar")} maxLength={50}
-          className="min-h-11 flex-1 rounded-card border border-border bg-surface px-3 text-sm" />
-        <select name="cat" defaultValue={sp.cat ?? ""} aria-label={x("Categoría")} className="min-h-11 rounded-card border border-border bg-surface px-2 text-sm">
-          <option value="">{x("Categoría")}</option>
-          {cats?.map((c) => <option key={c.id} value={c.id}>{displayName(x, c.name, c.system_key)}</option>)}
-        </select>
-        {active.kind !== "personal" && (
-          <select name="persona" defaultValue={sp.persona ?? ""} aria-label={x("Persona")} className="min-h-11 rounded-card border border-border bg-surface px-2 text-sm">
-            <option value="">{x("Persona")}</option>
-            {members?.map((m) => <option key={m.id} value={m.id}>{m.display_name}</option>)}
-          </select>
-        )}
-        <input name="tag" defaultValue={sp.tag} placeholder={x("#etiqueta")} aria-label={x("Etiqueta")} maxLength={31} className="min-h-11 w-28 rounded-card border border-border bg-surface px-3 text-sm" />
-        <button className="min-h-11 rounded-full bg-accent px-4 text-sm font-semibold text-on-accent">{x("Filtrar")}</button>
-      </form>
+      <MovementFilters month={month} q={sp.q} cat={sp.cat} persona={sp.persona} tag={sp.tag}
+        cats={(cats ?? []).map((c) => ({ id: c.id, name: displayName(x, c.name, c.system_key) }))}
+        members={active.kind !== "personal" ? (members ?? []).map((m) => ({ id: m.id, name: m.display_name })) : null} />
 
       <p className="flex justify-between text-sm text-ink-2">
-        <span>{rows.length} {x("gastos")}</span>
+        <span>{rows.length === 1 ? x("1 gasto") : `${rows.length} ${x("gastos")}`}</span>
         <span className="money font-mono text-ink">{formatMoney(total, "EUR", x.locale)}</span>
       </p>
 

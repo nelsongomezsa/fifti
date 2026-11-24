@@ -593,7 +593,7 @@
   "audit_log es de solo inserción": "audit_log is insert-only",
   "cambio": "rate",
   "cerrado": "closed",
-  "con error": "with errors",
+  "con error": "with an error",
   "de": "of",
   "de 52": "of 52",
   "en CSV.": "as CSV.",
@@ -706,5 +706,8 @@
   "¿Borrar este gasto?": "Delete this expense?",
   "Se quitará de la lista y de tus cuentas. Esta acción no se puede deshacer.": "It will be removed from the list and from your accounts. This can't be undone.",
   "Cancelar": "Cancel",
-  "Borrando…": "Deleting…"
+  "Borrando…": "Deleting…",
+  "1 gasto": "1 expense",
+  "fila válida ·": "valid row ·",
+  "con errores": "with errors"
 }

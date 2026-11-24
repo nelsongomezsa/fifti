@@ -20,7 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const discreet = !!profile?.discreet_mode;
 
   return (
-    <div data-bubble={active?.kind ?? "personal"} data-discreet={discreet ? "true" : "false"} className="mx-auto min-h-dvh max-w-md pb-28">
+    <div data-bubble={active?.kind ?? "personal"} data-discreet={discreet ? "true" : "false"} className="mx-auto min-h-dvh max-w-md pb-[calc(8rem+env(safe-area-inset-bottom))]">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[80] focus:rounded-full focus:bg-lime focus:px-4 focus:py-3 focus:text-on-accent">{t("skip")}</a>
       <AppLock>
       <PendingExpensesProvider>

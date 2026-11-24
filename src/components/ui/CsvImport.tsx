@@ -31,7 +31,7 @@ export function CsvImport({ spaceId }: { spaceId: string }) {
       {preview?.fatal && <p role="alert" className="text-sm text-over-text">{preview.fatal}</p>}
       {preview && !preview.fatal && (
         <div className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4 text-sm">
-          <p><strong>{preview.rows.length}</strong> {x("filas válidas ·")}{" "}<span className={preview.errors.length ? "text-over-text" : ""}>{preview.errors.length} {x("con error")}</span></p>
+          <p><strong>{preview.rows.length}</strong> {preview.rows.length === 1 ? x("fila válida ·") : x("filas válidas ·")}{" "}<span className={preview.errors.length ? "text-over-text" : ""}>{preview.errors.length} {preview.errors.length === 1 ? x("con error") : x("con errores")}</span></p>
           {preview.errors.slice(0, 5).map((er) => <p key={er.line} className="text-over-text">{x("Línea")}{" "}{er.line}: {er.message}</p>)}
           <ul className="max-h-48 overflow-auto">
             {preview.rows.slice(0, 20).map((r, i) => <li key={i} className="flex justify-between border-t border-border py-1 first:border-0"><span className="truncate">{r.date} · {r.description}</span><span className="money font-mono">{formatMoney(r.amountCents, "EUR", x.locale)}</span></li>)}
