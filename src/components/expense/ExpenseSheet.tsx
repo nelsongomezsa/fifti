@@ -81,8 +81,13 @@ export function ExpenseSheet({
   const error = errState && errState.sig === sig ? errState.msg : null;
   const setError = (m: string | null) => setErrState(m ? { msg: m, sig } : null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const catRow = useRef<HTMLDivElement>(null);
   // Categoría elegida a mano (o traída ya puesta): las reglas solo sugieren mientras no se haya tocado
   const [catTouched, setCatTouched] = useState(!!prefill?.categoryId || !!prefill?.edit);
+  // Cuando una frase, una regla o un parámetro elige categoría, la fila se desplaza sola hasta dejarla visible
+  useEffect(() => {
+    catRow.current?.querySelector<HTMLElement>('[aria-pressed="true"]')?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+  }, [categoryId, space.id]);
   const ruleMatch = useMemo(() => (catTouched ? null : matchRule(space.rules, desc)), [desc, space.rules, catTouched]);
   const ruleNote = ruleMatch ? `${ruleMatch.matchText} → ${space.categories.find((c) => c.id === ruleMatch.categoryId)?.name ?? ""}` : null;
   const onDesc = (v: string) => {
@@ -270,7 +275,7 @@ export function ExpenseSheet({
           />
 
           {ruleNote && <p className="mb-1 text-xs text-ink-3">{x("Regla aplicada:")} {ruleNote}</p>}
-          <div className="mb-2 flex gap-2 overflow-x-auto [scrollbar-width:none]" role="group" aria-label={x("Categoría")}>
+          <div ref={catRow} className="mb-2 flex gap-2 overflow-x-auto [scrollbar-width:none]" role="group" aria-label={x("Categoría")}>
             {space.categories.map((c) => {
               const on = c.id === categoryId;
               return (

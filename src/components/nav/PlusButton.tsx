@@ -12,14 +12,22 @@ import type { ExpenseInput } from "@/lib/validation/expense";
 import { deleteExpense } from "@/server/actions/expenses";
 import { loadSheetContext, type SheetContext } from "@/server/actions/sheet";
 
-export const CTX_CACHE_KEY = "fifti:sheetCtx";
+// v2: la forma del contexto cambió (reglas por burbuja); un contexto guardado antiguo ya no se usa
+export const CTX_CACHE_KEY = "fifti:sheetCtx:v2";
 
 type Toast =
   | { type: "saved"; cid: string; id: string | null; spaceName: string; shareCents: number; currency: string; queued: boolean }
   | { type: "error"; message: string; retry: SheetPrefill };
 
+/** Contexto guardado en el dispositivo, comprobado: si le falta algo, se descarta en vez de romper la hoja. */
 const readCached = (): SheetContext | null => {
-  try { return JSON.parse(localStorage.getItem(CTX_CACHE_KEY) ?? "null") as SheetContext | null; } catch { return null; }
+  try {
+    localStorage.removeItem("fifti:sheetCtx");
+    const c = JSON.parse(localStorage.getItem(CTX_CACHE_KEY) ?? "null") as SheetContext | null;
+    if (!c || !Array.isArray(c.spaces) || !Array.isArray(c.favorites)) return null;
+    const ok = c.spaces.every((s) => Array.isArray(s.members) && Array.isArray(s.categories) && Array.isArray(s.rules));
+    return ok ? c : null;
+  } catch { return null; }
 };
 
 /** Convierte los parámetros del enlace en el relleno de la hoja (burbuja y categoría por id o por nombre). */
