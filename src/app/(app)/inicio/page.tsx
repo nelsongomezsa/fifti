@@ -1,6 +1,7 @@
 import { getTx } from "@/i18n/tx";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { FundRowLink } from "@/components/home/FundRowLink";
 import { PartnerInvite } from "@/components/home/PartnerInvite";
 import { SetupPlanCard } from "@/components/plan/SetupPlanCard";
 import { OptimisticLeftover } from "@/components/expense/optimistic";
@@ -109,14 +110,16 @@ export default async function HomePage() {
         </div>
       )}
 
-      <dl className="grid grid-cols-3 gap-2">
-        {[[t("income"), formatMoney(o.income, "EUR", locale)], [t("savingsRate"), pctText(o.savingsBp)], [t("forecast"), formatMoney(o.forecastLeftover, "EUR", locale)]].map(([k, v]) => (
-          <div key={k} className="@container min-w-0 rounded-card border border-border bg-surface p-3">
-            <dt className="text-xs text-ink-3">{k}</dt>
-            <dd className="money mt-1 whitespace-nowrap font-mono" style={{ fontSize: "clamp(0.68rem, 15cqw, 1rem)" }}>{v}</dd>
-          </div>
+      <ul className="grid grid-cols-3 gap-2">
+        {([["/inicio/ingresos", t("income"), formatMoney(o.income, "EUR", locale)], ["/inicio/ahorro", t("savingsRate"), pctText(o.savingsBp)], ["/inicio/prevision", t("forecast"), formatMoney(o.forecastLeftover, "EUR", locale)]] as const).map(([href, k, v]) => (
+          <li key={href} className="@container min-w-0">
+            <Link href={href} aria-label={`${k}: ${v}. ${x("Ver detalle")}`} className="block h-full rounded-card border border-border bg-surface p-3 transition-colors hover:bg-surface-2 active:bg-surface-2 focus-visible:outline-2 focus-visible:outline-accent">
+              <span className="flex items-center justify-between gap-1 text-xs text-ink-3"><span className="truncate">{k}</span><span aria-hidden>›</span></span>
+              <span className="money mt-1 block whitespace-nowrap font-mono" style={{ fontSize: "clamp(0.68rem, 15cqw, 1rem)" }}>{v}</span>
+            </Link>
+          </li>
         ))}
-      </dl>
+      </ul>
 
       {!hasData && (
         <p className="rounded-card border border-border bg-surface p-4 text-ink-2">{t("empty")}</p>
@@ -137,20 +140,11 @@ export default async function HomePage() {
       {o.plan.configured && (
       <div className="rounded-card border border-border bg-surface">
         <h2 className="px-4 pt-4 text-sm text-ink-3">{t("funds")}</h2>
-        <table className="w-full text-sm">
-          <caption className="sr-only">{x("Uso de cada fondo este mes")}</caption>
-          <tbody>
-            {o.funds.filter((f) => f.planned > 0).map((f) => (
-              <tr key={f.fundId} className="border-t border-border first:border-t-0">
-                <td className="px-4 py-3">
-                  <span className="flex items-center gap-2"><span aria-hidden className="size-2.5 rounded-full" style={{ background: f.color }} />{f.name}</span>
-                  <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-track"><span className="block h-full rounded-full" style={{ width: `${Math.min(100, f.usedBp / 100)}%`, background: f.status === "over" ? "var(--over)" : f.status === "warn" ? "var(--warn)" : f.color }} /></span>
-                </td>
-                <td className={`money px-4 py-3 text-right font-mono ${f.status === "over" ? "text-over-text" : "text-ink-2"}`}>{Math.round(f.usedBp / 100)} %</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <ul className="mt-1 divide-y divide-border border-t border-border">
+          {o.funds.filter((f) => f.planned > 0).map((f) => (
+            <li key={f.fundId}><FundRowLink href={`/inicio/fondo/${f.fundId}`} name={f.name} color={f.color} usedBp={f.usedBp} status={f.status} savings={f.kind === "savings"} statusText={f.status === "over" ? x("te has pasado") : x("vas por el 80 %")} /></li>
+          ))}
+        </ul>
         {o.funds.every((f) => f.planned === 0) && <p className="px-4 pb-4 pt-2 text-sm text-ink-3">{t("definePlan")}</p>}
       </div>
       )}

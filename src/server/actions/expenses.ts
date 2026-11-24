@@ -171,7 +171,7 @@ export async function saveIncome(_prev: FormState, fd: FormData): Promise<FormSt
   const { parseToCents } = await import("@/lib/money");
   const cents = parseToCents(String(fd.get("amount") ?? ""));
   const parsed = incomeInputSchema.safeParse({
-    spaceId: fd.get("spaceId"), memberId: fd.get("memberId"), amountCents: cents ?? 0,
+    id: fd.get("id") || undefined, spaceId: fd.get("spaceId"), memberId: fd.get("memberId"), amountCents: cents ?? 0,
     source: String(fd.get("source") ?? "Nómina") || "Nómina", receivedAt: fd.get("receivedAt"), isRecurring: fd.get("isRecurring") === "on",
   });
   if (!parsed.success) return { error: x(parsed.error.issues[0]?.message ?? "Datos no válidos") };
@@ -179,7 +179,7 @@ export async function saveIncome(_prev: FormState, fd: FormData): Promise<FormSt
   if (!user) return { error: x("Sesión caducada.") };
   const v = parsed.data;
   const { error } = await supabase.rpc("save_income", {
-    p: { space_id: v.spaceId, member_id: v.memberId, amount_cents: v.amountCents, source: v.source, received_at: v.receivedAt, is_recurring: v.isRecurring },
+    p: { id: v.id ?? null, space_id: v.spaceId, member_id: v.memberId, amount_cents: v.amountCents, source: v.source, received_at: v.receivedAt, is_recurring: v.isRecurring },
   });
   if (error) return { error: x(rpcMessage(error)) };
   revalidatePath("/", "layout");

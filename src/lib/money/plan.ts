@@ -107,3 +107,17 @@ export function sumByFund(
   }
   return out;
 }
+
+export type ForecastBreakdown = {
+  income: Cents; spentSoFar: Cents; variableToGo: Cents; fixedPending: Cents; projectedSpend: Cents; projectedLeftover: Cents; dailyRate: Cents; daysLeft: number;
+};
+
+/** Desglose de la previsión de fin de mes: ingresos − (gastado hasta hoy + variable que falta al ritmo actual + fijos aún por pagar). Cuadra con `forecastMonthEnd`. */
+export function forecastBreakdown(p: Parameters<typeof forecastMonthEnd>[0]): ForecastBreakdown {
+  const f = forecastMonthEnd(p);
+  const dim = daysInMonth(p.monthIso);
+  const elapsed = Math.min(dim, Math.max(0, p.today < p.monthIso ? 0 : Number(p.today.slice(8, 10))));
+  const projectedVariable = elapsed >= dim ? p.spentVariable : elapsed === 0 ? 0 : Math.round((p.spentVariable * dim) / elapsed);
+  const fixedPending = Math.max(0, p.plannedFixed - p.spentFixed);
+  return { income: p.income, spentSoFar: f.spentSoFar, variableToGo: projectedVariable - p.spentVariable, fixedPending, projectedSpend: f.projectedSpend, projectedLeftover: f.projectedLeftover, dailyRate: f.dailyRate, daysLeft: dim - elapsed };
+}

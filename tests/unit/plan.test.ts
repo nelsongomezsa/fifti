@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contributionTargets, daysInMonth, forecastMonthEnd, fundStatus, plannedFor, potBalance, summarizeFund } from "@/lib/money";
+import { contributionTargets, daysInMonth, forecastBreakdown, forecastMonthEnd, fundStatus, plannedFor, potBalance, summarizeFund } from "@/lib/money";
 
 describe("plan por fondos", () => {
   it("reparte por % con mayor resto y por importe tal cual", () => {
@@ -71,5 +71,24 @@ describe("gasto por fondo", () => {
     expect(r.get("fijos")).toBe(150);
     expect(r.get("ocio")).toBe(7);
     expect(r.get(null)).toBe(4);
+  });
+});
+
+describe("desglose de la previsión de fin de mes", () => {
+  const p = { monthIso: "2026-11-01", today: "2026-11-15", spentVariable: 30000, spentFixed: 60000, plannedFixed: 90000, income: 200000 };
+  it("las partes suman la previsión", () => {
+    const b = forecastBreakdown(p);
+    expect(b.spentSoFar).toBe(90000);
+    expect(b.variableToGo).toBe(30000); // 30000 en 15 días → 60000 al mes
+    expect(b.fixedPending).toBe(30000);
+    expect(b.income - (b.spentSoFar + b.variableToGo + b.fixedPending)).toBe(b.projectedLeftover);
+    expect(b.projectedLeftover).toBe(forecastMonthEnd(p).projectedLeftover);
+    expect(b.daysLeft).toBe(15);
+  });
+  it("si los fijos ya se pagaron no queda pendiente y si el mes acabó no hay variable por venir", () => {
+    const b = forecastBreakdown({ ...p, spentFixed: 95000, today: "2026-11-30" });
+    expect(b.fixedPending).toBe(0);
+    expect(b.variableToGo).toBe(0);
+    expect(b.income - (b.spentSoFar + b.variableToGo + b.fixedPending)).toBe(b.projectedLeftover);
   });
 });

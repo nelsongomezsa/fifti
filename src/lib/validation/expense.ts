@@ -34,6 +34,7 @@ export type ExpenseInput = z.infer<typeof expenseInputSchema>;
 
 export const incomeInputSchema = z
   .object({
+    id: z.uuid().optional(),
     spaceId: z.uuid(),
     memberId: z.uuid(),
     amountCents: cents,

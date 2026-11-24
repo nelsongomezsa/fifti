@@ -17,10 +17,6 @@ const FULL = ["Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre"];
 const FULL_EN = ["June", "July", "August", "September", "October", "November"];
 type Tab = "inicio" | "movimientos" | "balance" | "plan" | "ahorro";
 
-/** Color de la barra de un fondo: ámbar al 80 %, rojo si se pasa; un fondo de ahorro lleno es un logro (lima), no un exceso. */
-const barColor = (status: "ok" | "warn" | "over", color: string, savings?: boolean) =>
-  savings && status !== "ok" ? "var(--lime)" : status === "over" ? "var(--over)" : status === "warn" ? "var(--warn)" : color;
-
 /** Modo demo: 100 % en el navegador. Ninguna escritura sale del dispositivo ni hay acceso a datos reales. */
 export function DemoApp() {
   const x = useTx();
@@ -212,15 +208,18 @@ function FundTable({ b, expenses }: { b: DemoBubble; expenses: DemoExpense[] }) 
   return (
     <div className="rounded-card border border-border bg-surface">
       <h2 className="px-4 pt-4 text-sm text-ink-3">{x("Fondos")}</h2>
-      <table className="w-full text-sm"><caption className="sr-only">{x("Uso de cada fondo")}</caption><tbody>
-        {fundRows(b, expenses).map((f) => (
-          <tr key={f.name} className="border-t border-border first:border-t-0">
-            <td className="px-4 py-3"><span className="flex items-center gap-2"><span aria-hidden className="size-2.5 rounded-full" style={{ background: f.color }} />{f.name}</span>
-              <span className="mt-2 block h-1.5 overflow-hidden rounded-full bg-track"><span className="block h-full rounded-full" style={{ width: `${Math.min(100, f.row.usedBp / 100)}%`, background: barColor(f.row.status, f.color, f.savings) }} /></span></td>
-            <td className={`money px-4 py-3 text-right font-mono ${f.row.status === "over" && !f.savings ? "text-over-text" : "text-ink-2"}`}>{Math.round(f.row.usedBp / 100)} %</td>
-          </tr>
-        ))}
-      </tbody></table>
+      <ul className="mt-1 divide-y divide-border border-t border-border">
+        {fundRows(b, expenses).map((f) => {
+          const pct = Math.round(f.row.usedBp / 100);
+          const tone = f.savings ? "text-ink-2" : f.row.status === "over" ? "text-over-text" : f.row.status === "warn" ? "text-warn" : "text-ink-2";
+          return (
+            <li key={f.name} className="px-4 py-3">
+              <span className="flex items-center justify-between gap-3 text-sm"><span className="flex items-center gap-2"><span aria-hidden className="size-2.5 rounded-full" style={{ background: f.color }} />{f.name}</span><span className={`money font-mono ${tone}`}>{pct} %</span></span>
+              <span className="mt-2 block h-1.5 w-full overflow-hidden rounded-full bg-track"><span className="block h-full rounded-full" style={{ width: `${Math.min(100, f.row.usedBp / 100)}%`, background: f.color }} /></span>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
@@ -324,7 +323,7 @@ function Plan({ b, expenses }: { b: DemoBubble; expenses: DemoExpense[] }) {
         ))}
       </nav>
       {view === "burbujas"
-        ? <PlanBubbles currency="EUR" funds={rows.map((f) => ({ id: f.name, name: f.name, color: f.savings && f.row.status !== "ok" ? "#C6F432" : f.color, planned: f.planned, spent: f.spent, savings: f.savings }))} />
+        ? <PlanBubbles currency="EUR" funds={rows.map((f) => ({ id: f.name, name: f.name, color: f.color, planned: f.planned, spent: f.spent, savings: f.savings }))} />
         : <FundTable b={b} expenses={expenses} />}
       <p className="text-sm text-ink-3">{x("En la app real: burbujas por fondo, previsión de fin de mes, cierre de mes y bote común.")}</p>
     </section>
