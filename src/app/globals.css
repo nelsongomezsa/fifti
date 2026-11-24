@@ -12,6 +12,7 @@
   --text-3: #9aa3af;
 
   --lime: #c6f432;
+  --logo-dot: #c6f432;
   --lilac: #a78bfa;
   --tangerine: #ff9f43;
   --info: #7dd3fc;
@@ -35,6 +36,8 @@
   --text-2: #2b3038;
   --text-3: #5b6470;
   --over-text: #b42323;
+  /* puntos del logo: verde oscuro (≈4,8:1 sobre el fondo claro) */
+  --logo-dot: #3d7a12;
   /* en claro, relleno más oscuro para llegar a 3:1 sobre la pista de barra */
   --warn: #a87400;
   --over: #d93636;
@@ -43,7 +46,7 @@
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
     --bg: #f6f7f2; --surface: #ffffff; --surface-2: #eef0e8; --border: #dfe2d8; --track: #e3e6dc;
-    --text: #0b0d10; --text-2: #2b3038; --text-3: #5b6470; --over-text: #b42323;
+    --text: #0b0d10; --text-2: #2b3038; --text-3: #5b6470; --over-text: #b42323; --logo-dot: #3d7a12;
     --warn: #a87400; --over: #d93636;
     color-scheme: light;
   }

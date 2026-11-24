@@ -15,7 +15,7 @@ export function Logo({ height = 28, className }: { height?: number; className?: 
       <path d={LOGO_PATH} fill="var(--text)" />
       {LOGO_DOTS.map((d, i) =>
         d.filled ? (
-          <circle key={i} cx={d.cx} cy={d.cy} r={d.r} fill="var(--lime)" />
+          <circle key={i} cx={d.cx} cy={d.cy} r={d.r} fill="var(--logo-dot)" />
         ) : (
           <circle
             key={i}
@@ -23,7 +23,7 @@ export function Logo({ height = 28, className }: { height?: number; className?: 
             cy={d.cy}
             r={d.r - LOGO_DOT_STROKE / 2}
             fill="none"
-            stroke="var(--lime)"
+            stroke="var(--logo-dot)"
             strokeWidth={LOGO_DOT_STROKE}
           />
         ),
