@@ -19,7 +19,8 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
   // Quien llega a entrar o registrarse sale de la demo: así las acciones de acceso usan siempre el servicio real
-  if (matches(path, AUTH_PAGES) && request.cookies.get("fifti_demo")) response.cookies.delete("fifti_demo");
+  const prefetch = request.headers.has("next-router-prefetch") || (request.headers.get("sec-purpose") ?? "").includes("prefetch") || request.headers.get("purpose") === "prefetch";
+  if (matches(path, AUTH_PAGES) && request.cookies.get("fifti_demo") && !prefetch) response.cookies.delete("fifti_demo");
   if (user && matches(path, AUTH_PAGES)) {
     const url = request.nextUrl.clone();
     url.pathname = "/inicio";

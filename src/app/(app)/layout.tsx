@@ -30,7 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <span className="min-w-0">{x("Modo demo · datos ficticios")}</span>
           <span className="flex shrink-0 items-center gap-1">
             <a href="/demo/salir" className="inline-flex min-h-11 items-center px-2 text-sm text-ink-2">{x("Salir")}</a>
-            <Link href="/registro" className="inline-flex min-h-11 items-center whitespace-nowrap rounded-full bg-lime px-4 text-sm font-semibold text-on-accent">{x("Crear cuenta")}</Link>
+            <Link href="/registro" prefetch={false} className="inline-flex min-h-11 items-center whitespace-nowrap rounded-full bg-lime px-4 text-sm font-semibold text-on-accent">{x("Crear cuenta")}</Link>
           </span>
         </div>
       )}
