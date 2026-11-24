@@ -89,13 +89,13 @@ export function ShoppingList({ spaceId, items: initial, names, currency }: { spa
   const row = (it: ShoppingItem) => (
     <li key={it.id} className="flex items-center gap-2 rounded-card border border-border bg-surface px-3">
       <label className="flex min-h-12 flex-1 items-center gap-3">
-        <input type="checkbox" checked={it.checked} onChange={() => void toggle(it)} className="size-5" aria-label={it.text} />
+        <input type="checkbox" checked={it.checked} disabled={it.id.startsWith("tmp-")} onChange={() => void toggle(it)} className="size-5" aria-label={it.text} />
         <span className={`min-w-0 flex-1 ${it.checked ? "text-ink-3 line-through" : ""}`}>
           <span className="block truncate">{it.text}{it.quantity > 1 && <span className="ml-1 font-mono text-ink-3">×{it.quantity}</span>}</span>
           {it.addedBy && names[it.addedBy] && <span className="block text-xs text-ink-3">{names[it.addedBy]}</span>}
         </span>
       </label>
-      <button type="button" onClick={() => void remove(it)} aria-label={`${x("Quitar")} ${it.text}`} className="grid min-h-11 min-w-11 place-items-center text-ink-3">✕</button>
+      <button type="button" disabled={it.id.startsWith("tmp-")} onClick={() => void remove(it)} aria-label={`${x("Quitar")} ${it.text}`} className="grid min-h-11 min-w-11 place-items-center text-ink-3">✕</button>
     </li>
   );
 
