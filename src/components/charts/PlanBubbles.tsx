@@ -5,7 +5,7 @@ import { useTx } from "@/i18n/tx-client";
 import { formatMoney } from "@/lib/money";
 import { hierarchy, pack } from "d3-hierarchy";
 
-export type BubbleFund = { id: string; name: string; color: string; planned: number; spent: number };
+export type BubbleFund = { id: string; name: string; color: string; planned: number; spent: number; savings?: boolean };
 
 /** Vista de burbujas: tamaño = lo previsto, relleno = lo gastado; ámbar al 80 % y rojo si se pasa. */
 export function PlanBubbles({ funds, currency }: { funds: BubbleFund[]; currency: string }) {
@@ -28,11 +28,11 @@ export function PlanBubbles({ funds, currency }: { funds: BubbleFund[]; currency
       {leaves.map((l, i) => {
         const f = l.data as unknown as BubbleFund;
         const used = f.planned > 0 ? f.spent / f.planned : f.spent > 0 ? 1.2 : 0;
-        const fill = used >= 1 ? "var(--over)" : used >= 0.8 ? "var(--warn)" : f.color;
+        const fill = f.savings && used >= 0.8 ? "var(--lime)" : used >= 1 ? "var(--over)" : used >= 0.8 ? "var(--warn)" : f.color;
         const h = Math.min(1, used) * l.r * 2;
         return (
           <g key={f.id}>
-            <circle cx={l.x} cy={l.y} r={l.r} fill="var(--surface-2)" stroke={used >= 1 ? "var(--over)" : "var(--border)"} strokeWidth={used >= 1 ? 2 : 1} />
+            <circle cx={l.x} cy={l.y} r={l.r} fill="var(--surface-2)" stroke={used >= 1 && !f.savings ? "var(--over)" : "var(--border)"} strokeWidth={used >= 1 && !f.savings ? 2 : 1} />
             <rect x={l.x - l.r} y={l.y + l.r - h} width={l.r * 2} height={h} fill={fill} opacity={0.85} clipPath={`url(#bub-${i})`} />
             {l.r > 22 && (
               <text x={l.x} y={l.y} textAnchor="middle" dominantBaseline="middle" fontSize={Math.max(9, Math.min(13, l.r / 3.2))} fill="var(--text)" style={{ paintOrder: "stroke", stroke: "var(--bg)", strokeWidth: 3 }}>
