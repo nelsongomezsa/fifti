@@ -75,7 +75,7 @@ export default async function TrendsPage() {
 
   return (
     <section className="flex flex-col gap-5 pt-2">
-      <Link href="/mas" className="min-h-11 self-start text-sm text-ink-2">{x("‹ Más")}</Link>
+      <Link href="/ajustes" className="min-h-11 self-start text-sm text-ink-2">{x("‹ Ajustes")}</Link>
       <h1 className="text-2xl font-bold">{x("Tendencias")}</h1>
       <p className="text-sm text-ink-3">{personal ? x("Personal") : active.name}</p>
       {empty ? <EmptyState title={x("Todavía no hay gastos para comparar")} text={x("Cuando apuntes gastos verás aquí cómo cambia tu mes frente al año pasado y a la media de 3 meses, y qué categorías suben o bajan.")} actionLabel={x("Añadir un gasto")} href="/nuevo" /> : (

@@ -10,20 +10,25 @@ const stroke = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeL
 export const NAV_ICONS = {
   inicio: <path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4v-5h-6v5H5a1 1 0 0 1-1-1z" {...stroke} />,
   movimientos: <path d="M5 7h14M5 12h14M5 17h9" {...stroke} />,
+  calendario: (
+    <>
+      <rect x="4" y="5.5" width="16" height="14.5" rx="2.5" {...stroke} />
+      <path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" {...stroke} />
+    </>
+  ),
   plan: (
     <>
       <circle cx="9" cy="13" r="5" {...stroke} />
       <circle cx="17" cy="8" r="3" {...stroke} />
     </>
   ),
-  ahorro: <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" {...stroke} />,
 };
 
 const items = [
   { href: "/inicio", id: "home", icon: NAV_ICONS.inicio },
   { href: "/movimientos", id: "movements", icon: NAV_ICONS.movimientos },
+  { href: "/calendario", id: "calendar", icon: NAV_ICONS.calendario },
   { href: "/plan", id: "plan", icon: NAV_ICONS.plan },
-  { href: "/ahorro", id: "savings", icon: NAV_ICONS.ahorro },
 ] as const;
 
 function Item({ href, label, icon, active }: { href: string; label: string; icon: React.ReactNode; active: boolean }) {
@@ -50,12 +55,12 @@ export function BottomNav({ activeSpaceId }: { activeSpaceId: string }) {
   const router = useRouter();
   // Precarga de las rutas de la barra (y Balance/Más) cuando el navegador está libre
   useEffect(() => {
-    const go = () => { for (const h of ["/inicio", "/movimientos", "/plan", "/ahorro", "/balance", "/mas"]) router.prefetch(h); };
+    const go = () => { for (const h of ["/inicio", "/movimientos", "/calendario", "/plan", "/ajustes"]) router.prefetch(h); };
     const w = window as Window & { requestIdleCallback?: (cb: () => void) => number };
     if (w.requestIdleCallback) w.requestIdleCallback(go); else setTimeout(go, 500);
   }, [router]);
   const t = useTranslations("nav");
-  const on = (href: string) => path === href || path.startsWith(`${href}/`);
+  const on = (href: string) => path === href || path.startsWith(`${href}/`) || (href === "/plan" && path.startsWith("/ahorro"));
   return (
     <nav
       aria-label={t("main")}

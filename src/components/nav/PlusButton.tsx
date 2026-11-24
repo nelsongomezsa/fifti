@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { HandCoins, PiggyBank, Receipt, Repeat, Wallet } from "lucide-react";
+import { SheetShell } from "@/components/ui/SheetShell";
 import { ExpenseSheet, type SheetPrefill } from "@/components/expense/ExpenseSheet";
 import { usePendingExpenses } from "@/components/expense/optimistic";
 import { useTx } from "@/i18n/tx-client";
@@ -55,6 +57,8 @@ export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
   const [sheet, setSheet] = useState<SheetPrefill | null>(null);
   const [quick, setQuick] = useState<QuickExpense | null>(null);
   const [favs, setFavs] = useState(false);
+  const [chooser, setChooser] = useState(false);
+  const [phraseText, setPhraseText] = useState("");
   const [toast, setToast] = useState<Toast | null>(null);
   const [refreshing, startRefresh] = useTransition();
   const savedRef = useRef<string[]>([]);
@@ -172,16 +176,38 @@ export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
         onClick={(e) => {
           e.preventDefault();
           if (longFired.current) { longFired.current = false; return; }
-          openSheet();
+          setChooser(true);
         }}
-        onKeyDown={(e) => { const { key } = e; if (key === " ") { e.preventDefault(); openSheet(); } }}
+        onKeyDown={(e) => { const { key } = e; if (key === " ") { e.preventDefault(); setChooser(true); } }}
         onContextMenu={(e) => e.preventDefault()}
-        className="-mt-5 mb-2 grid size-16 touch-manipulation select-none place-items-center rounded-full bg-accent text-on-accent shadow-[0_0_0_6px_var(--bg)]"
+        className="-mt-6 mb-2 grid size-[60px] touch-manipulation select-none place-items-center rounded-full bg-accent text-on-accent shadow-[0_0_0_6px_var(--bg)]"
       >
         <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden>
           <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
         </svg>
       </a>
+
+      {chooser && (
+        <SheetShell onClose={() => setChooser(false)} label={x("¿Qué quieres apuntar?")}>
+          <h2 className="mb-3 text-xl font-bold">{x("¿Qué quieres apuntar?")}</h2>
+          <button type="button" onClick={() => { setChooser(false); openSheet(); }} className="flex min-h-16 w-full items-center gap-3 rounded-card bg-accent px-4 text-left text-on-accent">
+            <Receipt size={26} aria-hidden /><span><span className="block text-lg font-bold">{x("Gasto")}</span><span className="block text-sm opacity-80">{x("Lo que acabas de pagar")}</span></span>
+          </button>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            {([["/fijos/nuevo", Repeat, "Gasto fijo", "Alquiler, Spotify…"], ["/ingreso", Wallet, "Ingreso", "Nómina, un extra…"], ["/plan?vista=ahorro", PiggyBank, "Aportar a una meta", "A tu viaje o colchón"], ["/prestamos#nuevo-prestamo", HandCoins, "Préstamo", "Dejaste o te dejaron"]] as const).map(([href, Icon, title, hint]) => (
+              <Link key={href} href={href} prefetch={false} onClick={() => setChooser(false)} className="flex min-h-28 flex-col justify-between rounded-card border border-border bg-surface p-3">
+                <Icon size={22} aria-hidden className="text-ink-2" />
+                <span><span className="block font-semibold">{x(title)}</span><span className="block text-xs text-ink-3">{x(hint)}</span></span>
+              </Link>
+            ))}
+          </div>
+          <form className="mt-4 flex gap-2" onSubmit={(e) => { e.preventDefault(); const t = phraseText.trim(); if (!t) return; setChooser(false); setPhraseText(""); openSheet({ phrase: t }); }}>
+            <input value={phraseText} onChange={(e) => setPhraseText(e.target.value)} maxLength={200} aria-label={x("Frase rápida")} placeholder={x("O escríbelo: «12 cena con Leo a medias»")}
+              className="min-h-12 min-w-0 flex-1 rounded-card border border-border bg-surface px-4 text-sm text-ink placeholder:text-ink-3" />
+            <button type="submit" disabled={!phraseText.trim()} className="min-h-12 shrink-0 rounded-full border border-border px-4 text-sm font-semibold disabled:opacity-50">{x("Rellenar")}</button>
+          </form>
+        </SheetShell>
+      )}
 
       {favs && (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50" onClick={() => setFavs(false)}>

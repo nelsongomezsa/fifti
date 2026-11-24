@@ -9,28 +9,28 @@ import { useTx } from "@/i18n/tx-client";
  * Se cierra arrastrando el asa hacia abajo, tocando fuera, con Escape o con el botón. Se abre por una ruta "interceptada":
  * al entrar desde la app es una hoja sobre la pantalla; al abrir el enlace directamente es la página completa.
  */
-export function SheetShell({ children }: { children: React.ReactNode }) {
+export function SheetShell({ children, onClose, label }: { children: React.ReactNode; onClose?: () => void; label?: string }) {
   const x = useTx();
   const router = useRouter();
   const [dy, setDy] = useState(0);
   const [drag, setDrag] = useState(false);
   const startY = useRef<number | null>(null);
   const panel = useRef<HTMLDivElement>(null);
-  const close = () => router.back();
+  const close = () => (onClose ? onClose() : router.back());
 
   useEffect(() => {
     panel.current?.focus();
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const onKeyDown = ({ key }: KeyboardEvent) => { if (key === "Escape") router.back(); };
+    const onKeyDown = ({ key }: KeyboardEvent) => { if (key === "Escape") (onClose ? onClose() : router.back()); };
     window.addEventListener("keydown", onKeyDown);
     return () => { document.body.style.overflow = prev; window.removeEventListener("keydown", onKeyDown); };
-  }, [router]);
+  }, [router, onClose]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
       <button type="button" aria-label={x("Cerrar")} tabIndex={-1} onClick={close} className="absolute inset-0 bg-black/60" />
-      <div ref={panel} role="dialog" aria-modal="true" tabIndex={-1}
+      <div ref={panel} role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}
         className="anim-sheet relative flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-[24px] border border-b-0 border-border bg-bg outline-none"
         style={{ transform: `translateY(${dy}px)`, transition: drag ? "none" : "transform 180ms ease-out", boxShadow: "var(--elev-2)" }}>
         <div className="flex shrink-0 touch-none items-center justify-between px-3 pt-2"

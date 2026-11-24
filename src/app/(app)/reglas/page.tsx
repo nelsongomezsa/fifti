@@ -27,7 +27,7 @@ export default async function RulesPage() {
 
   return (
     <section className="flex flex-col gap-4 pt-2">
-      <Link href="/mas" className="min-h-11 self-start text-sm text-ink-2">{x("‹ Más")}</Link>
+      <Link href="/ajustes" className="min-h-11 self-start text-sm text-ink-2">{x("‹ Ajustes")}</Link>
       <h1 className="text-2xl font-bold">{x("Reglas de categoría")}</h1>
       <p className="text-sm text-ink-2">{x("Si el concepto coincide, Fifti propone esa categoría al apuntar, importar o escribir una frase. Se aplica la primera de la lista.")} <span className="text-ink-3">({active.kind === "personal" ? x("Personal") : active.name})</span></p>
 

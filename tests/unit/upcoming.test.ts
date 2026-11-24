@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { upcomingCharges, type RecurringLite } from "@/lib/calendar";
+import { nextOccurrence, occurrenceNumber, projectRecurring, upcomingCharges, type RecurringLite } from "@/lib/calendar";
 import { ADVANCE_OPTIONS, daysBetween, fixedExpensePayload, toAdvance, usersForLead } from "@/lib/fixed-advance";
 import { translatorFor } from "@/i18n/translate";
 
@@ -63,5 +63,35 @@ describe("antelación del aviso de gasto fijo", () => {
   });
   it("un nombre larguísimo se recorta", () => {
     expect(fixedExpensePayload("x".repeat(200), 1)(translatorFor("es")).body.length).toBeLessThan(90);
+  });
+});
+
+describe("frecuencia trimestral, próximo cobro y ocurrencias saltadas", () => {
+  const q = { id: "q", description: "Seguro", amountCents: 12000, frequency: "quarterly" as const, day: 5, nextRun: "2026-12-05" };
+  it("el trimestral cae cada 3 meses desde el próximo cobro", () => {
+    expect(projectRecurring(q, "2026-12-01")).toEqual(["2026-12-05"]);
+    expect(projectRecurring(q, "2027-01-01")).toEqual([]);
+    expect(projectRecurring(q, "2027-03-01")).toEqual(["2027-03-05"]);
+    expect(projectRecurring(q, "2026-09-01")).toEqual([]);
+  });
+  it("el turno de un trimestral cuenta de 3 en 3 meses", () => {
+    expect(occurrenceNumber({ frequency: "quarterly", nextRun: "2026-12-05" }, "2027-06-05")).toBe(2);
+  });
+  it("próximo cobro al crear un gasto fijo (hoy martes 24 nov 2026)", () => {
+    expect(nextOccurrence("monthly", 5, "2026-11-24")).toBe("2026-12-05");
+    expect(nextOccurrence("monthly", 24, "2026-11-24")).toBe("2026-11-24");
+    expect(nextOccurrence("monthly", 31, "2026-11-24")).toBe("2026-11-30"); // noviembre no tiene 31
+    expect(nextOccurrence("weekly", 5, "2026-11-24")).toBe("2026-11-27"); // viernes
+    expect(nextOccurrence("weekly", 2, "2026-11-24")).toBe("2026-11-24"); // hoy es martes
+    expect(nextOccurrence("quarterly", 1, "2026-11-24")).toBe("2026-12-01");
+    expect(nextOccurrence("yearly", 15, "2026-11-24", 3)).toBe("2027-03-15");
+    expect(nextOccurrence("yearly", 30, "2026-11-24", 11)).toBe("2026-11-30");
+  });
+  it("una ocurrencia saltada desaparece de los próximos cobros y solo esa", () => {
+    const rec = { id: "r", description: "Gimnasio", amountCents: 3500, frequency: "monthly" as const, day: 10, nextRun: "2026-12-10", spaceId: "p" };
+    const skips = new Set(["r|2026-12-10"]);
+    expect(upcomingCharges([rec], [], "2026-11-24", 60, skips).map((c) => c.date)).not.toContain("2026-12-10");
+    expect(upcomingCharges([rec], [], "2026-11-24", 30, skips)).toEqual([]);
+    expect(upcomingCharges([rec], [], "2026-11-24", 30)).toHaveLength(1);
   });
 });

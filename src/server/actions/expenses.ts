@@ -239,7 +239,7 @@ export async function deleteFavorite(fd: FormData) {
   const { supabase, user } = await ctx();
   if (!user) return;
   await supabase.from("favorites").delete().eq("id", id.data).eq("user_id", user.id);
-  revalidatePath("/mas");
+  revalidatePath("/ajustes");
 }
 
 export async function addFavoriteForm(_prev: FormState, fd: FormData): Promise<FormState> {
@@ -248,6 +248,6 @@ export async function addFavoriteForm(_prev: FormState, fd: FormData): Promise<F
   const res = await saveFavorite({
     spaceId: fd.get("spaceId"), label: fd.get("label"), amountCents: parseToCents(String(fd.get("amount") ?? "")) ?? 0, categoryId: null,
   });
-  if (res.ok) revalidatePath("/mas");
+  if (res.ok) revalidatePath("/ajustes");
   return res.ok ? { ok: true, message: x("Favorito guardado.") } : { error: x(res.error ?? "No se ha podido guardar.") };
 }

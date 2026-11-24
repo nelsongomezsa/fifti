@@ -57,6 +57,6 @@ export async function savePrefs(_prev: FormState, fd: FormData): Promise<FormSta
   row.timezone = rem.data.timezone;
   const { error } = await supabase.from("notification_prefs").upsert(row, { onConflict: "user_id" });
   if (error) return { error: x("No se ha podido guardar.") };
-  revalidatePath("/mas");
+  revalidatePath("/ajustes");
   return { ok: true, message: x("Preferencias guardadas.") };
 }

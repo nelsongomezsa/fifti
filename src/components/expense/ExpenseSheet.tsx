@@ -27,6 +27,8 @@ export type SheetPrefill = {
   participants?: string[];
   payerId?: string;
   tags?: string;
+  /** Frase rápida escrita en el selector del +: la hoja la interpreta al abrirse */
+  phrase?: string;
   /** Edición de un gasto existente */
   edit?: { id: string; clientId: string; spentAt: string; paidFrom: "member" | "pot"; splitMode: SplitMode; isPrivate: boolean };
 };
@@ -108,8 +110,8 @@ export function ExpenseSheet({
     if (r.splitMode === "equal" && r.participantIds?.length) { setMode("equal"); setIncluded(new Set(r.participantIds)); }
     setPhraseNote(r.recurring ? x("Parece un gasto recurrente: puedes crearlo como pago fijo en Calendario.") : null);
   };
-  const runPhrase = async () => {
-    const text = phrase.trim();
+  const runPhrase = async (override?: string) => {
+    const text = (override ?? phrase).trim();
     if (!text || phraseBusy) return;
     setPhraseBusy(true); setPhraseNote(null);
     if (ctx.ai) {
@@ -145,6 +147,14 @@ export function ExpenseSheet({
     setIncluded(new Set(s.members.map((m) => m.id)));
     setMode("default"); setIsPrivate(false); setFromPot(false); setMultiPay(false);
   };
+
+  const initialPhrase = useRef(prefill?.phrase ?? "");
+  useEffect(() => {
+    if (!initialPhrase.current) return;
+    const t = initialPhrase.current; initialPhrase.current = "";
+    const id = setTimeout(() => { setPhrase(t); void runPhrase(t); }, 0);
+    return () => clearTimeout(id);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const cents = parseToCents(amount) ?? 0;
   const sameCurrency = currency === space.currency;

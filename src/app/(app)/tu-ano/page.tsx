@@ -64,7 +64,7 @@ export default async function YearPage() {
 
   return (
     <section className="flex flex-col gap-4 pt-2">
-      <Link href="/mas" className="text-sm text-ink-2">{x("‹ Más")}</Link>
+      <Link href="/ajustes" className="text-sm text-ink-2">{x("‹ Ajustes")}</Link>
       <h1 className="text-2xl font-bold">{x("Tu año")}{" "}{year} {x("en Fifti")}</h1>
       <p className="text-sm text-ink-3">{x("Total gastado:")}{" "}<span className="money font-mono text-ink">{formatMoney(totalSpent, "EUR", x.locale)}</span> {x("(solo lo ves tú). La imagen para compartir no incluye importes.")}</p>
       <ul className="grid gap-3">

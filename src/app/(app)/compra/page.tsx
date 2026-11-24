@@ -13,7 +13,7 @@ export default async function ShoppingPage() {
   const user = await requireUser();
   const active = await getActiveSpace(await listMySpaces());
   if (!active) return null;
-  const back = <Link href="/mas" className="min-h-11 self-start text-sm text-ink-2">{x("‹ Más")}</Link>;
+  const back = <Link href="/ajustes" className="min-h-11 self-start text-sm text-ink-2">{x("‹ Ajustes")}</Link>;
   if (active.kind === "personal" || user.is_anonymous) {
     return (
       <section className="flex flex-col gap-4 pt-2">{back}

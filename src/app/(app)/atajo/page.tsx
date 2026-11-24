@@ -18,7 +18,7 @@ export default async function ShortcutPage() {
   ];
   return (
     <section className="flex flex-col gap-5 pt-2">
-      <Link href="/mas" className="min-h-11 self-start text-sm text-ink-2">{x("‹ Más")}</Link>
+      <Link href="/ajustes" className="min-h-11 self-start text-sm text-ink-2">{x("‹ Ajustes")}</Link>
       <h1 className="text-2xl font-bold">{x("Apunta un gasto sin abrir la app")}</h1>
       <p className="text-ink-2">{x("El atajo te pregunta el importe y el concepto y abre Fifti con la hoja ya rellena. No guarda nada solo: tú confirmas con un toque.")}</p>
       <ol className="flex list-decimal flex-col gap-3 pl-5 text-ink-2">{steps.map((s) => <li key={s}>{s}</li>)}</ol>

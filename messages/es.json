@@ -10,7 +10,8 @@
     "bubbles": "Espacios",
     "personal": "Personal",
     "newBubble": "Nuevo espacio",
-    "skip": "Saltar al contenido"
+    "skip": "Saltar al contenido",
+    "calendar": "Calendario"
   },
   "auth": {
     "login": "Entrar",

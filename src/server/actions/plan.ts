@@ -76,7 +76,7 @@ export async function copyPreviousPlan(_prev: FormState, fd: FormData): Promise<
 const recurringSchema = z
   .object({
     spaceId: z.uuid(), id: z.uuid().optional(), description: z.string().trim().min(1).max(120),
-    amountCents: z.number().int().min(1).max(MAX_AMOUNT_CENTS), frequency: z.enum(["weekly", "monthly", "yearly"]),
+    amountCents: z.number().int().min(1).max(MAX_AMOUNT_CENTS), frequency: z.enum(["weekly", "monthly", "quarterly", "yearly"]),
     day: z.number().int().min(1).max(31), nextRun: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), categoryId: z.uuid().nullable(),
     paidFrom: z.enum(["member", "pot"]), detected: z.boolean().default(false), rotation: z.array(z.uuid()).max(8).default([]),
   })
@@ -229,4 +229,19 @@ export async function setMirrorPref(_prev: FormState, fd: FormData): Promise<For
   if (error) return { error: x(rpcMessage(error)) };
   revalidatePath("/", "layout");
   return { ok: true, message: x("Guardado.") };
+}
+
+const skipSchema = z.object({ recurringId: z.uuid(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), skip: z.boolean() }).strict();
+
+/** «Saltar este mes»: solo esa ocurrencia del gasto fijo (o volver a activarla). */
+export async function setRecurringSkip(input: unknown): Promise<{ ok: boolean; error?: string }> {
+  const x = await getTx();
+  const p = skipSchema.safeParse(input);
+  if (!p.success) return { ok: false, error: x("Datos no válidos") };
+  const { supabase, user } = await ctx();
+  if (!user) return { ok: false, error: x("Sesión caducada.") };
+  const { error } = await supabase.rpc("set_recurring_skip", { p_recurring: p.data.recurringId, p_date: p.data.date, p_skip: p.data.skip });
+  if (error) return { ok: false, error: x(rpcMessage(error)) };
+  revalidatePath("/calendario");
+  return { ok: true };
 }

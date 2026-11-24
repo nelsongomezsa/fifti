@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: "Préstamos" };
 export default async function LoansPage() {
   const x = await getTx();
   const user = await requireUser();
-  const back = <Link href="/mas" className="min-h-11 self-start text-sm text-ink-2">{x("‹ Más")}</Link>;
+  const back = <Link href="/ajustes" className="min-h-11 self-start text-sm text-ink-2">{x("‹ Ajustes")}</Link>;
   if (user.is_anonymous) return <section className="flex flex-col gap-4 pt-2">{back}<p className="text-ink-2">{x("Necesitas una cuenta.")}</p></section>;
   const supabase = await createClient();
   const [rows, { data: mem }] = await Promise.all([
