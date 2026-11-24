@@ -27,7 +27,7 @@ export default async function MorePage() {
   const spaces = await listMySpaces();
   const t = await getTranslations("more");
   const locale = await getLocale();
-  const theme = (await cookies()).get("fifti_theme")?.value ?? "system";
+  const theme = (await cookies()).get("fifti_theme")?.value ?? "dark";
   const supabase = await createClient();
   const { data: pf } = user.is_anonymous ? { data: [] } : await supabase.from("spaces").select("id").eq("kind", "personal").maybeSingle().then((r) => ({ data: r.data ? [r.data] : [] }));
   const { data: pFunds } = pf?.[0] ? await supabase.from("funds").select("id, name, system_key").eq("space_id", pf[0].id).order("position") : { data: [] };

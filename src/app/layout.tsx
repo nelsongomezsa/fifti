@@ -36,7 +36,8 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale();
-  const theme = (await cookies()).get("fifti_theme")?.value;
+  // Oscuro por defecto; "system" solo si la persona lo eligió. El tema va en el HTML del servidor, así que no hay parpadeo al cargar.
+  const theme = (await cookies()).get("fifti_theme")?.value ?? "dark";
   return (
     <html lang={locale} data-theme={theme === "light" || theme === "dark" ? theme : undefined} className={`${grotesk.variable} ${plexMono.variable}`}>
       <body className="min-h-dvh antialiased">
