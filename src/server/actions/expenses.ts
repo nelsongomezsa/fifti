@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import { RULES } from "@/lib/security/rate-limit";
 import { allow } from "@/lib/security/user-limit";
 import { createClient } from "@/lib/supabase/server";
+import { matchRule, type RuleType } from "@/lib/rules/match";
+import { displayName } from "@/lib/system-names";
 import { buildPayers, buildSplits, yourShare, type Participant } from "@/lib/money";
 import {
   categorySchema, commentSchema, expenseInputSchema, favoriteSchema, fundSchema, incomeInputSchema, reactionSchema,
@@ -16,7 +18,9 @@ import type { FormState } from "./auth";
 import { resolveFx } from "@/server/fx";
 import { notify } from "@/server/push";
 
-export type SaveResult = { ok: true; id: string; shareCents: number } | { ok: false; error: string };
+/** Propuesta de regla tras corregir dos veces la misma categoría para un concepto. */
+export type RuleHint = { spaceId: string; text: string; categoryId: string; categoryName: string };
+export type SaveResult = { ok: true; id: string; shareCents: number; ruleHint?: RuleHint } | { ok: false; error: string };
 
 async function ctx() {
   const supabase = await createClient();
@@ -61,6 +65,7 @@ export async function saveExpense(input: unknown): Promise<SaveResult> {
       payers = buildPayers(baseCents, list.length > 1 ? scaleToBase(list as { memberId: string; amountCents: number }[], v.amountCents, baseCents) : list);
     }
 
+    const prev = v.id ? (await supabase.from("expenses").select("category_id").eq("id", v.id).maybeSingle()).data : null;
     const { data, error } = await supabase.rpc("save_expense", {
       p: {
         id: v.id ?? null, client_id: v.clientId, space_id: v.spaceId, description: v.description, category_id: v.categoryId ?? null,
@@ -76,12 +81,34 @@ export async function saveExpense(input: unknown): Promise<SaveResult> {
       const others = (await supabase.from("space_members").select("user_id").eq("space_id", v.spaceId).not("user_id", "is", null)).data ?? [];
       await notify(others.map((m) => m.user_id as string).filter((u) => u !== user.id), "new_expense", (t) => ({ title: space.name, body: t("Hay un gasto nuevo."), url: "/movimientos" }));
     }
-    return { ok: true, id: data as string, shareCents: yourShare(splits, me.id) };
+    let ruleHint: RuleHint | undefined;
+    if (v.id && v.categoryId && prev && prev.category_id !== v.categoryId && !personalPrivate(v)) {
+      ruleHint = await learnRule(supabase, v.spaceId, v.description, v.categoryId);
+    }
+    return { ok: true, id: data as string, shareCents: yourShare(splits, me.id), ...(ruleHint ? { ruleHint } : {}) };
   } catch (err) {
     if (err instanceof RangeError) return { ok: false, error: x(err.message) };
     console.error("[saveExpense]", err instanceof Error ? err.message : "error");
     return { ok: false, error: x("No se ha podido guardar el gasto.") };
   }
+}
+
+const personalPrivate = (v: { isPrivate: boolean }) => v.isPrivate;
+
+/** Cuenta la corrección; a la 2.ª vez con el mismo concepto y sin regla que ya lo cubra, propone crearla. */
+async function learnRule(supabase: Awaited<ReturnType<typeof createClient>>, spaceId: string, text: string, categoryId: string): Promise<RuleHint | undefined> {
+  const key = text.trim().slice(0, 60);
+  if (!key) return undefined;
+  const { data: hits, error } = await supabase.rpc("bump_rule_hint", { p_space: spaceId, p_text: key, p_category: categoryId });
+  if (error || (hits as number) < 2) return undefined;
+  const [{ data: rules }, { data: cat }] = await Promise.all([
+    supabase.from("category_rules").select("id, match_text, match_type, category_id, priority").eq("space_id", spaceId),
+    supabase.from("categories").select("name, system_key").eq("id", categoryId).maybeSingle(),
+  ]);
+  const covered = matchRule((rules ?? []).map((r) => ({ id: r.id, matchText: r.match_text, matchType: r.match_type as RuleType, categoryId: r.category_id, priority: r.priority })), key);
+  if (covered?.categoryId === categoryId || !cat) return undefined;
+  const x = await getTx();
+  return { spaceId, text: key, categoryId, categoryName: displayName(x, cat.name, cat.system_key) };
 }
 
 /** Reparte el importe base entre varios pagadores en proporción a lo que puso cada uno. */

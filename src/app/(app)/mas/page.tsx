@@ -51,7 +51,7 @@ export default async function MorePage() {
         </div>
       )}
 
-      {[["/calendario", "Calendario de pagos"], ["/resumen-mensual", "Resumen del mes"], ["/tu-ano", "Tu año en Fifti"], ["/csv", "Importar y exportar CSV"], ["/atajo", "Atajo de Siri"]].map(([href, label]) => (
+      {[["/calendario", "Calendario de pagos"], ["/resumen-mensual", "Resumen del mes"], ["/tu-ano", "Tu año en Fifti"], ["/csv", "Importar y exportar CSV"], ["/reglas", "Reglas de categoría"], ["/atajo", "Atajo de Siri"]].map(([href, label]) => (
         <Link key={href} href={href!} className="flex min-h-12 items-center justify-between rounded-card border border-border bg-surface px-4">{x(label!)}<span aria-hidden className="text-ink-3">›</span></Link>
       ))}
       <Link href="/balance" className="flex min-h-12 items-center justify-between rounded-card border border-border bg-surface px-4">{x("Balance y saldar deudas")}<span aria-hidden className="text-ink-3">›</span></Link>

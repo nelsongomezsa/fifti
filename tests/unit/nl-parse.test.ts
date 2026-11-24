@@ -55,4 +55,8 @@ describe("parsePhrase", () => {
   it("personal explícito", () => {
     expect(parsePhrase("5 café personal", all, "h").spaceId).toBe("p");
   });
+  it("una regla de la burbuja manda sobre las palabras clave", () => {
+    const conRegla: NlSpace = { ...personal, rules: [{ id: "r", matchText: "mercadona", matchType: "contains", categoryId: "c-taxi", priority: 10 }] };
+    expect(parsePhrase("12 mercadona", [conRegla], "p").categoryId).toBe("c-taxi");
+  });
 });

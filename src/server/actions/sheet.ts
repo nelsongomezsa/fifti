@@ -2,6 +2,7 @@
 
 import { getTx } from "@/i18n/tx";
 import { displayName } from "@/lib/system-names";
+import type { CategoryRule, RuleType } from "@/lib/rules/match";
 import { createClient } from "@/lib/supabase/server";
 
 export type SheetSpace = {
@@ -13,6 +14,7 @@ export type SheetSpace = {
   members: { id: string; name: string; defaultBp: number | null }[];
   categories: { id: string; name: string; fundName: string; fundColor: string }[];
   topCategoryId: string | null;
+  rules: CategoryRule[];
 };
 export type SheetFavorite = { id: string; spaceId: string; label: string; amountCents: number; categoryId: string | null };
 export type SheetContext = { spaces: SheetSpace[]; favorites: SheetFavorite[]; /** La persona activó "usar IA para entender frases" */ ai?: boolean };
@@ -25,13 +27,14 @@ export async function loadSheetContext(): Promise<SheetContext> {
   const uid = auth.user.id;
   const x = await getTx();
 
-  const [{ data: spaces }, { data: members }, { data: funds }, { data: cats }, { data: recent }, { data: favs }, { data: prof }] = await Promise.all([
+  const [{ data: spaces }, { data: members }, { data: funds }, { data: cats }, { data: recent }, { data: favs }, { data: rules }, { data: prof }] = await Promise.all([
     supabase.from("spaces").select("id, name, kind, base_currency, created_at").is("archived_at", null).order("created_at"),
     supabase.from("space_members").select("id, space_id, user_id, display_name, default_share_bp").order("joined_at"),
     supabase.from("funds").select("id, space_id, name, color, position, system_key").order("position"),
     supabase.from("categories").select("id, space_id, fund_id, name, system_key"),
     supabase.from("expenses").select("space_id, category_id").not("category_id", "is", null).order("created_at", { ascending: false }).limit(300),
     supabase.from("favorites").select("id, space_id, label, amount_cents, category_id").order("label"),
+    supabase.from("category_rules").select("id, space_id, match_text, match_type, category_id, priority").order("priority"),
     supabase.from("profiles").select("ai_phrases").eq("id", uid).maybeSingle(),
   ]);
 
@@ -54,6 +57,7 @@ export async function loadSheetContext(): Promise<SheetContext> {
       id: s.id, name: s.name, kind: s.kind, currency: s.base_currency, meId: me.id,
       members: ms.map((m) => ({ id: m.id, name: m.display_name, defaultBp: m.default_share_bp })),
       categories, topCategoryId: top,
+      rules: (rules ?? []).filter((r) => r.space_id === s.id).map((r) => ({ id: r.id, matchText: r.match_text, matchType: r.match_type as RuleType, categoryId: r.category_id, priority: r.priority })),
     });
   }
   out.sort((a, b) => order[a.kind] - order[b.kind]);

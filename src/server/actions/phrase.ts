@@ -36,7 +36,7 @@ export async function interpretPhrase(raw: { phrase: string; currentSpaceId: str
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return { ok: false, error: x("Inicia sesión para continuar.") };
   const [ctx, { data: profile }] = await Promise.all([loadSheetContext(), supabase.from("profiles").select("ai_phrases").eq("id", auth.user.id).maybeSingle()]);
-  const spaces = ctx.spaces.map((s) => ({ id: s.id, name: s.name, kind: s.kind, meId: s.meId, members: s.members.map((m) => ({ id: m.id, name: m.name })), categories: s.categories.map((c) => ({ id: c.id, name: c.name })) }));
+  const spaces = ctx.spaces.map((s) => ({ id: s.id, name: s.name, kind: s.kind, meId: s.meId, members: s.members.map((m) => ({ id: m.id, name: m.name })), categories: s.categories.map((c) => ({ id: c.id, name: c.name })), rules: s.rules }));
   const local = parsePhrase(phrase, spaces, currentSpaceId);
 
   const key = process.env.GEMINI_API_KEY;

@@ -1,9 +1,10 @@
 import { parseToCents } from "@/lib/money";
+import { matchRule, type CategoryRule } from "@/lib/rules/match";
 
 /** Analizador local de frases ("23 cena con Leo a medias"). Funciones puras, sin red ni IA. */
 export type NlSpace = {
   id: string; name: string; kind: "personal" | "household" | "group"; meId: string;
-  members: { id: string; name: string }[]; categories: { id: string; name: string }[];
+  members: { id: string; name: string }[]; categories: { id: string; name: string }[]; rules?: CategoryRule[];
 };
 export type NlResult = {
   amountCents?: number;
@@ -47,7 +48,7 @@ function findAmount(t: string): { cents: number; raw: string } | null {
   return null;
 }
 
-export function parsePhrase(input: string, spaces: NlSpace[], currentSpaceId: string, rules: { match: (text: string) => string | null } | null = null): NlResult {
+export function parsePhrase(input: string, spaces: NlSpace[], currentSpaceId: string): NlResult {
   const out: NlResult = {};
   let text = input.trim().slice(0, 200);
   if (!text) return out;
@@ -99,7 +100,7 @@ export function parsePhrase(input: string, spaces: NlSpace[], currentSpaceId: st
 
   if (target) {
     const words = new Set(norm(`${desc} ${input}`).split(/[^\p{L}\p{N}]+/u));
-    const viaRule = rules?.match(desc || input) ?? null;
+    const viaRule = matchRule(target.rules ?? [], desc || input)?.categoryId ?? null;
     if (viaRule && target.categories.some((c) => c.id === viaRule)) out.categoryId = viaRule;
     else {
       for (const [keys, names] of KEYWORDS) {

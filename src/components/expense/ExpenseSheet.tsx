@@ -1,6 +1,8 @@
 "use client";
 
 
+import type { RuleHint } from "@/server/actions/expenses";
+import { matchRule } from "@/lib/rules/match";
 import { parsePhrase, type NlResult } from "@/lib/nl/parse";
 import { interpretPhrase } from "@/server/actions/phrase";
 import { useTx } from "@/i18n/tx-client";
@@ -29,7 +31,7 @@ export type SheetPrefill = {
   edit?: { id: string; clientId: string; spentAt: string; paidFrom: "member" | "pot"; splitMode: SplitMode; isPrivate: boolean };
 };
 
-export type SavedInfo = { id: string; shareCents: number; spaceName: string; currency: string; pending?: boolean };
+export type SavedInfo = { id: string; shareCents: number; spaceName: string; currency: string; pending?: boolean; ruleHint?: RuleHint };
 
 const today = () => new Date().toISOString().slice(0, 10);
 const LAST_KEY = "fifti:lastSpace";
@@ -79,6 +81,16 @@ export function ExpenseSheet({
   const error = errState && errState.sig === sig ? errState.msg : null;
   const setError = (m: string | null) => setErrState(m ? { msg: m, sig } : null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  // Categoría elegida a mano (o traída ya puesta): las reglas solo sugieren mientras no se haya tocado
+  const [catTouched, setCatTouched] = useState(!!prefill?.categoryId || !!prefill?.edit);
+  const ruleMatch = useMemo(() => (catTouched ? null : matchRule(space.rules, desc)), [desc, space.rules, catTouched]);
+  const ruleNote = ruleMatch ? `${ruleMatch.matchText} → ${space.categories.find((c) => c.id === ruleMatch.categoryId)?.name ?? ""}` : null;
+  const onDesc = (v: string) => {
+    setDesc(v);
+    if (catTouched) return;
+    const m = matchRule(space.rules, v);
+    if (m && space.categories.some((c) => c.id === m.categoryId)) setCategoryId(m.categoryId);
+  };
   const [phrase, setPhrase] = useState("");
   const [phraseBusy, setPhraseBusy] = useState(false);
   const [phraseNote, setPhraseNote] = useState<string | null>(null);
@@ -89,7 +101,7 @@ export function ExpenseSheet({
     if (target.id !== space.id) changeSpace(target);
     if (r.amountCents) setAmount((r.amountCents / 100).toFixed(2).replace(".", ",").replace(/,00$/, ""));
     if (r.description) setDesc(r.description);
-    if (r.categoryId) setCategoryId(r.categoryId);
+    if (r.categoryId) { setCatTouched(true); setCategoryId(r.categoryId); }
     if (r.splitMode === "equal" && r.participantIds?.length) { setMode("equal"); setIncluded(new Set(r.participantIds)); }
     setPhraseNote(r.recurring ? x("Parece un gasto recurrente: puedes crearlo como pago fijo en Calendario.") : null);
   };
@@ -102,7 +114,7 @@ export function ExpenseSheet({
       if (r?.ok) { applyPhrase(r.result); if (r.note) setPhraseNote(r.note); }
       else setPhraseNote(r && !r.ok ? r.error : x("No se ha podido completar."));
     } else {
-      const spaces = ctx.spaces.map((s) => ({ id: s.id, name: s.name, kind: s.kind, meId: s.meId, members: s.members, categories: s.categories }));
+      const spaces = ctx.spaces.map((s) => ({ id: s.id, name: s.name, kind: s.kind, meId: s.meId, members: s.members, categories: s.categories, rules: s.rules }));
       applyPhrase(parsePhrase(text, spaces, space.id));
     }
     setPhraseBusy(false);
@@ -194,7 +206,7 @@ export function ExpenseSheet({
       await uploadReceipt(fd);
     }
     if (!demo) { try { localStorage.setItem(LAST_KEY, space.id); } catch { /* sin almacenamiento */ } }
-    onSaved({ id: res.id, shareCents: res.shareCents, spaceName: space.kind === "personal" ? x("Personal") : space.name, currency: space.currency, pending: res.id === "pending" });
+    onSaved({ id: res.id, shareCents: res.shareCents, spaceName: space.kind === "personal" ? x("Personal") : space.name, currency: space.currency, pending: res.id === "pending", ruleHint: res.ruleHint });
     onClose();
   };
 
@@ -253,15 +265,16 @@ export function ExpenseSheet({
           {!sameCurrency && cents > 0 && <p className="mb-2 text-right font-mono text-sm text-ink-3">{fx ? `≈ ${formatMoney(baseCents, space.currency, x.locale)}` : x("No hemos podido obtener el tipo de cambio.")}</p>}
 
           <input
-            value={desc} onChange={(e) => setDesc(e.target.value)} maxLength={120} placeholder={x("Concepto")} aria-label={x("Concepto")}
+            value={desc} onChange={(e) => onDesc(e.target.value)} maxLength={120} placeholder={x("Concepto")} aria-label={x("Concepto")}
             className="mb-2 min-h-11 w-full rounded-card border border-border bg-surface px-4 text-base text-ink placeholder:text-ink-3"
           />
 
+          {ruleNote && <p className="mb-1 text-xs text-ink-3">{x("Regla aplicada:")} {ruleNote}</p>}
           <div className="mb-2 flex gap-2 overflow-x-auto [scrollbar-width:none]" role="group" aria-label={x("Categoría")}>
             {space.categories.map((c) => {
               const on = c.id === categoryId;
               return (
-                <button key={c.id} type="button" aria-pressed={on} onClick={() => setCategoryId(c.id)} className={chip(on)}
+                <button key={c.id} type="button" aria-pressed={on} onClick={() => { setCatTouched(true); setCategoryId(c.id); }} className={chip(on)}
                   style={on ? { background: accent, borderColor: accent } : undefined}>
                   {c.name}
                 </button>

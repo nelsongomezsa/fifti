@@ -14,7 +14,7 @@ export function buildDemoContext(): SheetContext {
         id: b.id, name: b.name, kind: b.kind, currency: "EUR", meId: `${b.id}:${b.members[0]}`,
         members: b.members.map((m, i) => ({ id: `${b.id}:${m}`, name: m, defaultBp: b.kind === "household" ? ([6000, 4000][i] ?? 0) : null })),
         categories: cats.map((c, i) => ({ id: `${b.id}:c:${c}`, name: c, fundName: c, fundColor: colors[i] ?? "#FF9F43" })),
-        topCategoryId: null, // sin historial: ninguna categoría preseleccionada
+        topCategoryId: null, rules: [], // sin historial: ninguna categoría preseleccionada
       };
     }),
   };
