@@ -71,7 +71,11 @@ export function ExpenseSheet({
   const [photo, setPhoto] = useState<File | null>(null);
   const [scan, setScan] = useState<{ busy: boolean; amountCents: number | null; date: string | null; error?: string } | null>(null);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // El error solo se ve mientras importe y concepto siguen como estaban al pulsar Guardar: al escribir desaparece
+  const [errState, setErrState] = useState<{ msg: string; sig: string } | null>(null);
+  const sig = `${amount}\u0000${desc}`;
+  const error = errState && errState.sig === sig ? errState.msg : null;
+  const setError = (m: string | null) => setErrState(m ? { msg: m, sig } : null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -145,8 +149,7 @@ export function ExpenseSheet({
       payers, isPrivate: isGroup && isPrivate,
       tags: tags.split(/[\s,#]+/).map((t) => t.trim().toLowerCase()).filter(Boolean).slice(0, 8),
     };
-    if (optimistic && !demo && !prefill?.edit) {
-      if (photo) { setError(x("Para adjuntar la foto del ticket guarda primero el gasto y añádela desde su detalle.")); return; }
+    if (optimistic && !demo && !prefill?.edit && !photo) {
       try { localStorage.setItem(LAST_KEY, space.id); } catch { /* sin almacenamiento */ }
       optimistic(input, { shareCents: live.share, baseCents, spaceName: space.kind === "personal" ? x("Personal") : space.name, currency: space.currency });
       onClose();

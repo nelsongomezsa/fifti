@@ -48,7 +48,7 @@ export async function loadSheetContext(): Promise<SheetContext> {
       .map(({ pos: _pos, ...c }) => c);
     const counts = new Map<string, number>();
     for (const r of recent ?? []) if (r.space_id === s.id && r.category_id) counts.set(r.category_id, (counts.get(r.category_id) ?? 0) + 1);
-    const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? categories[0]?.id ?? null;
+    const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
     out.push({
       id: s.id, name: s.name, kind: s.kind, currency: s.base_currency, meId: me.id,
       members: ms.map((m) => ({ id: m.id, name: m.display_name, defaultBp: m.default_share_bp })),

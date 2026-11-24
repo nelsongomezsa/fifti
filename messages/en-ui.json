@@ -687,5 +687,20 @@
   "Escribe tu contraseña actual": "Enter your current password",
   "Para adjuntar la foto del ticket guarda primero el gasto y añádela desde su detalle.": "To attach the receipt photo, save the expense first and add it from its detail.",
   "Pendiente de subir": "Waiting to upload",
-  "Reintentar": "Retry"
+  "Reintentar": "Retry",
+  "Gastado este mes": "Spent this month",
+  "Configura tu plan": "Set up your plan",
+  "Dinos cuánto ingresas este mes y te sugerimos cómo repartirlo. Podrás cambiarlo cuando quieras.": "Tell us how much you earn this month and we'll suggest how to split it. You can change it any time.",
+  "Empezar": "Start",
+  "Paso": "Step",
+  "¿Cuánto ingresas este mes?": "How much do you earn this month?",
+  "Tu plan sugerido": "Your suggested plan",
+  "Suma nómina y otros ingresos. Es una estimación: puedes cambiarla después.": "Add salary and other income. It's an estimate: you can change it later.",
+  "Tus ingresos": "Your income",
+  "Ingresos de": "Income of",
+  "opcional": "optional",
+  "Siguiente": "Next",
+  "Una propuesta de partida: 50 % fijos, 30 % día a día y ocio, 20 % ahorro. Edítala a tu gusto.": "A starting point: 50 % fixed, 30 % day to day and leisure, 20 % savings. Edit it to your liking.",
+  "Sin asignar": "Unassigned",
+  "Atrás": "Back"
 }
