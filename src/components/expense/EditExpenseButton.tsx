@@ -8,7 +8,7 @@ import { acceptRuleHint } from "@/server/actions/rules";
 import { loadSheetContext, type SheetContext } from "@/server/actions/sheet";
 import { ExpenseSheet, type SheetPrefill } from "./ExpenseSheet";
 
-export function EditExpenseButton({ prefill, spaceId }: { prefill: SheetPrefill; spaceId: string }) {
+export function EditExpenseButton({ prefill, spaceId, label }: { prefill: SheetPrefill; spaceId: string; label?: string }) {
   const x = useTx();
   const [ctx, setCtx] = useState<SheetContext | null>(null);
   const [open, setOpen] = useState(false);
@@ -19,7 +19,7 @@ export function EditExpenseButton({ prefill, spaceId }: { prefill: SheetPrefill;
     <>
       <button type="button" className="min-h-11 rounded-full border border-border px-5 font-semibold"
         onClick={async () => { setCtx(await loadSheetContext()); setOpen(true); }}>
-        {x("Editar")}</button>
+        {label ?? x("Editar")}</button>
       {open && ctx && (
         <ExpenseSheet ctx={ctx} defaultSpaceId={spaceId} prefill={prefill} onClose={() => setOpen(false)}
           onSaved={(info) => { if (info.ruleHint) { setHint(info.ruleHint); setDone(false); } router.refresh(); }} />

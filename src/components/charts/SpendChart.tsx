@@ -1,14 +1,17 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { useTx } from "@/i18n/tx-client";
 import { formatMoney } from "@/lib/money";
 
-export type SpendPoint = { label: string; full: string; cents: number; current: boolean };
+export type SpendPoint = { label: string; full: string; cents: number; current: boolean; month?: string };
 
 /** Gasto de los últimos meses; el mes actual va en el color de acento de la burbuja. El tooltip solo aparece al tocar o pasar el ratón. */
 export function SpendChart({ data, currency }: { data: SpendPoint[]; currency: string }) {
   const x = useTx();
+  const router = useRouter();
   const fmt = (c: number) => formatMoney(c, currency, x.locale);
   return (
     <div className="h-40 w-full" role="img" aria-label={`${x("Gasto de los últimos 6 meses")}: ${data.map((d) => `${d.full} ${fmt(d.cents)}`).join(", ")}`}>
@@ -28,13 +31,15 @@ export function SpendChart({ data, currency }: { data: SpendPoint[]; currency: s
               );
             }}
           />
-          <Bar dataKey="cents" radius={[6, 6, 0, 0]} isAnimationActive={false}>
+          <Bar dataKey="cents" radius={[6, 6, 0, 0]} isAnimationActive={false} cursor="pointer" onClick={(p) => { const m = (p as unknown as { payload?: SpendPoint }).payload?.month; if (m) router.push(`/movimientos?mes=${m}`); }}>
             {data.map((d, i) => (
               <Cell key={i} fill={d.current ? "var(--accent)" : "var(--track)"} />
             ))}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+      {/* Mismo acceso para teclado y lector de pantalla: cada mes lleva a sus movimientos */}
+      <ul className="sr-only">{data.filter((d) => d.month).map((d) => <li key={d.month}><Link href={`/movimientos?mes=${d.month}`}>{d.full}: {fmt(d.cents)}</Link></li>)}</ul>
     </div>
   );
 }

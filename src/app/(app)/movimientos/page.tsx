@@ -2,6 +2,7 @@ import { getTx } from "@/i18n/tx";
 import { displayName } from "@/lib/system-names";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CategoryIcon } from "@/components/ui/CategoryIcon";
 import { MovementFilters } from "@/components/movements/MovementFilters";
 import { PendingExpenseRows } from "@/components/expense/optimistic";
 import { addMonths, formatMoney, isMonthStart, monthStart } from "@/lib/money";
@@ -33,9 +34,10 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
   if (sp.persona && uuid.test(sp.persona)) q = q.eq("created_by_member", sp.persona);
   if (sp.q && esc(sp.q)) q = q.ilike("description", `%${esc(sp.q)}%`);
   // Todas las consultas son independientes: una sola ronda de red
-  const [{ data: members }, { data: cats }, { data: expenses }, { data: privates }, { data: mirrors }] = await Promise.all([
+  const [{ data: members }, { data: cats }, { data: fundColors }, { data: expenses }, { data: privates }, { data: mirrors }] = await Promise.all([
     supabase.from("space_members").select("id, user_id, display_name").eq("space_id", active.id),
-    supabase.from("categories").select("id, name, system_key").eq("space_id", active.id),
+    supabase.from("categories").select("id, name, system_key, fund_id").eq("space_id", active.id),
+    supabase.from("funds").select("id, color").eq("space_id", active.id),
     q,
     supabase.from("expense_private_details").select("expense_id, description"),
     active.kind === "personal"
@@ -50,6 +52,10 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
   const rows = (expenses ?? []).filter((e) => !tag || tagOf(e).includes(tag));
   const catName = new Map((cats ?? []).map((c) => [c.id, displayName(x, c.name, c.system_key)]));
   const total = rows.reduce((a, e) => a + e.amount_cents, 0);
+  const catInfo = new Map((cats ?? []).map((c) => [c.id, { sysName: c.system_key as string | null, color: (fundColors ?? []).find((f) => f.id === c.fund_id)?.color ?? "#9AA3AF" }]));
+  const todayIso = new Date().toISOString().slice(0, 10), yesterdayIso = new Date(Date.parse(`${todayIso}T00:00:00Z`) - 86400000).toISOString().slice(0, 10);
+  const dayLabel = (iso: string) => (iso === todayIso ? x("Hoy") : iso === yesterdayIso ? x("Ayer") : new Date(`${iso}T00:00:00Z`).toLocaleDateString(x.locale, { weekday: "long", day: "numeric", month: "short", timeZone: "UTC" }));
+  const days = [...rows.reduce((m, e) => m.set(e.spent_at as string, [...(m.get(e.spent_at as string) ?? []), e]), new Map<string, typeof rows>())];
   const href = (patch: Partial<SP>) => {
     const p = new URLSearchParams(Object.entries({ ...sp, ...patch }).filter(([, v]) => v) as [string, string][]);
     return `/movimientos?${p.toString()}`;
@@ -86,34 +92,42 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
         </ul>
       )}
       {rows.length === 0 ? (
-        <p className="rounded-card border border-border bg-surface p-4 text-ink-2">{x("Todavía no hay gastos este mes en esta burbuja.")}</p>
+        <div className="flex flex-col items-center gap-3 rounded-card border border-border bg-surface p-6 text-center">
+          <p className="font-semibold">{x("Aún no hay gastos")}</p>
+          <p className="text-sm text-ink-2">{x("Aquí verás cada gasto del mes, agrupado por día. Apunta el primero en segundos.")}</p>
+          <Link href="/nuevo" className="inline-flex min-h-12 items-center rounded-full bg-accent px-6 font-semibold text-on-accent">{x("Añadir el primero")}</Link>
+        </div>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {rows.map((e) => {
-            const mine = (e.expense_splits as { member_id: string; amount_cents: number }[]).find((s) => s.member_id === me?.id)?.amount_cents;
-            const title = e.is_private ? (priv.get(e.id) ?? x("Gasto privado")) : e.description;
-            return (
-              <li key={e.id}>
-                <Link href={`/movimientos/${e.id}`} className="flex min-h-14 items-center justify-between gap-3 rounded-card border border-border bg-surface px-4 py-3">
-                  <span className="min-w-0">
-                    <span className="block truncate font-medium">{title}</span>
-                    <span className="text-xs text-ink-3">
-                      {new Date(`${e.spent_at}T00:00:00Z`).toLocaleDateString(x.locale, { day: "numeric", month: "short", timeZone: "UTC" })}
-                      {e.category_id && catName.get(e.category_id) ? ` · ${catName.get(e.category_id)}` : ""}
-                      {e.is_private ? " · privado" : ""}
-                    </span>
-                  </span>
-                  <span className="text-right">
-                    <span className="money block font-mono">{formatMoney(e.amount_cents, e.currency, x.locale)}</span>
-                    {active.kind !== "personal" && mine !== undefined && (
-                      <span className="money block font-mono text-xs text-ink-3">{x("tu parte")}{" "}{formatMoney(mine, e.currency, x.locale)}</span>
-                    )}
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="flex flex-col gap-4">
+          {days.map(([day, list]) => (
+            <section key={day} aria-label={dayLabel(day)}>
+              <h2 className="mb-2 flex items-baseline justify-between px-1 text-sm text-ink-3"><span className="first-letter:uppercase">{dayLabel(day)}</span><span className="money font-mono">{formatMoney(list.reduce((a, e) => a + e.amount_cents, 0), "EUR", x.locale)}</span></h2>
+              <ul className="flex flex-col gap-2">
+                {list.map((e) => {
+                  const mine = (e.expense_splits as { member_id: string; amount_cents: number }[]).find((s) => s.member_id === me?.id)?.amount_cents;
+                  const title = e.is_private ? (priv.get(e.id) ?? x("Gasto privado")) : e.description;
+                  const info = e.category_id ? catInfo.get(e.category_id) : undefined;
+                  return (
+                    <li key={e.id}>
+                      <Link href={`/movimientos/${e.id}`} className="flex min-h-16 items-center gap-3 rounded-card border border-border bg-surface px-3 py-3 transition-colors hover:bg-surface-2">
+                        <CategoryIcon systemName={info?.sysName} color={info?.color} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium">{title}</span>
+                          <span className="block truncate text-xs text-ink-3">{e.category_id && catName.get(e.category_id) ? catName.get(e.category_id) : x("Sin categoría")}{e.is_private ? ` · ${x("privado")}` : ""}</span>
+                        </span>
+                        <span className="text-right">
+                          <span className="money block font-mono">{formatMoney(e.amount_cents, e.currency, x.locale)}</span>
+                          {active.kind !== "personal" && mine !== undefined && <span className="money block font-mono text-xs text-ink-3">{x("tu parte")}{" "}{formatMoney(mine, e.currency, x.locale)}</span>}
+                        </span>
+                        <span aria-hidden className="text-ink-3">›</span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
+        </div>
       )}
       <Link href="/ingreso" className="min-h-12 rounded-full border border-border py-3 text-center font-semibold">{x("Añadir ingreso")}</Link>
     </section>

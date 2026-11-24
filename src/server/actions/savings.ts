@@ -142,3 +142,20 @@ export async function deleteRule(fd: FormData) {
   await supabase.from("saving_rules").delete().eq("id", id.data);
   revalidatePath(`/ahorro/${goal.data}`);
 }
+
+const updateGoalSchema = z.object({ goalId: z.uuid(), name: z.string().trim().min(1, "Pon un nombre").max(60), targetCents: cents, deadline: isoDate.nullable() }).strict();
+
+/** Editar nombre, objetivo y fecha límite de una meta. */
+export async function updateGoal(_prev: FormState, fd: FormData): Promise<FormState> {
+  const x = await getTx();
+  const parsed = updateGoalSchema.safeParse({ goalId: f(fd, "goalId"), name: f(fd, "name"), targetCents: parseToCents(f(fd, "target")) ?? 0, deadline: f(fd, "deadline") || null });
+  if (!parsed.success) return { error: x(parsed.error.issues[0]?.message ?? "Datos no válidos") };
+  const { supabase, user } = await ctx();
+  if (!user) return { error: x("Sesión caducada.") };
+  const v = parsed.data;
+  const { error } = await supabase.from("savings_goals").update({ name: v.name, target_cents: v.targetCents, deadline: v.deadline }).eq("id", v.goalId);
+  if (error) return { error: x("No se ha podido guardar.") };
+  revalidatePath(`/ahorro/${v.goalId}`);
+  revalidatePath("/ahorro");
+  return { ok: true, message: x("Meta guardada.") };
+}

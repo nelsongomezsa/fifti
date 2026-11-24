@@ -17,13 +17,15 @@
     "prebuild": "node scripts/copy-ocr-assets.mjs",
     "predev": "node scripts/copy-ocr-assets.mjs",
     "e2e:sheet": "node scripts/e2e/sheet-fits.mjs",
-    "e2e:nuevo": "node scripts/e2e/quick-new.mjs"
+    "e2e:nuevo": "node scripts/e2e/quick-new.mjs",
+    "e2e:overflow": "node scripts/e2e/overflow.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.119.2",
     "@tesseract.js-data/spa": "^1.0.0",
     "d3-hierarchy": "^3.1.3",
+    "lucide-react": "^1.78.0",
     "next": "^16.4.6",
     "next-intl": "^4.15.3",
     "pdf-lib": "^1.17.1",

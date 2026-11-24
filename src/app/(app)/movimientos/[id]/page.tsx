@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DeleteExpenseButton } from "@/components/expense/DeleteExpenseButton";
+import { CategoryIcon } from "@/components/ui/CategoryIcon";
 import { EditExpenseButton } from "@/components/expense/EditExpenseButton";
 import { ReceiptUploader } from "@/components/expense/ReceiptUploader";
 import { ActionForm, inputClass } from "@/components/ui/ActionForm";
@@ -36,7 +37,7 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
       supabase.from("expense_reactions").select("member_id, emoji").eq("expense_id", id),
       supabase.from("audit_log").select("id, action, at, actor").eq("row_id", id).eq("table_name", "expenses").order("at", { ascending: false }).limit(20),
       supabase.from("expense_tags").select("tags(name)").eq("expense_id", id),
-      e.category_id ? supabase.from("categories").select("name, system_key").eq("id", e.category_id).maybeSingle() : Promise.resolve({ data: null }),
+      e.category_id ? supabase.from("categories").select("name, system_key, funds(name, color, system_key)").eq("id", e.category_id).maybeSingle() : Promise.resolve({ data: null }),
       supabase.from("spaces").select("kind").eq("id", e.space_id).maybeSingle(),
     ]);
   const me = members?.find((m) => m.user_id === user.id);
@@ -56,6 +57,12 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
     <section className="flex flex-col gap-5 pt-2">
       <Link href="/movimientos" className="text-sm text-ink-2">{x("‹ Movimientos")}</Link>
       <div>
+        {cat && !priv?.category_id && (
+          <p className="mb-3 flex items-center gap-2 text-sm text-ink-2">
+            <CategoryIcon systemName={cat.system_key} color={(cat.funds as unknown as { color: string } | null)?.color} size={32} />
+            <span>{displayName(x, cat.name, cat.system_key)}{cat.funds ? <span className="text-ink-3"> · {x("Fondo")} {displayName(x, (cat.funds as unknown as { name: string }).name, (cat.funds as unknown as { system_key: string | null }).system_key)}</span> : null}</span>
+          </p>
+        )}
         <h1 className="text-2xl font-bold">{title}</h1>
         <p className="money mt-1 font-mono text-3xl">{formatMoney(e.amount_cents, e.currency, x.locale)}</p>
         <p className="mt-1 text-sm text-ink-3">
@@ -73,6 +80,10 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
             spaceId: e.space_id, amountCents: e.amount_cents, categoryId: e.category_id ?? priv?.category_id ?? null, description: title,
             participants: splits?.map((s) => s.member_id), payerId: payers?.[0]?.member_id, tags: tags.join(" "),
             edit: { id, clientId: e.client_id, spentAt: e.spent_at, paidFrom: e.paid_from as "member" | "pot", splitMode: e.split_mode as "default" | "equal" | "custom", isPrivate: e.is_private },
+          }} />
+          <EditExpenseButton spaceId={e.space_id} label={x("Duplicar")} prefill={{
+            spaceId: e.space_id, amountCents: e.amount_cents, categoryId: e.category_id ?? priv?.category_id ?? null, description: title,
+            participants: splits?.map((s) => s.member_id), payerId: payers?.[0]?.member_id, tags: tags.join(" "),
           }} />
           <DeleteExpenseButton expenseId={id} />
         </div>

@@ -12,6 +12,7 @@ import { createClient } from "@/lib/supabase/server";
 import { loadSpaceBalance } from "@/server/balance";
 import { Suspense } from "react";
 import { ChangeLine, ChartCard } from "@/components/home/Deferred";
+import { upcomingCharges } from "@/lib/calendar";
 import { weeklyBudget } from "@/lib/weekly";
 import { loadLoans, loanTotals } from "@/server/loans";
 import { loadOverview, startSeries } from "@/server/overview";
@@ -28,7 +29,7 @@ export default async function HomePage() {
   // La serie de 6 meses arranca ya, pero no bloquea las cifras: la gráfica y la variación llegan después (Suspense)
   const seriesP = startSeries(supabase, active.id, active.kind);
   // Resumen, saldo del grupo y presupuesto del día no dependen entre sí: se piden a la vez.
-  const [o, balance, budget, loanRows] = await Promise.all([
+  const [o, balance, budget, loanRows, { data: recRows }] = await Promise.all([
     loadOverview(supabase, active.id, active.kind, undefined, undefined, x.locale, true),
     active.kind !== "personal" ? loadSpaceBalance(supabase, active.id) : Promise.resolve(null),
     (async () => {
@@ -43,16 +44,22 @@ export default async function HomePage() {
       return dailyBudgetLeft(sp.daily_budget_cents, count ?? 1, (ex ?? []).reduce((a, e) => a + e.amount_base_cents, 0));
     })(),
     active.kind === "personal" && !user.is_anonymous ? loadLoans(supabase, user.id) : Promise.resolve([]),
+    supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, next_run").eq("space_id", active.id).eq("active", true),
   ]);
   const loans = loanTotals(loanRows);
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const upcoming = upcomingCharges((recRows ?? []).map((r) => ({ id: r.id, description: r.description, amountCents: r.amount_cents, frequency: r.frequency, day: r.day, nextRun: r.next_run, spaceId: active.id })), [], todayIso, 30).slice(0, 3);
+  const whenLabel = (iso: string) => { const d = Math.round((Date.parse(`${iso}T00:00:00Z`) - Date.parse(`${todayIso}T00:00:00Z`)) / 86400000); return d === 0 ? x("Hoy") : d === 1 ? x("Mañana") : new Date(`${iso}T00:00:00Z`).toLocaleDateString(x.locale, { day: "numeric", month: "short", timeZone: "UTC" }); };
   const monthName = new Date(`${o.month}T00:00:00Z`).toLocaleDateString(locale, { month: "long", timeZone: "UTC" });
   const pctText = (bp: number) => `${(bp / 100).toFixed(0)} %`;
   const hasData = o.income > 0 || o.spent > 0;
 
   let transfer: { from: string; to: string; amountCents: number } | null = null;
+  let transferMine: "owed" | "owe" | null = null;
   if (balance) {
     const me = balance.members.find((m) => m.user_id === user.id);
     const tr = balance.transfers.find((q) => q.from === me?.id || q.to === me?.id) ?? balance.transfers[0];
+    if (tr) transferMine = tr.to === me?.id ? "owed" : tr.from === me?.id ? "owe" : null;
     if (tr) transfer = { from: balance.members.find((m) => m.id === tr.from)?.display_name ?? "—", to: balance.members.find((m) => m.id === tr.to)?.display_name ?? "—", amountCents: tr.amountCents };
   }
   const budgetLeft: number | null = budget;
@@ -103,9 +110,8 @@ export default async function HomePage() {
 
       {weekly && (
         <div className={`rounded-card border bg-surface p-4 ${weekly.status === "over" ? "border-over" : weekly.status === "warn" ? "border-warn" : "border-border"}`} role="status">
-          <p className={`money font-mono text-2xl font-semibold ${weekly.status === "over" ? "text-over-text" : weekly.status === "warn" ? "text-warn" : ""}`}>
-            {weekly.status === "over" ? `${x("Te has pasado")} ${formatMoney(-weekly.leftCents, "EUR", x.locale)}` : `${x("Te quedan")} ${formatMoney(weekly.leftCents, "EUR", x.locale)} ${x("esta semana")}`}
-          </p>
+          <p className="t-label">{weekly.status === "over" ? x("Te has pasado de tu gasto variable") : x("Te quedan esta semana")}</p>
+          <p className={`money t-figure mt-1 ${weekly.status === "over" ? "text-over-text" : weekly.status === "warn" ? "text-warn" : ""}`}>{formatMoney(Math.abs(weekly.leftCents), "EUR", x.locale)}</p>
           <p className="mt-1 text-xs text-ink-3">{weekly.status === "over" ? x("de tu gasto variable de este mes.") : x("de tu gasto variable, repartido por los días que faltan del mes.")}</p>
         </div>
       )}
@@ -130,12 +136,29 @@ export default async function HomePage() {
         </>
       )}
 
-      {transfer && (
-        <div className="flex items-center justify-between rounded-card border border-border bg-surface p-4">
-          <p><span className="block text-xs text-ink-3">{t("pending")}</span>{transfer.from} → {transfer.to} <span className="money font-mono">{formatMoney(transfer.amountCents, "EUR", x.locale)}</span></p>
-          <Link href="/balance" className="min-h-11 rounded-full bg-accent px-5 py-2.5 font-semibold text-on-accent">{t("settle")}</Link>
-        </div>
+      {balance && active.kind !== "personal" && (
+        <Link href="/balance" className="flex min-h-16 items-center justify-between gap-3 rounded-card border border-border bg-surface px-4 py-3 transition-colors hover:bg-surface-2">
+          <span className="min-w-0">
+            <span className="t-label block">{x("Balance")}</span>
+            <span className="block truncate font-medium">
+              {!transfer ? x("Todo saldado") : transferMine === "owed" ? <>{transfer.from} {x("te debe")} <span className="money font-mono">{formatMoney(transfer.amountCents, "EUR", x.locale)}</span></> : transferMine === "owe" ? <>{x("Debes")} <span className="money font-mono">{formatMoney(transfer.amountCents, "EUR", x.locale)}</span> {x("a")} {transfer.to}</> : <>{transfer.from} → {transfer.to} <span className="money font-mono">{formatMoney(transfer.amountCents, "EUR", x.locale)}</span></>}
+            </span>
+          </span>
+          <span className="flex shrink-0 items-center gap-2 text-sm text-ink-2">{x("Ver balance")}<span aria-hidden>›</span></span>
+        </Link>
       )}
+
+      {upcoming.length > 0 && (
+        <Link href="/calendario?vista=proximos" className="block rounded-card border border-border bg-surface px-4 py-3 transition-colors hover:bg-surface-2" aria-label={x("Próximos cobros")}>
+          <span className="flex items-center justify-between"><span className="t-label">{x("Próximos cobros")}</span><span aria-hidden className="text-ink-3">›</span></span>
+          <ul className="mt-2 flex flex-col gap-1.5">
+            {upcoming.map((c, i) => (
+              <li key={i} className="flex items-center justify-between gap-3 text-sm"><span className="min-w-0 truncate"><span className="text-ink-3">{whenLabel(c.date)}</span> · {c.label}</span><span className="money shrink-0 font-mono">{formatMoney(c.cents, "EUR", x.locale)}</span></li>
+            ))}
+          </ul>
+        </Link>
+      )}
+
 
       {o.plan.configured && (
       <div className="rounded-card border border-border bg-surface">

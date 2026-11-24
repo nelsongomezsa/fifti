@@ -14,7 +14,7 @@ export type Overview = {
   change: { deltaCents: number; percentBp: number | null };
   savingsBp: number;
   forecastLeftover: number;
-  series: { label: string; full: string; cents: number; current: boolean }[];
+  series: { label: string; full: string; cents: number; current: boolean; month: string }[];
   funds: (FundRow & { name: string; color: string; kind: string })[];
   plan: PlanData;
 };
@@ -44,7 +44,7 @@ export function seriesView(s: SeriesData, month: string, leftover: number, local
   const prevLeftover = (incSeries[4]! > 0 ? incSeries[4]! : 0) - spendSeries[4]!;
   const full = (m: string) => { const n = new Date(`${m}T00:00:00Z`).toLocaleDateString(locale, { month: "long", timeZone: "UTC" }); return n.charAt(0).toLocaleUpperCase(locale) + n.slice(1); };
   const label = (m: string) => new Date(`${m}T00:00:00Z`).toLocaleDateString(locale, { month: "short", timeZone: "UTC" }).replace(".", "");
-  return { change: monthChange(leftover, prevLeftover), series: months.map((m, i) => ({ label: label(m), full: full(m), cents: spendSeries[i]!, current: m === month })) };
+  return { change: monthChange(leftover, prevLeftover), series: months.map((m, i) => ({ label: label(m), full: full(m), cents: spendSeries[i]!, current: m === month, month: m })) };
 }
 
 export async function loadOverview(supabase: SupabaseClient, spaceId: string, kind: "personal" | "household" | "group", month = monthStart(new Date()), today = new Date().toISOString().slice(0, 10), locale = "es-ES", deferSeries = false): Promise<Overview> {
@@ -82,7 +82,7 @@ export async function loadOverview(supabase: SupabaseClient, spaceId: string, ki
   return {
     month, income, spent, leftover, prevLeftover, change: monthChange(leftover, prevLeftover), savingsBp: savingsRateBp(income, spent),
     forecastLeftover: forecast.projectedLeftover,
-    series: months.map((m, i) => ({ label: label(m), full: full(m), cents: spendSeries[i]!, current: m === month })),
+    series: months.map((m, i) => ({ label: label(m), full: full(m), cents: spendSeries[i]!, current: m === month, month: m })),
     funds, plan,
   };
 }

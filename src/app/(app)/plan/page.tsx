@@ -74,6 +74,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
       <nav aria-label={x("Vista")} className="flex gap-2">
         <Link href={`/plan?mes=${month}`} aria-current={!list ? "page" : undefined} className={`min-h-11 rounded-full border px-4 py-2.5 text-sm ${!list ? "border-accent bg-surface-2" : "border-border text-ink-2"}`}>{x("Burbujas")}</Link>
         <Link href={`/plan?mes=${month}&vista=lista`} aria-current={list ? "page" : undefined} className={`min-h-11 rounded-full border px-4 py-2.5 text-sm ${list ? "border-accent bg-surface-2" : "border-border text-ink-2"}`}>{x("Lista")}</Link>
+        <Link href="/calendario" className="min-h-11 rounded-full border border-border px-4 py-2.5 text-sm text-ink-2">{x("Calendario")}</Link>
       </nav>
 
       <div className="rounded-card border border-border bg-surface p-4">
@@ -82,7 +83,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
         <p className="mt-1 text-xs text-ink-3">{x("Según tu ritmo de gasto variable y los fijos que quedan por pagar.")}</p>
       </div>
 
-      {!list && <PlanBubbles currency="EUR" funds={rows.filter(({ row }) => row.planned > 0).map(({ f, row }) => ({ id: f.id, name: f.name, color: f.color, planned: row.planned, spent: row.spent }))} />}
+      {!list && <PlanBubbles currency="EUR" funds={rows.filter(({ row }) => row.planned > 0).map(({ f, row }) => ({ id: f.id, name: f.name, color: f.color, planned: row.planned, spent: row.spent, savings: f.kind === "savings", href: `/inicio/fondo/${f.id}` }))} />}
 
       <ul className={`flex flex-col gap-3 ${!list ? "sr-only" : ""}`} aria-label={x("Fondos")}>
         {rows.map(({ f, row }) => {

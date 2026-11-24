@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTx } from "@/i18n/tx-client";
 import { formatMoney, parseToCents } from "@/lib/money";
 import { parsePercentToBp } from "@/lib/validation/spaces";
-import { savePlan } from "@/server/actions/plan";
+import { savePlan, saveRecurring } from "@/server/actions/plan";
 
 type Member = { id: string; name: string; mine: boolean };
 type Fund = { id: string; name: string; color: string; suggested: number | null };
@@ -14,7 +14,9 @@ type Fund = { id: string; name: string; color: string; suggested: number | null 
 export function WelcomePlan({ spaceId, month, currency, members, funds }: { spaceId: string; month: string; currency: string; members: Member[]; funds: Fund[] }) {
   const x = useTx();
   const router = useRouter();
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [fixed, setFixed] = useState({ description: "", amount: "", day: "1" });
+  const [fixedState, fixedAction, fixedPending] = useActionState(saveRecurring, {});
   const [income, setIncome] = useState<Record<string, string>>({});
   const [pct, setPct] = useState<Record<string, string>>(() => Object.fromEntries(funds.map((f) => [f.id, f.suggested === null ? "" : String(f.suggested)])));
   const [state, formAction, pending] = useActionState(savePlan, {});
@@ -28,11 +30,28 @@ export function WelcomePlan({ spaceId, month, currency, members, funds }: { spac
   const sum = bps.reduce<number>((a, b) => a + (b ?? 0), 0);
   const step2Ok = !invalid && sum > 0 && sum <= 10000;
 
+  // Plan guardado → tercer paso (primer gasto fijo); gasto fijo guardado → Inicio
   useEffect(() => {
     if (!state.ok) return;
-    const t = setTimeout(() => { router.replace("/inicio"); router.refresh(); }, 600);
+    const t = setTimeout(() => setStep(3), 500);
     return () => clearTimeout(t);
-  }, [state.ok, router]);
+  }, [state.ok]);
+  useEffect(() => {
+    if (!fixedState.ok) return;
+    const t = setTimeout(() => { router.replace("/inicio"); router.refresh(); }, 500);
+    return () => clearTimeout(t);
+  }, [fixedState.ok, router]);
+  const skip = () => { router.replace("/inicio"); router.refresh(); };
+  const fixedCents = parseToCents(fixed.amount) ?? 0;
+  const submitFixed = () => {
+    const d = Math.min(31, Math.max(1, Number(fixed.day) || 1));
+    const now = new Date();
+    const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + (now.getUTCDate() > d ? 1 : 0), 1));
+    next.setUTCDate(Math.min(d, new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0)).getUTCDate()));
+    const fd = new FormData();
+    fd.set("spaceId", spaceId); fd.set("description", fixed.description.trim()); fd.set("amount", fixed.amount); fd.set("frequency", "monthly"); fd.set("day", String(d)); fd.set("nextRun", next.toISOString().slice(0, 10));
+    startTransition(() => fixedAction(fd));
+  };
 
   const submit = () => {
     const fd = new FormData();
@@ -44,8 +63,8 @@ export function WelcomePlan({ spaceId, month, currency, members, funds }: { spac
 
   return (
     <section className="flex flex-col gap-5 pt-2" aria-labelledby="welcome-title">
-      <p className="text-sm text-ink-3" aria-live="polite">{x("Paso")} {step} {x("de")} 2</p>
-      <h1 id="welcome-title" className="text-2xl font-bold">{step === 1 ? x("¿Cuánto ingresas este mes?") : x("Tu plan sugerido")}</h1>
+      <p className="text-sm text-ink-3" aria-live="polite">{x("Paso")} {step} {x("de")} 3</p>
+      <h1 id="welcome-title" className="text-2xl font-bold">{step === 1 ? x("¿Cuánto ingresas este mes?") : step === 2 ? x("Tu plan sugerido") : x("Tu primer gasto fijo")}</h1>
 
       {step === 1 ? (
         <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); if (step1Ok) setStep(2); }}>
@@ -59,6 +78,17 @@ export function WelcomePlan({ spaceId, month, currency, members, funds }: { spac
             </label>
           ))}
           <button type="submit" disabled={!step1Ok} className="min-h-12 rounded-full bg-accent px-6 font-semibold text-on-accent disabled:cursor-not-allowed disabled:opacity-50">{x("Siguiente")}</button>
+        </form>
+      ) : step === 3 ? (
+        <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); if (fixed.description.trim() && fixedCents > 0) submitFixed(); }}>
+          <p className="text-sm text-ink-2">{x("Alquiler, luz, una suscripción… Lo apuntamos cada mes y te avisamos antes de que llegue. Puedes añadir más después en Plan.")}</p>
+          <input value={fixed.description} onChange={(e) => setFixed({ ...fixed, description: e.target.value })} maxLength={120} placeholder={x("Alquiler")} aria-label={x("Concepto")} className="min-h-12 rounded-card border border-border bg-surface px-4 text-base text-ink placeholder:text-ink-3" />
+          <input inputMode="decimal" value={fixed.amount} onChange={(e) => setFixed({ ...fixed, amount: e.target.value })} placeholder="650,00" aria-label={x("Importe")} className="min-h-12 rounded-card border border-border bg-surface px-4 font-mono text-lg text-ink" />
+          <label className="flex items-center justify-between gap-3 text-sm text-ink-2">{x("Día del mes")}
+            <input type="number" min={1} max={31} value={fixed.day} onChange={(e) => setFixed({ ...fixed, day: e.target.value })} aria-label={x("Día del mes")} className="min-h-12 w-24 rounded-card border border-border bg-surface px-3 text-center font-mono text-ink" /></label>
+          {fixedState.error && <p role="alert" className="text-sm text-over-text">{fixedState.error}</p>}
+          {fixedState.ok && <p role="status" className="text-sm text-ink-2">{x("Gasto fijo guardado.")}</p>}
+          <button type="submit" disabled={!fixed.description.trim() || fixedCents <= 0 || fixedPending || !!fixedState.ok} className="min-h-12 rounded-full bg-accent px-6 font-semibold text-on-accent disabled:cursor-not-allowed disabled:opacity-50">{fixedPending ? x("Guardando…") : x("Guardar y terminar")}</button>
         </form>
       ) : (
         <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); if (step2Ok) submit(); }}>
@@ -88,6 +118,7 @@ export function WelcomePlan({ spaceId, month, currency, members, funds }: { spac
           </div>
         </form>
       )}
+      <button type="button" onClick={skip} className="min-h-11 self-center px-4 text-sm text-ink-2 underline-offset-4 hover:underline">{step === 3 ? x("Terminar sin gasto fijo") : x("Saltar por ahora")}</button>
     </section>
   );
 }

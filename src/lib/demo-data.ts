@@ -6,7 +6,15 @@ export type DemoBubble = {
   /** Fondos del plan: lo gastado NO se guarda aquí, se calcula sumando los movimientos (así Inicio y Movimientos siempre coinciden). */
   funds: { name: string; color: string; planned: number; savings?: boolean }[]; series: number[]; expenses: DemoExpense[];
 };
-export type DemoGoal = { id: string; name: string; targetCents: number; savedCents: number };
+export type DemoRecurring = { id: string; text: string; cents: number; day: number };
+export type DemoGoal = { id: string; name: string; targetCents: number; savedCents: number; contributions: { date: string; cents: number; by: string }[] };
+
+/** Gastos fijos ficticios por burbuja (el día es el del mes). */
+export const DEMO_RECURRING: Record<string, DemoRecurring[]> = {
+  personal: [{ id: "rp1", text: "Alquiler", cents: 65000, day: 1 }, { id: "rp2", text: "Spotify", cents: 1099, day: 5 }, { id: "rp3", text: "Gimnasio", cents: 3500, day: 10 }, { id: "rp4", text: "Luz", cents: 5890, day: 15 }],
+  household: [{ id: "rh1", text: "Alquiler", cents: 90000, day: 1 }, { id: "rh2", text: "Internet", cents: 3490, day: 5 }, { id: "rh3", text: "Luz y agua", cents: 11800, day: 9 }, { id: "rh4", text: "Comunidad", cents: 4500, day: 2 }],
+  lisboa: [],
+};
 
 const e = (id: string, text: string, cents: number, category: string, day: number, payer: string, participants: string[]): DemoExpense => ({ id, text, cents, category, day, payer, participants });
 const AL = ["Ana", "Leo"], ALMI = ["Ana", "Leo", "Marta", "Iván"];
@@ -63,7 +71,7 @@ export const DEMO_BUBBLES: DemoBubble[] = [
 ];
 
 export const DEMO_GOALS: DemoGoal[] = [
-  { id: "g1", name: "Colchón de emergencia", targetCents: 300000, savedCents: 300000 },
-  { id: "g2", name: "Viaje a Japón", targetCents: 300000, savedCents: 120000 },
-  { id: "g3", name: "Reto de las 52 semanas", targetCents: 137800, savedCents: 40600 },
+  { id: "g1", name: "Colchón de emergencia", targetCents: 300000, savedCents: 300000, contributions: [{ date: "2026-06-03", cents: 100000, by: "Ana" }, { date: "2026-08-03", cents: 100000, by: "Ana" }, { date: "2026-10-03", cents: 100000, by: "Ana" }] },
+  { id: "g2", name: "Viaje a Japón", targetCents: 300000, savedCents: 120000, contributions: [{ date: "2026-08-12", cents: 40000, by: "Ana" }, { date: "2026-09-12", cents: 40000, by: "Leo" }, { date: "2026-10-12", cents: 40000, by: "Ana" }] },
+  { id: "g3", name: "Reto de las 52 semanas", targetCents: 137800, savedCents: 40600, contributions: [{ date: "2026-10-05", cents: 15000, by: "Ana" }, { date: "2026-10-26", cents: 12600, by: "Ana" }, { date: "2026-11-16", cents: 13000, by: "Ana" }] },
 ];

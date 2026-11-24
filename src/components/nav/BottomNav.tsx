@@ -32,14 +32,14 @@ function Item({ href, label, icon, active }: { href: string; label: string; icon
       href={href}
       prefetch
       aria-current={active ? "page" : undefined}
-      className={`flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium ${
+      className={`flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-medium ${
         active ? "text-ink" : "text-ink-3"
       }`}
     >
       <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>
         {icon}
       </svg>
-      <span>{label}</span>
+      <span className="max-w-full truncate">{label}</span>
       <span aria-hidden className="h-0.5 w-5 rounded-full" style={{ background: active ? "var(--accent)" : "transparent" }} />
     </Link>
   );
@@ -61,10 +61,10 @@ export function BottomNav({ activeSpaceId }: { activeSpaceId: string }) {
       aria-label={t("main")}
       className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)]"
     >
-      <div className="mx-auto flex max-w-md items-end">
+      <div className="mx-auto grid max-w-md grid-cols-5 items-end">
         <Item {...items[0]!} label={t(items[0]!.id)} active={on(items[0]!.href)} />
         <Item {...items[1]!} label={t(items[1]!.id)} active={on(items[1]!.href)} />
-        <div className="flex flex-1 justify-center">
+        <div className="flex min-w-0 justify-center">
           <PlusButton activeSpaceId={activeSpaceId} />
         </div>
         <Item {...items[2]!} label={t(items[2]!.id)} active={on(items[2]!.href)} />
