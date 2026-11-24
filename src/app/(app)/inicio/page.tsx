@@ -120,7 +120,7 @@ export default async function HomePage() {
         {([["/inicio/ingresos", t("income"), formatMoney(o.income, "EUR", locale)], ["/inicio/ahorro", t("savingsRate"), pctText(o.savingsBp)], ["/inicio/prevision", t("forecast"), formatMoney(o.forecastLeftover, "EUR", locale)]] as const).map(([href, k, v]) => (
           <li key={href} className="@container min-w-0">
             <Link href={href} aria-label={`${k}: ${v}. ${x("Ver detalle")}`} className="block h-full rounded-card border border-border bg-surface p-3 transition-colors hover:bg-surface-2 active:bg-surface-2 focus-visible:outline-2 focus-visible:outline-accent">
-              <span className="flex items-center justify-between gap-1 text-xs text-ink-3"><span className="truncate">{k}</span><span aria-hidden>›</span></span>
+              <span className="flex items-start justify-between gap-1 text-xs leading-tight text-ink-3"><span className="min-w-0">{k}</span><span aria-hidden className="shrink-0">›</span></span>
               <span className="money mt-1 block whitespace-nowrap font-mono" style={{ fontSize: "clamp(0.68rem, 15cqw, 1rem)" }}>{v}</span>
             </Link>
           </li>

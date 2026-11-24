@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { NAV_ICONS } from "@/components/nav/BottomNav";
 import { PlanBubbles } from "@/components/charts/PlanBubbles";
 import { SpendChart } from "@/components/charts/SpendChart";
 import { ExpenseSheet, type SheetPrefill } from "@/components/expense/ExpenseSheet";
@@ -137,7 +138,7 @@ function TabBtn({ t, on, set }: { t: Tab; on: boolean; set: (t: Tab) => void }) 
   const label = x({ inicio: "Inicio", movimientos: "Movimientos", balance: "Balance", plan: "Plan", ahorro: "Ahorro", meta: "Ahorro" }[t]);
   return (
     <button onClick={() => set(t)} aria-current={on ? "page" : undefined} className={`flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 px-1 text-[11px] font-medium ${on ? "text-ink" : "text-ink-3"}`}>
-      <span className="max-w-full truncate">{label}</span><span aria-hidden className="h-0.5 w-5 rounded-full" style={{ background: on ? "var(--accent)" : "transparent" }} />
+      {t in NAV_ICONS && <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden>{NAV_ICONS[t as keyof typeof NAV_ICONS]}</svg>}<span className="max-w-full truncate">{label}</span><span aria-hidden className="h-0.5 w-5 rounded-full" style={{ background: on ? "var(--accent)" : "transparent" }} />
     </button>
   );
 }

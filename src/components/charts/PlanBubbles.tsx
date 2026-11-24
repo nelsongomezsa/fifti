@@ -8,6 +8,7 @@ import { hierarchy, pack } from "d3-hierarchy";
 export type BubbleFund = { id: string; name: string; color: string; planned: number; spent: number; savings?: boolean; href?: string };
 
 type Node = { children?: BubbleFund[] };
+const shown = (n: string) => (n.length > 18 ? `${n.slice(0, 17)}…` : n);
 
 /**
  * Burbujas del plan: el tamaño es lo previsto y la parte coloreada lo gastado; lo que queda va vacío ("lo que queda").
@@ -38,8 +39,8 @@ export function PlanBubbles({ funds, currency }: { funds: BubbleFund[]; currency
               {h > 0 && h < l.r * 2 && <line x1={l.x - l.r} x2={l.x + l.r} y1={l.y + l.r - h} y2={l.y + l.r - h} stroke="var(--text)" strokeOpacity={0.35} strokeDasharray="3 3" clipPath={`url(#bub-${i})`} />}
               {l.r > 26 && (
                 <g>
-                  <rect x={l.x - Math.min(l.r - 4, 34)} y={l.y - 13} width={Math.min(l.r - 4, 34) * 2} height={26} rx={13} fill="var(--bg)" opacity={0.82} />
-                  <text x={l.x} y={l.y - 2} textAnchor="middle" fontSize={Math.max(9, Math.min(12, l.r / 3.4))} fontWeight={600} fill="var(--text)">{f.name.length > 11 ? `${f.name.slice(0, 10)}…` : f.name}</text>
+                  <rect x={l.x - Math.min(l.r - 4, Math.max(26, shown(f.name).length * 3.4 + 10))} y={l.y - 13} width={Math.min(l.r - 4, Math.max(26, shown(f.name).length * 3.4 + 10)) * 2} height={26} rx={13} fill="var(--bg)" opacity={0.85} />
+                  <text x={l.x} y={l.y - 2} textAnchor="middle" fontSize={Math.max(9, Math.min(11, l.r / 3.8))} fontWeight={600} fill="var(--text)">{shown(f.name)}</text>
                   <text x={l.x} y={l.y + 9} textAnchor="middle" fontSize={9} fill="var(--text-2)" fontFamily="var(--font-plex-mono)">{pct} %</text>
                 </g>
               )}

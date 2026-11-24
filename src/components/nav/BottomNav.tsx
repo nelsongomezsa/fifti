@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { PlusButton } from "./PlusButton";
 
 const stroke = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" } as const;
-const icons = {
+export const NAV_ICONS = {
   inicio: <path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4v-5h-6v5H5a1 1 0 0 1-1-1z" {...stroke} />,
   movimientos: <path d="M5 7h14M5 12h14M5 17h9" {...stroke} />,
   plan: (
@@ -20,10 +20,10 @@ const icons = {
 };
 
 const items = [
-  { href: "/inicio", id: "home", icon: icons.inicio },
-  { href: "/movimientos", id: "movements", icon: icons.movimientos },
-  { href: "/plan", id: "plan", icon: icons.plan },
-  { href: "/ahorro", id: "savings", icon: icons.ahorro },
+  { href: "/inicio", id: "home", icon: NAV_ICONS.inicio },
+  { href: "/movimientos", id: "movements", icon: NAV_ICONS.movimientos },
+  { href: "/plan", id: "plan", icon: NAV_ICONS.plan },
+  { href: "/ahorro", id: "savings", icon: NAV_ICONS.ahorro },
 ] as const;
 
 function Item({ href, label, icon, active }: { href: string; label: string; icon: React.ReactNode; active: boolean }) {
