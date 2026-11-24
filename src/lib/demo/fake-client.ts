@@ -94,10 +94,10 @@ class Query implements PromiseLike<{ data: unknown; error: unknown; count?: numb
   constructor(private db: Db, private table: string) {}
 
   select(cols = "*", opts?: { count?: string; head?: boolean }) { this.cols = cols; this.count = !!opts?.count; this.head = !!opts?.head; return this; }
-  insert() { this.mutation = true; return this; }
-  update() { this.mutation = true; return this; }
-  upsert() { this.mutation = true; return this; }
-  delete() { this.mutation = true; return this; }
+  insert(..._args: unknown[]) { void _args; this.mutation = true; return this; }
+  update(..._args: unknown[]) { void _args; this.mutation = true; return this; }
+  upsert(..._args: unknown[]) { void _args; this.mutation = true; return this; }
+  delete(..._args: unknown[]) { void _args; this.mutation = true; return this; }
   eq(col: string, val: unknown) { this.filters.push({ col, op: "eq", val }); return this; }
   neq(col: string, val: unknown) { this.filters.push({ col, op: "neq", val }); return this; }
   gt(col: string, val: unknown) { this.filters.push({ col, op: "gt", val }); return this; }
