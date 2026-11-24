@@ -684,5 +684,8 @@
   "Contraseña cambiada.": "Password changed.",
   "La contraseña actual no es correcta.": "The current password isn't correct.",
   "La contraseña nueva debe ser distinta de la actual.": "The new password must be different from the current one.",
-  "Escribe tu contraseña actual": "Enter your current password"
+  "Escribe tu contraseña actual": "Enter your current password",
+  "Para adjuntar la foto del ticket guarda primero el gasto y añádela desde su detalle.": "To attach the receipt photo, save the expense first and add it from its detail.",
+  "Pendiente de subir": "Waiting to upload",
+  "Reintentar": "Retry"
 }

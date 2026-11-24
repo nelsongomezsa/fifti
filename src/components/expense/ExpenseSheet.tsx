@@ -36,11 +36,13 @@ const chip = (on: boolean) =>
 const ACCENTS = { personal: "var(--lilac)", household: "var(--lime)", group: "var(--tangerine)" } as const;
 
 export function ExpenseSheet({
-  ctx, defaultSpaceId, prefill, onClose, onSaved, demo,
+  ctx, defaultSpaceId, prefill, onClose, onSaved, demo, optimistic,
 }: {
   ctx: SheetContext; defaultSpaceId: string; prefill?: SheetPrefill; onClose: () => void; onSaved: (info: SavedInfo) => void;
   /** Modo demo: el gasto se entrega a este manejador (en memoria) y no se llama a ningún servidor. */
   demo?: { submit: (input: ExpenseInput) => Promise<SaveResult> };
+  /** Guardado optimista: la hoja se cierra al instante y quien la abrió se encarga de enviar el gasto. */
+  optimistic?: (input: ExpenseInput, info: { shareCents: number; baseCents: number; spaceName: string; currency: string }) => void;
 }) {
   const x = useTx();
   const initialSpace = useMemo(() => {
@@ -143,6 +145,13 @@ export function ExpenseSheet({
       payers, isPrivate: isGroup && isPrivate,
       tags: tags.split(/[\s,#]+/).map((t) => t.trim().toLowerCase()).filter(Boolean).slice(0, 8),
     };
+    if (optimistic && !demo && !prefill?.edit) {
+      if (photo) { setError(x("Para adjuntar la foto del ticket guarda primero el gasto y añádela desde su detalle.")); return; }
+      try { localStorage.setItem(LAST_KEY, space.id); } catch { /* sin almacenamiento */ }
+      optimistic(input, { shareCents: live.share, baseCents, spaceName: space.kind === "personal" ? x("Personal") : space.name, currency: space.currency });
+      onClose();
+      return;
+    }
     setSaving(true);
     const res = demo ? await demo.submit(input) : await submitExpense(input);
     setSaving(false);

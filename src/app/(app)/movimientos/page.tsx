@@ -2,6 +2,7 @@ import { getTx } from "@/i18n/tx";
 import { displayName } from "@/lib/system-names";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PendingExpenseRows } from "@/components/expense/optimistic";
 import { addMonths, formatMoney, isMonthStart, monthStart } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
@@ -86,6 +87,7 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
         <span className="money font-mono text-ink">{formatMoney(total, "EUR", x.locale)}</span>
       </p>
 
+      <PendingExpenseRows spaceId={active.id} month={month} />
       {(mirrors ?? []).length > 0 && (
         <ul className="flex flex-col gap-2" aria-label={x("Tu parte de gastos de grupo")}>
           {mirrors!.map((mr) => (

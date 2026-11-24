@@ -1,6 +1,7 @@
 import { getTx } from "@/i18n/tx";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { OptimisticLeftover } from "@/components/expense/optimistic";
 import { getLocale, getTranslations } from "next-intl/server";
 import { SpendChart } from "@/components/charts/SpendChart";
 import { dailyBudgetLeft } from "@/lib/fx";
@@ -59,7 +60,7 @@ export default async function HomePage() {
 
       <div>
         <p className="text-sm text-ink-3">{t("leftIn", { month: monthName })}</p>
-        <p className={`money font-mono text-5xl font-semibold ${o.leftover < 0 ? "text-over-text" : ""}`}>{formatMoney(o.leftover, "EUR", x.locale)}</p>
+        <OptimisticLeftover base={o.leftover} spaceId={active.id} kind={active.kind} currency="EUR" />
         <p className="money mt-1 font-mono text-sm text-ink-2" aria-label={x("Variación frente al mes anterior")}>
           {o.change.deltaCents >= 0 ? "+" : ""}{formatMoney(o.change.deltaCents, "EUR", x.locale)} {t("vsPrev")}
           {o.change.percentBp !== null && ` (${o.change.percentBp >= 0 ? "+" : ""}${pctText(o.change.percentBp)})`}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { AppLock } from "@/components/lock/AppLock";
+import { PendingExpensesProvider } from "@/components/expense/optimistic";
 import { createClient } from "@/lib/supabase/server";
 import { toggleDiscreet } from "@/server/actions/prefs";
 import { Logo } from "@/components/brand/Logo";
@@ -22,6 +23,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div data-bubble={active?.kind ?? "personal"} data-discreet={discreet ? "true" : "false"} className="mx-auto min-h-dvh max-w-md pb-28">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[80] focus:rounded-full focus:bg-lime focus:px-4 focus:py-3 focus:text-on-accent">{t("skip")}</a>
       <AppLock>
+      <PendingExpensesProvider>
       <header className="flex items-center justify-between px-4 pt-4">
         <Logo height={24} />
         <div className="flex gap-2">
@@ -47,6 +49,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <PendingIndicator />
       <main id="main" className="px-4">{children}</main>
       {active && <BottomNav activeSpaceId={active.id} />}
+      </PendingExpensesProvider>
       </AppLock>
     </div>
   );

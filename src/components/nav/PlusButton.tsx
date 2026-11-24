@@ -1,114 +1,175 @@
 "use client";
 
-
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { ExpenseSheet, type SheetPrefill } from "@/components/expense/ExpenseSheet";
+import { usePendingExpenses } from "@/components/expense/optimistic";
 import { useTx } from "@/i18n/tx-client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { submitExpense } from "@/lib/offline/submit";
+import { formatMoney } from "@/lib/money";
+import type { ExpenseInput } from "@/lib/validation/expense";
 import { deleteExpense } from "@/server/actions/expenses";
 import { loadSheetContext, type SheetContext } from "@/server/actions/sheet";
-import { formatMoney } from "@/lib/money";
-import { ExpenseSheet, type SavedInfo, type SheetPrefill } from "@/components/expense/ExpenseSheet";
 
 export const CTX_CACHE_KEY = "fifti:sheetCtx";
 
-/** Botón "+" central: toque = hoja de nuevo gasto; pulsación larga = favoritos. Gestiona el toast con "Deshacer". */
+type Toast =
+  | { type: "saved"; cid: string; id: string | null; spaceName: string; shareCents: number; currency: string; queued: boolean }
+  | { type: "error"; message: string; retry: SheetPrefill };
+
+const readCached = (): SheetContext | null => {
+  try { return JSON.parse(localStorage.getItem(CTX_CACHE_KEY) ?? "null") as SheetContext | null; } catch { return null; }
+};
+
+/**
+ * Botón "+" central. Es un enlace real (?nuevo=gasto): si se toca antes de que la página termine de cargar, igualmente abre la hoja.
+ * Con la página lista abre al instante (usa el contexto guardado y lo refresca en segundo plano) y guarda de forma optimista.
+ */
 export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
   const x = useTx();
+  const router = useRouter();
+  const pending = usePendingExpenses();
   const [ctx, setCtx] = useState<SheetContext | null>(null);
   const [sheet, setSheet] = useState<SheetPrefill | null>(null);
   const [favs, setFavs] = useState(false);
-  const [toast, setToast] = useState<SavedInfo | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
+  const [refreshing, startRefresh] = useTransition();
+  const savedRef = useRef<string[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const press = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longFired = useRef(false);
+  const cancelled = useRef(new Set<string>());
 
-  const ensureCtx = useCallback(async () => {
-    if (ctx) return ctx;
-    let c: SheetContext | null = null;
+  const refreshCtx = useCallback(async () => {
     try {
-      c = await loadSheetContext();
+      const c = await loadSheetContext();
+      setCtx(c);
       try { localStorage.setItem(CTX_CACHE_KEY, JSON.stringify(c)); } catch { /* sin almacenamiento */ }
     } catch {
-      // Sin conexión: se usan las burbujas y categorías guardadas en el dispositivo
-      try { c = JSON.parse(localStorage.getItem(CTX_CACHE_KEY) ?? "null") as SheetContext | null; } catch { c = null; }
+      setCtx((cur) => cur ?? readCached()); // sin conexión: lo guardado en el dispositivo
     }
-    const result = c ?? { spaces: [], favorites: [] };
-    setCtx(result);
-    return result;
-  }, [ctx]);
-
-  // Atajo de la PWA: /inicio?nuevo=gasto abre la hoja
-  useEffect(() => {
-    const q = new URLSearchParams(window.location.search);
-    if (q.get("nuevo") !== "gasto") return;
-    const t = setTimeout(() => { void ensureCtx().then(() => setSheet({})); }, 0);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Precarga: contexto guardado al instante y datos frescos cuando el navegador está libre
+  useEffect(() => {
+    const t0 = setTimeout(() => {
+      const cached = readCached();
+      if (cached) setCtx(cached);
+      const q = new URLSearchParams(window.location.search);
+      if (q.get("nuevo") === "gasto") {
+        setSheet({});
+        q.delete("nuevo");
+        const rest = q.toString();
+        window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
+      }
+    }, 0);
+    const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
+    const t1 = idle ? idle(() => void refreshCtx()) : window.setTimeout(() => void refreshCtx(), 300);
+    return () => { clearTimeout(t0); if (!idle) clearTimeout(t1 as number); };
+  }, [refreshCtx]);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  useEffect(() => {
+    if (refreshing || savedRef.current.length === 0) return;
+    const done = savedRef.current;
+    savedRef.current = [];
+    const t = setTimeout(() => pending.remove(done), 0);
+    return () => clearTimeout(t);
+  }, [refreshing, pending]);
 
-  const showToast = (info: SavedInfo) => {
-    setToast(info);
+  const showToast = (t: Toast) => {
+    setToast(t);
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => setToast(null), 5000);
   };
 
+  const openSheet = (prefill: SheetPrefill = {}) => {
+    setFavs(false);
+    setSheet(prefill);
+    if (!ctx) void refreshCtx();
+  };
+
+  /** Guardado optimista: el gasto aparece ya en la lista y en Inicio; si el servidor falla se revierte. */
+  const submitOptimistic = async (input: ExpenseInput, info: { shareCents: number; baseCents: number; spaceName: string; currency: string }) => {
+    const cid = input.clientId;
+    pending.add({ cid, spaceId: input.spaceId, description: input.description, amountCents: input.amountCents, baseCents: info.baseCents, shareCents: info.shareCents, currency: input.currency, spentAt: input.spentAt, status: "saving" });
+    showToast({ type: "saved", cid, id: null, spaceName: info.spaceName, shareCents: info.shareCents, currency: info.currency, queued: false });
+    const res = await submitExpense(input).catch(() => ({ ok: false as const, error: "No se ha podido guardar el gasto." }));
+    if (!res.ok) {
+      pending.remove([cid]);
+      showToast({ type: "error", message: res.error, retry: { spaceId: input.spaceId, amountCents: input.amountCents, categoryId: input.categoryId ?? null, description: input.description } });
+      return;
+    }
+    if (cancelled.current.has(cid)) { // la persona pulsó Deshacer antes de que terminara el guardado
+      cancelled.current.delete(cid);
+      if (res.id !== "pending") await deleteExpense(res.id);
+      pending.remove([cid]);
+      startRefresh(() => router.refresh());
+      return;
+    }
+    const queued = res.id === "pending";
+    pending.patch(cid, { status: queued ? "queued" : "saved" });
+    setToast((t) => (t && t.type === "saved" && t.cid === cid ? { ...t, id: queued ? null : res.id, queued } : t));
+    if (!queued) {
+      savedRef.current.push(cid); // se retira cuando la lista real (con este gasto) ya está pintada
+      startRefresh(() => router.refresh());
+    }
+  };
+
   const undo = async () => {
-    if (!toast) return;
-    const id = toast.id;
+    if (!toast || toast.type !== "saved") return;
+    const t = toast;
     setToast(null);
-    if (id !== "pending") await deleteExpense(id);
+    if (t.id) {
+      pending.remove([t.cid]);
+      await deleteExpense(t.id);
+      startRefresh(() => router.refresh());
+    } else {
+      cancelled.current.add(t.cid);
+      pending.remove([t.cid]);
+    }
   };
 
   const onDown = () => {
     longFired.current = false;
-    press.current = setTimeout(async () => {
-      longFired.current = true;
-      await ensureCtx();
-      setFavs(true);
-    }, 500);
-  };
-  const onUp = async () => {
-    if (press.current) clearTimeout(press.current);
-    if (longFired.current) return;
-    await ensureCtx();
-    setSheet({});
+    press.current = setTimeout(() => { longFired.current = true; setFavs(true); if (!ctx) void refreshCtx(); }, 500);
   };
 
   return (
     <>
-      <button
-        type="button"
+      <a
+        href="?nuevo=gasto"
+        role="button"
         aria-label={x("Añadir gasto")}
         aria-haspopup="dialog"
         onPointerDown={onDown}
-        onPointerUp={onUp}
+        onPointerUp={() => { if (press.current) clearTimeout(press.current); }}
         onPointerLeave={() => { if (press.current) clearTimeout(press.current); }}
-        onKeyDown={(e) => {
-          const { key } = e;
-          if (key === "Enter" || key === " ") { e.preventDefault(); void ensureCtx().then(() => setSheet({})); }
+        onClick={(e) => {
+          e.preventDefault();
+          if (longFired.current) { longFired.current = false; return; }
+          openSheet();
         }}
+        onKeyDown={(e) => { const { key } = e; if (key === " ") { e.preventDefault(); openSheet(); } }}
         onContextMenu={(e) => e.preventDefault()}
         className="-mt-5 mb-2 grid size-16 touch-manipulation select-none place-items-center rounded-full bg-accent text-on-accent shadow-[0_0_0_6px_var(--bg)]"
       >
         <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden>
           <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
         </svg>
-      </button>
+      </a>
 
-      {favs && ctx && (
+      {favs && (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50" onClick={() => setFavs(false)}>
-          <div role="dialog" aria-label={x("Favoritos")} onClick={(e) => e.stopPropagation()}
-            className="mb-28 w-full max-w-md rounded-t-[24px] border border-border bg-surface-2 p-4">
+          <div role="dialog" aria-label={x("Favoritos")} onClick={(e) => e.stopPropagation()} className="mb-28 w-full max-w-md rounded-t-[24px] border border-border bg-surface-2 p-4">
             <h2 className="mb-3 text-lg font-bold">{x("Favoritos")}</h2>
-            {ctx.favorites.length === 0 ? (
+            {!ctx ? <div className="h-11 w-2/3 animate-pulse rounded-full bg-track" /> : ctx.favorites.length === 0 ? (
               <p className="text-sm text-ink-3">{x("Aún no tienes favoritos. Se crean desde Más.")}</p>
             ) : (
               <ul className="flex flex-wrap gap-2">
                 {ctx.favorites.map((f) => (
                   <li key={f.id}>
                     <button type="button" className="min-h-11 rounded-full border border-border px-4 text-sm"
-                      onClick={() => { setFavs(false); setSheet({ spaceId: f.spaceId, amountCents: f.amountCents, categoryId: f.categoryId, description: f.label }); }}>
+                      onClick={() => openSheet({ spaceId: f.spaceId, amountCents: f.amountCents, categoryId: f.categoryId, description: f.label })}>
                       {f.label} <span className="font-mono text-ink-3">{formatMoney(f.amountCents, "EUR", x.locale)}</span>
                     </button>
                   </li>
@@ -119,17 +180,39 @@ export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
         </div>
       )}
 
+      {sheet && !ctx && (
+        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/60" onClick={() => setSheet(null)}>
+          <div role="dialog" aria-modal="true" aria-busy="true" aria-label={x("Nuevo gasto")} onClick={(e) => e.stopPropagation()}
+            className="anim-sheet flex h-[70dvh] w-full max-w-md flex-col gap-3 rounded-t-[24px] border border-border bg-surface-2 p-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold">{x("Nuevo gasto")}</h2>
+              <button type="button" onClick={() => setSheet(null)} aria-label={x("Cerrar")} className="grid min-h-11 min-w-11 place-items-center text-ink-2">✕</button>
+            </div>
+            <div className="h-11 w-2/3 animate-pulse rounded-full bg-track" /><div className="h-12 w-1/2 animate-pulse rounded-card bg-track" />
+            <div className="h-11 w-full animate-pulse rounded-card bg-track" /><div className="mt-auto h-12 w-full animate-pulse rounded-full bg-track" />
+          </div>
+        </div>
+      )}
       {sheet && ctx && ctx.spaces.length > 0 && (
-        <ExpenseSheet ctx={ctx} defaultSpaceId={activeSpaceId} prefill={sheet} onClose={() => setSheet(null)} onSaved={showToast} />
+        <ExpenseSheet ctx={ctx} defaultSpaceId={activeSpaceId} prefill={sheet} onClose={() => setSheet(null)} onSaved={() => undefined} optimistic={(i, info) => void submitOptimistic(i, info)} />
       )}
 
       {toast && (
         <div role="status" className="anim-fade fixed inset-x-4 bottom-28 z-50 mx-auto flex max-w-md items-center justify-between gap-3 rounded-card border border-border bg-surface-2 px-4 py-3 shadow-lg">
-          <span className="text-sm">
-            {toast.pending ? x("Guardado sin conexión en ") : x("Guardado en ")}{toast.spaceName}
-            {toast.shareCents > 0 && <span className="font-mono text-ink-2"> {x("· tu parte")}{" "}{formatMoney(toast.shareCents, toast.currency, x.locale)}</span>}
-          </span>
-          <button type="button" onClick={undo} className="min-h-11 px-3 text-sm font-semibold">{x("Deshacer")}</button>
+          {toast.type === "saved" ? (
+            <>
+              <span className="text-sm">
+                {toast.queued ? x("Guardado sin conexión en ") : x("Guardado en ")}{toast.spaceName}
+                {toast.shareCents > 0 && <span className="font-mono text-ink-2"> · {x("tu parte")} {formatMoney(toast.shareCents, toast.currency, x.locale)}</span>}
+              </span>
+              <button type="button" onClick={undo} className="min-h-11 px-3 text-sm font-semibold">{x("Deshacer")}</button>
+            </>
+          ) : (
+            <>
+              <span className="text-sm text-over-text">{x(toast.message)}</span>
+              <button type="button" onClick={() => { const r = toast.retry; setToast(null); openSheet(r); }} className="min-h-11 px-3 text-sm font-semibold">{x("Reintentar")}</button>
+            </>
+          )}
         </div>
       )}
     </>
