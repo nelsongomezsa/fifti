@@ -16,7 +16,7 @@ export const RULES = {
   guestJoin: { action: "guest-join", limit: 15, windowSeconds: 3600 },
   claim: { action: "claim", limit: 10, windowSeconds: 3600 },
   comment: { action: "comment", limit: 30, windowSeconds: 600 },
-  importCsv: { action: "import-csv", limit: 5, windowSeconds: 3600 },
+  importCsv: { action: "import-csv", limit: 15, windowSeconds: 3600 },
   publicSummary: { action: "public-summary", limit: 60, windowSeconds: 600 },
   upload: { action: "upload", limit: 30, windowSeconds: 3600 },
   aiPhrase: { action: "ai-phrase", limit: 30, windowSeconds: 86400 },
