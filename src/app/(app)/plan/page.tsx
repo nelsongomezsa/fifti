@@ -3,6 +3,7 @@ import { displayName } from "@/lib/system-names";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ActionForm, inputClass } from "@/components/ui/ActionForm";
+import { rotationPayer } from "@/lib/calendar";
 import { SetupPlanCard } from "@/components/plan/SetupPlanCard";
 import { PlanBubbles } from "@/components/charts/PlanBubbles";
 import { detectSubscriptions } from "@/lib/detect";
@@ -26,7 +27,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
   const month = sp.mes && isMonthStart(sp.mes) ? sp.mes : monthStart(new Date());
   // Todas las consultas de la página en una sola ronda de red
   const sideQueries = Promise.all([
-    supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, next_run, active, category_id, paid_from").eq("space_id", active.id).order("next_run"),
+    supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, next_run, active, category_id, paid_from, rotation, rotation_pos").eq("space_id", active.id).order("next_run"),
     supabase.from("categories").select("id, name, system_key").eq("space_id", active.id).order("name"),
     active.kind === "household" ? supabase.from("contribution_rules").select("mode, monthly_target_cents, values").eq("space_id", active.id).maybeSingle() : Promise.resolve({ data: null }),
     active.kind === "household" ? supabase.from("contributions").select("id, member_id, expected_cents, paid_cents").eq("space_id", active.id).eq("month", month) : Promise.resolve({ data: [] }),
@@ -191,7 +192,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
           <ul className="flex flex-col gap-2">
             {myRecurring.map((r) => (
               <li key={r.id} className="flex items-center justify-between rounded-card border border-border bg-surface px-4 py-3 text-sm">
-                <span>{r.description}<span className="block text-xs text-ink-3">{x(FREQ[r.frequency as keyof typeof FREQ])} {x("· próximo")}{" "}{r.next_run}{r.paid_from === "pot" ? " · del bote" : ""}</span></span>
+                <span>{r.description}<span className="block text-xs text-ink-3">{x(FREQ[r.frequency as keyof typeof FREQ])} {x("· próximo")}{" "}{r.next_run}{r.paid_from === "pot" ? " · del bote" : ""}</span>{(r.rotation?.length ?? 0) > 1 && <span className="block text-xs text-ink-2">{x("Turnos")}: {r.rotation.map(nm).join(" → ")} · {x("Le toca a")} {nm(rotationPayer(r.rotation, r.rotation_pos, 0) ?? "")}</span>}</span>
                 <span className="flex items-center gap-2">
                   <span className="money font-mono">{formatMoney(r.amount_cents, "EUR", x.locale)}</span>
                   <form action={deleteRecurring}><input type="hidden" name="recurringId" value={r.id} /><button aria-label={`Borrar ${r.description}`} className="min-h-11 min-w-11 text-over-text">✕</button></form>
@@ -213,6 +214,17 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
               </div>
               <label className="flex flex-col gap-1 text-xs text-ink-3">{x("Primer cobro")}<input name="nextRun" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} className={inputClass} /></label>
               <select name="categoryId" defaultValue="" aria-label={x("Categoría")} className={inputClass}><option value="">{x("Sin categoría")}</option>{cats?.map((c) => <option key={c.id} value={c.id}>{displayName(x, c.name, c.system_key)}</option>)}</select>
+              {active.kind !== "personal" && d.members.length > 1 && (
+                <fieldset className="flex flex-col gap-2 rounded-card border border-border p-3">
+                  <legend className="px-1 text-sm text-ink-2">{x("Paga por turnos")}</legend>
+                  <label className="flex min-h-11 items-center gap-2 text-sm text-ink-2"><input type="checkbox" name="turns" value="1" className="size-5" />{x("Cada cobro paga una persona distinta, por orden")}</label>
+                  <p className="text-xs text-ink-3">{x("Pon el orden (1, 2, 3…). Deja en blanco a quien no entre.")}</p>
+                  {d.members.map((m) => (
+                    <label key={m.id} className="flex items-center justify-between gap-3 text-sm text-ink-2">{m.display_name}
+                      <input name={`turn_${m.id}`} type="number" min={1} max={8} inputMode="numeric" aria-label={`${x("Orden de")} ${m.display_name}`} className="min-h-11 w-20 rounded-card border border-border bg-surface px-3 text-right font-mono text-ink" /></label>
+                  ))}
+                </fieldset>
+              )}
               {active.kind === "household" && <select name="paidFrom" aria-label={x("Quién paga")} className={inputClass}><option value="member">{x("Lo pago yo")}</option><option value="pot">{x("Sale del bote común")}</option></select>}
             </ActionForm>
           </details>

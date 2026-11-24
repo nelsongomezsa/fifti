@@ -182,3 +182,27 @@ export async function reopenGroup(fd: FormData) {
   await supabase.from("spaces").update({ archived_at: null }).eq("id", spaceId.data);
   revalidatePath("/", "layout");
 }
+
+const partnerSchema = z.object({ spaceId: uuidSchema.optional() }).strict();
+
+/** Un paso: crea el hogar (si no se indica uno) y una invitación de un solo uso para la pareja. El enlace se muestra una vez. */
+export async function startPartnerInvite(input: unknown): Promise<{ ok: true; spaceId: string; link: string } | { ok: false; error: string }> {
+  const x = await getTx();
+  const parsed = partnerSchema.safeParse(input ?? {});
+  if (!parsed.success) return { ok: false, error: x("Datos no válidos") };
+  const { supabase, user } = await session();
+  if (!user || user.is_anonymous) return { ok: false, error: x("Necesitas una cuenta.") };
+  if (!(await allow(RULES.createLink, user.id))) return { ok: false, error: x("Demasiados enlaces creados. Espera un rato.") };
+
+  let spaceId = parsed.data.spaceId;
+  if (!spaceId) {
+    const { data, error } = await supabase.rpc("create_space", { p_name: x("Nuestro hogar"), p_kind: "household", p_currency: "EUR", p_emoji: null, p_template: null, p_starts: null, p_ends: null });
+    if (error) return { ok: false, error: x(rpcMessage(error)) };
+    spaceId = data as string;
+  }
+  const { token, hash } = generateToken();
+  const { error } = await supabase.rpc("create_share_link", { p_space: spaceId, p_kind: "invite", p_token_hash: hash, p_ttl_seconds: 7 * 86400, p_max_uses: 1 });
+  if (error) return { ok: false, error: x(rpcMessage(error)) };
+  revalidatePath("/", "layout");
+  return { ok: true, spaceId, link: `${publicEnv().NEXT_PUBLIC_SITE_URL}/unirse/${token}` };
+}

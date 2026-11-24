@@ -24,3 +24,13 @@ export function projectRecurring(r: RecurringLite, monthIso: string): string[] {
   }
   return out;
 }
+
+/** Nº de cobro (0 = el próximo) al que corresponde una fecha proyectada; sirve para saber a quién le toca en un gasto fijo con turnos. */
+export function occurrenceNumber(r: Pick<RecurringLite, "frequency" | "nextRun">, dateIso: string): number {
+  const a = new Date(`${r.nextRun}T00:00:00Z`), b = new Date(`${dateIso}T00:00:00Z`);
+  if (r.frequency === "weekly") return Math.max(0, Math.round((b.getTime() - a.getTime()) / 604800000));
+  if (r.frequency === "monthly") return Math.max(0, (b.getUTCFullYear() - a.getUTCFullYear()) * 12 + b.getUTCMonth() - a.getUTCMonth());
+  return Math.max(0, b.getUTCFullYear() - a.getUTCFullYear());
+}
+/** Quién paga el cobro nº `n` con turnos: la rotación gira desde la posición guardada. */
+export const rotationPayer = (rotation: string[], pos: number, n: number): string | null => (rotation.length > 1 ? rotation[(pos + n) % rotation.length]! : null);

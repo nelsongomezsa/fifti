@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/session";
 
-const PROTECTED = ["/inicio", "/movimientos", "/plan", "/ahorro", "/mas", "/nueva", "/espacio", "/ingreso", "/balance", "/calendario", "/resumen-mensual", "/csv", "/tu-ano", "/bienvenida", "/nuevo", "/atajo", "/reglas"];
+const PROTECTED = ["/inicio", "/movimientos", "/plan", "/ahorro", "/mas", "/nueva", "/espacio", "/ingreso", "/balance", "/calendario", "/resumen-mensual", "/csv", "/tu-ano", "/bienvenida", "/nuevo", "/atajo", "/reglas", "/compra", "/prestamos"];
 const AUTH_PAGES = ["/login", "/registro", "/recuperar"];
 
 const matches = (path: string, list: string[]) => list.some((p) => path === p || path.startsWith(`${p}/`));

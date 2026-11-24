@@ -1,6 +1,7 @@
 import { getTx } from "@/i18n/tx";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PartnerInvite } from "@/components/home/PartnerInvite";
 import { SetupPlanCard } from "@/components/plan/SetupPlanCard";
 import { OptimisticLeftover } from "@/components/expense/optimistic";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -10,6 +11,7 @@ import { createClient } from "@/lib/supabase/server";
 import { loadSpaceBalance } from "@/server/balance";
 import { Suspense } from "react";
 import { ChangeLine, ChartCard } from "@/components/home/Deferred";
+import { loadLoans, loanTotals } from "@/server/loans";
 import { loadOverview, startSeries } from "@/server/overview";
 import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
 
@@ -24,7 +26,7 @@ export default async function HomePage() {
   // La serie de 6 meses arranca ya, pero no bloquea las cifras: la gráfica y la variación llegan después (Suspense)
   const seriesP = startSeries(supabase, active.id, active.kind);
   // Resumen, saldo del grupo y presupuesto del día no dependen entre sí: se piden a la vez.
-  const [o, balance, budget] = await Promise.all([
+  const [o, balance, budget, loanRows] = await Promise.all([
     loadOverview(supabase, active.id, active.kind, undefined, undefined, x.locale, true),
     active.kind !== "personal" ? loadSpaceBalance(supabase, active.id) : Promise.resolve(null),
     (async () => {
@@ -38,7 +40,9 @@ export default async function HomePage() {
       ]);
       return dailyBudgetLeft(sp.daily_budget_cents, count ?? 1, (ex ?? []).reduce((a, e) => a + e.amount_base_cents, 0));
     })(),
+    active.kind === "personal" && !user.is_anonymous ? loadLoans(supabase, user.id) : Promise.resolve([]),
   ]);
+  const loans = loanTotals(loanRows);
   const monthName = new Date(`${o.month}T00:00:00Z`).toLocaleDateString(locale, { month: "long", timeZone: "UTC" });
   const pctText = (bp: number) => `${(bp / 100).toFixed(0)} %`;
   const hasData = o.income > 0 || o.spent > 0;
@@ -61,6 +65,15 @@ export default async function HomePage() {
           <span className="block text-ink-3">{t("summaryCta")}</span>
         </Link>
       )}
+
+      {active.kind === "personal" && (loans.owedToMe > 0 || loans.iOwe > 0) && (
+        <Link href="/prestamos" className="flex min-h-12 items-center justify-between rounded-card border border-border bg-surface px-4 text-sm">
+          <span className="money font-mono">{x("Te deben")} {formatMoney(loans.owedToMe, "EUR", x.locale)} · {x("Debes")} {formatMoney(loans.iOwe, "EUR", x.locale)}</span>
+          <span aria-hidden className="text-ink-3">›</span>
+        </Link>
+      )}
+      {!user.is_anonymous && active.kind === "personal" && !spaces.some((sp) => sp.kind === "household") && <PartnerInvite />}
+      {active.kind === "household" && balance && balance.members.length === 1 && <PartnerInvite spaceId={active.id} dismissible={false} />}
 
       {!o.plan.configured ? (
         <>

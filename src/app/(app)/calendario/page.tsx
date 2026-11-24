@@ -1,14 +1,14 @@
 import { getTx } from "@/i18n/tx";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { projectRecurring } from "@/lib/calendar";
+import { occurrenceNumber, projectRecurring, rotationPayer } from "@/lib/calendar";
 import { addMonths, formatMoney, isMonthStart, monthStart } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
 
 export const metadata: Metadata = { title: "Calendario" };
 
-type Ev = { date: string; label: string; cents: number; kind: "fijo" | "meta" };
+type Ev = { date: string; label: string; cents: number; kind: "fijo" | "meta"; payer?: string };
 
 export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ mes?: string }> }) {
   const x = await getTx();
@@ -18,13 +18,17 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   if (!active) return null;
   const supabase = await createClient();
   const month = sp.mes && isMonthStart(sp.mes) ? sp.mes : monthStart(new Date());
-  const [{ data: rec }, { data: miles }] = await Promise.all([
-    supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, next_run").eq("space_id", active.id).eq("active", true),
+  const [{ data: rec }, { data: mem }, { data: miles }] = await Promise.all([
+    supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, next_run, rotation, rotation_pos").eq("space_id", active.id).eq("active", true),
+    supabase.from("space_members").select("id, display_name").eq("space_id", active.id),
     supabase.from("goal_milestones").select("name, due_on, amount_cents, paid").eq("space_id", active.id).eq("paid", false).gte("due_on", month).lt("due_on", addMonths(month, 1)),
   ]);
   const events: Ev[] = [
     ...(rec ?? []).flatMap((r) => projectRecurring({ id: r.id, description: r.description, amountCents: r.amount_cents, frequency: r.frequency, day: r.day, nextRun: r.next_run }, month)
-      .map((date) => ({ date, label: r.description, cents: r.amount_cents, kind: "fijo" as const }))),
+      .map((date) => {
+        const who = rotationPayer(r.rotation ?? [], r.rotation_pos, occurrenceNumber({ frequency: r.frequency, nextRun: r.next_run }, date));
+        return { date, label: r.description, cents: r.amount_cents, kind: "fijo" as const, payer: who ? mem?.find((m) => m.id === who)?.display_name : undefined };
+      })),
     ...(miles ?? []).map((m) => ({ date: m.due_on as string, label: m.name, cents: m.amount_cents, kind: "meta" as const })),
   ].sort((a, b) => a.date.localeCompare(b.date));
 
@@ -61,7 +65,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         <ul className="flex flex-col gap-2">
           {events.map((e, i) => (
             <li key={i} className="flex items-center justify-between rounded-card border border-border bg-surface px-4 py-3 text-sm">
-              <span>{e.label}<span className="block text-xs text-ink-3">{e.date} · {e.kind === "meta" ? "pago de meta" : "gasto fijo"}</span></span>
+              <span>{e.label}<span className="block text-xs text-ink-3">{e.date} · {e.kind === "meta" ? x("pago de meta") : x("gasto fijo")}{e.payer ? ` · ${x("Paga")} ${e.payer}` : ""}</span></span>
               <span className="money font-mono">{formatMoney(e.cents, "EUR", x.locale)}</span>
             </li>
           ))}

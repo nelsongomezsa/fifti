@@ -5,6 +5,8 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const isDev = process.env.NODE_ENV !== "production";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+// Realtime (lista de la compra): el mismo origen de Supabase por WebSocket
+const supabaseWs = supabaseUrl.replace(/^http/, "ws");
 
 const csp = [
   "default-src 'self'",
@@ -12,7 +14,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: ${supabaseUrl}`.trim(),
   "font-src 'self' data:",
-  `connect-src 'self' https://challenges.cloudflare.com ${supabaseUrl}${isDev ? " ws: http://127.0.0.1:54321" : ""}`.trim(),
+  `connect-src 'self' https://challenges.cloudflare.com ${supabaseUrl} ${supabaseWs}${isDev ? " ws: http://127.0.0.1:54321" : ""}`.trim(),
   "frame-src https://challenges.cloudflare.com",
   "worker-src 'self' blob:",
   "manifest-src 'self'",

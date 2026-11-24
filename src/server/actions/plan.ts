@@ -78,7 +78,7 @@ const recurringSchema = z
     spaceId: z.uuid(), id: z.uuid().optional(), description: z.string().trim().min(1).max(120),
     amountCents: z.number().int().min(1).max(MAX_AMOUNT_CENTS), frequency: z.enum(["weekly", "monthly", "yearly"]),
     day: z.number().int().min(1).max(31), nextRun: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), categoryId: z.uuid().nullable(),
-    paidFrom: z.enum(["member", "pot"]), detected: z.boolean().default(false),
+    paidFrom: z.enum(["member", "pot"]), detected: z.boolean().default(false), rotation: z.array(z.uuid()).max(8).default([]),
   })
   .strict();
 
@@ -89,13 +89,16 @@ export async function saveRecurring(_prev: FormState, fd: FormData): Promise<For
     amountCents: parseToCents(field(fd, "amount")) ?? 0, frequency: field(fd, "frequency") || "monthly",
     day: Number(field(fd, "day") || "1"), nextRun: field(fd, "nextRun"), categoryId: field(fd, "categoryId") || null,
     paidFrom: field(fd, "paidFrom") === "pot" ? "pot" : "member", detected: field(fd, "detected") === "1",
+    rotation: field(fd, "turns") === "1"
+      ? [...fd.entries()].filter(([k, v]) => k.startsWith("turn_") && typeof v === "string" && /^[1-8]$/.test(v)).sort((a, b) => Number(a[1]) - Number(b[1])).map(([k]) => k.slice(5))
+      : [],
   });
   if (!parsed.success) return { error: x(parsed.error.issues[0]?.message ?? "Datos no válidos") };
   const { supabase, user } = await ctx();
   if (!user) return { error: x("Sesión caducada.") };
   const v = parsed.data;
   const { error } = await supabase.rpc("save_recurring", {
-    p: { id: v.id ?? null, space_id: v.spaceId, description: v.description, amount_cents: v.amountCents, frequency: v.frequency, day: v.day, next_run: v.nextRun, category_id: v.categoryId, paid_from: v.paidFrom, detected: v.detected },
+    p: { id: v.id ?? null, space_id: v.spaceId, description: v.description, amount_cents: v.amountCents, frequency: v.frequency, day: v.day, next_run: v.nextRun, category_id: v.categoryId, paid_from: v.paidFrom, detected: v.detected, rotation: v.rotation },
   });
   if (error) return { error: x(rpcMessage(error)) };
   revalidatePath("/plan");

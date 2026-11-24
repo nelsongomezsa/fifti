@@ -21,6 +21,9 @@ export const RULES = {
   upload: { action: "upload", limit: 30, windowSeconds: 3600 },
   aiPhrase: { action: "ai-phrase", limit: 30, windowSeconds: 86400 },
   rules: { action: "rules", limit: 120, windowSeconds: 3600 },
+  shopping: { action: "shopping", limit: 400, windowSeconds: 3600 },
+  loans: { action: "loans", limit: 120, windowSeconds: 3600 },
+  realtimeToken: { action: "realtime-token", limit: 60, windowSeconds: 3600 },
   passwordChange: { action: "password-change", limit: 5, windowSeconds: 3600 },
 } as const satisfies Record<string, RateRule>;
 
