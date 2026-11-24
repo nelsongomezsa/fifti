@@ -5,6 +5,9 @@ import { useTx } from "@/i18n/tx-client";
 import { formatMoney } from "@/lib/money";
 import { confirmImport, previewCsv, type BankPreview } from "@/server/actions/csv";
 
+/** "10 nov" / "10 Nov" según el idioma de la app. */
+const shortDay = (iso: string, locale: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString(locale, { day: "numeric", month: "short", timeZone: "UTC" }).replace(".", "");
+
 const FORMAT_NAME: Record<string, string> = { santander: "Santander", bbva: "BBVA", caixabank: "CaixaBank", ing: "ING", revolut: "Revolut", n26: "N26", fifti: "Fifti", generic: "CSV" };
 
 /** Importar un extracto: vista previa con filas elegibles, categoría editable por fila, duplicados marcados y mapeo de columnas si hace falta. */
@@ -80,14 +83,19 @@ export function CsvImport({ spaceId, currency = "EUR" }: { spaceId: string; curr
                 <label className="flex min-h-11 items-center gap-3">
                   <input type="checkbox" checked={!!picked[r.line]} onChange={(e) => setPicked({ ...picked, [r.line]: e.target.checked })} className="size-5" aria-label={`${x("Importar")} ${r.description}`} />
                   <span className="min-w-0 flex-1"><span className="block truncate">{r.description}</span>
-                    <span className="text-xs text-ink-3">{r.date}{r.duplicate && <span className="ml-2 rounded-full border border-border px-2 py-0.5 text-warn">{r.duplicate === "saved" ? x("Ya guardado") : x("Repetido en el archivo")}</span>}</span></span>
+                    <span className="text-xs text-ink-3">{shortDay(r.date, x.locale)}{r.duplicate && <span className="ml-2 rounded-full border border-border px-2 py-0.5 text-warn">{r.duplicate === "saved" ? x("Ya guardado") : x("Repetido en el archivo")}</span>}</span></span>
                   <span className="money shrink-0 font-mono">{formatMoney(r.amountCents, currency, x.locale)}</span>
                 </label>
+                <div className="ml-8 flex items-center gap-2">
                 <select value={cats[r.line] ?? ""} onChange={(e) => setCats({ ...cats, [r.line]: e.target.value })} aria-label={`${x("Categoría")}: ${r.description}`}
-                  className="ml-8 min-h-11 rounded-card border border-border bg-surface-2 px-2 text-sm">
+                  className="min-h-11 min-w-0 flex-1 rounded-card border border-border bg-surface-2 px-2 text-sm">
                   <option value="">{x("Sin categoría")}</option>
                   {preview.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
+                {r.categorySource && (cats[r.line] ?? "") === (r.categoryId ?? "") && (
+                  <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-xs text-ink-3">{r.categorySource === "rule" ? x("Regla") : r.categorySource === "suggested" ? x("Sugerida") : x("Del archivo")}</span>
+                )}
+                </div>
               </li>
             ))}
           </ul>

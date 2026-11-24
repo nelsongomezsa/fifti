@@ -785,5 +785,8 @@
   "Columnas no válidas.": "Invalid columns.",
   "Movimiento no completado": "Transaction not completed",
   "Moneda distinta de la burbuja": "Currency differs from the bubble's",
-  "Falta el concepto": "Missing description"
+  "Falta el concepto": "Missing description",
+  "Regla": "Rule",
+  "Sugerida": "Suggested",
+  "Del archivo": "From file"
 }

@@ -48,6 +48,17 @@ function findAmount(t: string): { cents: number; raw: string } | null {
   return null;
 }
 
+/** Categoría sugerida por el diccionario de palabras clave ("Mercadona" → Supermercado, "Netflix" → Suscripciones…). */
+export function suggestCategory(text: string, categories: { id: string; name: string }[]): string | null {
+  const words = new Set(norm(text).split(/[^\p{L}\p{N}]+/u));
+  for (const [keys, names] of KEYWORDS) {
+    if (!keys.some((k) => words.has(k))) continue;
+    const cat = names.map((n) => categories.find((c) => norm(c.name) === n)).find(Boolean);
+    if (cat) return cat.id;
+  }
+  return categories.find((c) => words.has(norm(c.name)))?.id ?? null;
+}
+
 export function parsePhrase(input: string, spaces: NlSpace[], currentSpaceId: string): NlResult {
   const out: NlResult = {};
   let text = input.trim().slice(0, 200);
@@ -99,16 +110,10 @@ export function parsePhrase(input: string, spaces: NlSpace[], currentSpaceId: st
   if (desc) out.description = desc.charAt(0).toLocaleUpperCase("es") + desc.slice(1);
 
   if (target) {
-    const words = new Set(norm(`${desc} ${input}`).split(/[^\p{L}\p{N}]+/u));
     const viaRule = matchRule(target.rules ?? [], desc || input)?.categoryId ?? null;
     if (viaRule && target.categories.some((c) => c.id === viaRule)) out.categoryId = viaRule;
     else {
-      for (const [keys, names] of KEYWORDS) {
-        if (!keys.some((k) => words.has(k))) continue;
-        const cat = names.map((n) => target.categories.find((c) => norm(c.name) === n)).find(Boolean);
-        if (cat) { out.categoryId = cat.id; break; }
-      }
-      if (!out.categoryId) out.categoryId = target.categories.find((c) => words.has(norm(c.name)))?.id;
+      out.categoryId = suggestCategory(`${desc} ${input}`, target.categories) ?? undefined;
     }
   }
   return out;

@@ -6,7 +6,8 @@ import { displayName } from "@/lib/system-names";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createHash } from "node:crypto";
-import { dupKey, parseBankCsv, type BankFormat } from "@/lib/bank-csv";
+import { dupKey, parseBankCsv, pickCategory, type BankFormat, type CategorySource } from "@/lib/bank-csv";
+import { suggestCategory } from "@/lib/nl/parse";
 import { CSV_MAX_BYTES, CSV_MAX_ROWS } from "@/lib/csv";
 import { MAX_AMOUNT_CENTS } from "@/lib/money";
 import { matchRule, normText, type RuleType } from "@/lib/rules/match";
@@ -15,7 +16,7 @@ import { allow } from "@/lib/security/user-limit";
 import { createClient } from "@/lib/supabase/server";
 import { saveExpense } from "./expenses";
 
-export type PreviewRow = { line: number; date: string; description: string; amountCents: number; categoryId: string | null; duplicate: "saved" | "file" | null };
+export type PreviewRow = { line: number; date: string; description: string; amountCents: number; categoryId: string | null; categorySource: CategorySource | null; duplicate: "saved" | "file" | null };
 export type BankPreview = {
   fatal?: string; format: BankFormat; rows: PreviewRow[]; errors: { line: number; message: string }[]; skipped: number;
   needsMapping?: { headers: string[]; headerRow: number }; categories: { id: string; name: string }[];
@@ -76,7 +77,7 @@ export async function previewCsv(fd: FormData): Promise<BankPreview> {
     if ((existing.get(k) ?? 0) > 0) { existing.set(k, existing.get(k)! - 1); duplicate = "saved"; }
     else if (seen.has(k)) duplicate = "file";
     seen.add(k);
-    return { line: r.line, date: r.date, description: r.description, amountCents: r.amountCents, categoryId: byName(r.category) ?? matchRule(ruleList, r.description)?.categoryId ?? null, duplicate };
+    return { line: r.line, date: r.date, description: r.description, amountCents: r.amountCents, ...(() => { const c = pickCategory(byName(r.category), matchRule(ruleList, r.description)?.categoryId ?? null, suggestCategory(r.description, categories)); return { categoryId: c.id, categorySource: c.source }; })(), duplicate };
   });
   return { format: parsed.format, rows, errors: parsed.errors.map((e) => ({ ...e, message: x(e.message) })), skipped: parsed.skipped, needsMapping: parsed.needsMapping, categories };
 }

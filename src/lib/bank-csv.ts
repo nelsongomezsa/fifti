@@ -110,3 +110,12 @@ export function parseBankCsv(text: string, opts: { mapping?: Mapping; currency?:
   });
   return { format, rows, errors, skipped };
 }
+
+export type CategorySource = "csv" | "rule" | "suggested";
+/** Orden: categoría del CSV > regla del usuario > diccionario de palabras clave > sin categoría. */
+export function pickCategory(fromCsv: string | null, fromRule: string | null, fromDictionary: string | null): { id: string | null; source: CategorySource | null } {
+  if (fromCsv) return { id: fromCsv, source: "csv" };
+  if (fromRule) return { id: fromRule, source: "rule" };
+  if (fromDictionary) return { id: fromDictionary, source: "suggested" };
+  return { id: null, source: null };
+}

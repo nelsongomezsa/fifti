@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { describe, expect, it } from "vitest";
-import { dupKey, parseBankCsv, parseBankDate, parseSignedAmount } from "@/lib/bank-csv";
+import { dupKey, parseBankCsv, parseBankDate, parseSignedAmount, pickCategory } from "@/lib/bank-csv";
+import { suggestCategory } from "@/lib/nl/parse";
 import { detectSeparator } from "@/lib/csv";
 
 const fx = (n: string) => fs.readFileSync(new URL(`../fixtures/${n}.csv`, import.meta.url), "utf8");
@@ -89,5 +90,22 @@ describe("formatos de banco", () => {
   it("clave de duplicado: fecha + importe + concepto normalizado", () => {
     expect(dupKey("2026-11-10", 450, "  Pastelería   FICTICIA ")).toBe(dupKey("2026-11-10", 450, "pasteleria ficticia"));
     expect(dupKey("2026-11-10", 450, "a")).not.toBe(dupKey("2026-11-11", 450, "a"));
+  });
+});
+
+describe("categoría de cada fila del extracto", () => {
+  const cats = [{ id: "sup", name: "Supermercado" }, { id: "sub", name: "Suscripciones" }, { id: "res", name: "Restaurantes" }, { id: "tra", name: "Transporte" }];
+  it("el diccionario reconoce los comercios del extracto de ejemplo", () => {
+    const r = parseBankCsv(fx("santander"));
+    expect(r.rows.map((x) => suggestCategory(x.description, cats))).toEqual(["sup", "sub", "sub", "res"]);
+  });
+  it("sin coincidencia no sugiere nada", () => {
+    expect(suggestCategory("PAGO DESCONOCIDO 99", cats)).toBeNull();
+  });
+  it("orden: CSV > regla > diccionario > sin categoría", () => {
+    expect(pickCategory("a", "b", "c")).toEqual({ id: "a", source: "csv" });
+    expect(pickCategory(null, "b", "c")).toEqual({ id: "b", source: "rule" });
+    expect(pickCategory(null, null, "c")).toEqual({ id: "c", source: "suggested" });
+    expect(pickCategory(null, null, null)).toEqual({ id: null, source: null });
   });
 });
