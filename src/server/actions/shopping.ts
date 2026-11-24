@@ -97,7 +97,7 @@ export async function finishShopping(input: unknown): Promise<Res & { expenseId?
  */
 export async function realtimeAccess(): Promise<{ token: string; expiresAt: number } | null> {
   const { supabase, user } = await session();
-  if (!user) return null;
+  if (!user || user.app_metadata?.demo === true) return null; // la demo no usa Realtime
   if (!(await allow(RULES.realtimeToken, user.id))) return null;
   const { data } = await supabase.auth.getSession();
   const s = data.session;

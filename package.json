@@ -18,7 +18,8 @@
     "predev": "node scripts/copy-ocr-assets.mjs",
     "e2e:sheet": "node scripts/e2e/sheet-fits.mjs",
     "e2e:nuevo": "node scripts/e2e/quick-new.mjs",
-    "e2e:overflow": "node scripts/e2e/overflow.mjs"
+    "e2e:overflow": "node scripts/e2e/overflow.mjs",
+    "e2e:parity": "node scripts/e2e/parity.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

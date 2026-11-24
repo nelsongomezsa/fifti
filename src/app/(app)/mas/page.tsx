@@ -24,6 +24,7 @@ export const metadata: Metadata = { title: "Más" };
 export default async function MorePage() {
   const x = await getTx();
   const user = await requireUser();
+  const demo = user.app_metadata?.demo === true;
   const spaces = await listMySpaces();
   const t = await getTranslations("more");
   const locale = await getLocale();
@@ -164,7 +165,7 @@ export default async function MorePage() {
           </form>
         </>
       )}
-      {!user.is_anonymous && (
+      {!user.is_anonymous && !demo && (
         <>
           <h2 className="mt-2 text-lg font-semibold">{x("Cambiar contraseña")}</h2>
           <div className="rounded-card border border-border bg-surface p-4">
@@ -174,10 +175,10 @@ export default async function MorePage() {
       )}
       <h2 className="mt-2 text-lg font-semibold">{t("lock")}</h2>
       <LockSettings />
-      <form action={signOut}>
+      {demo ? <a href="/demo/salir" className="flex min-h-12 items-center justify-center rounded-full border border-border font-semibold">{x("Salir de la demo")}</a> : <form action={signOut}>
         <button type="submit" className="min-h-12 w-full rounded-full border border-border font-semibold">{t("logout")}</button>
-      </form>
-      {!user.is_anonymous && (
+      </form>}
+      {!user.is_anonymous && !demo && (
         <div className="mt-4 flex flex-col gap-2 rounded-card border border-over p-4">
           <h2 className="font-semibold text-over-text">{t("danger")}</h2>
           <p className="text-sm text-ink-2">{t("deleteHelp")}</p>

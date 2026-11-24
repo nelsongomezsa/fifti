@@ -41,7 +41,7 @@ for (const theme of ["light", "dark"]) {
     if (target === "real") await page.setCookie(...authCookies(sessionPath));
     if (target === "demo") {
       await page.goto(`${BASE}/demo`, { waitUntil: "networkidle0" });
-      await page.click('button[aria-label="Añadir gasto"]');
+      await page.click(`[aria-label="Añadir gasto"]`);
     } else {
       await page.goto(`${BASE}/inicio?nuevo=gasto`, { waitUntil: "networkidle0" });
     }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTx } from "@/i18n/tx";
 import { getTranslations } from "next-intl/server";
 import { AppLock } from "@/components/lock/AppLock";
 import { PendingExpensesProvider } from "@/components/expense/optimistic";
@@ -12,16 +13,27 @@ import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   // Usuario, burbujas, perfil y textos se piden a la vez (antes iban en serie)
+  const x = await getTx();
   const [user, spaces, t, profile] = await Promise.all([
     requireUser(), listMySpaces(), getTranslations("nav"),
     createClient().then((c) => c.from("profiles").select("discreet_mode").maybeSingle()).then((r) => r.data),
   ]);
   const active = await getActiveSpace(spaces);
   const discreet = !!profile?.discreet_mode;
+  const demo = user.app_metadata?.demo === true;
 
   return (
     <div data-bubble={active?.kind ?? "personal"} data-discreet={discreet ? "true" : "false"} className="mx-auto min-h-dvh max-w-md pb-[calc(8rem+env(safe-area-inset-bottom))]">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[80] focus:rounded-full focus:bg-lime focus:px-4 focus:py-3 focus:text-on-accent">{t("skip")}</a>
+      {demo && (
+        <div role="note" className="flex items-center justify-between gap-3 bg-surface-2 px-4 py-1 text-xs text-ink-2">
+          <span className="min-w-0">{x("Modo demo · datos ficticios")}</span>
+          <span className="flex shrink-0 items-center gap-1">
+            <a href="/demo/salir" className="inline-flex min-h-11 items-center px-2 text-sm text-ink-2">{x("Salir")}</a>
+            <Link href="/registro" className="inline-flex min-h-11 items-center whitespace-nowrap rounded-full bg-lime px-4 text-sm font-semibold text-on-accent">{x("Crear cuenta")}</Link>
+          </span>
+        </div>
+      )}
       <AppLock>
       <PendingExpensesProvider>
       <header className="flex items-center justify-between px-4 pt-4">
