@@ -702,5 +702,9 @@
   "Siguiente": "Next",
   "Una propuesta de partida: 50 % fijos, 30 % día a día y ocio, 20 % ahorro. Edítala a tu gusto.": "A starting point: 50 % fixed, 30 % day to day and leisure, 20 % savings. Edit it to your liking.",
   "Sin asignar": "Unassigned",
-  "Atrás": "Back"
+  "Atrás": "Back",
+  "¿Borrar este gasto?": "Delete this expense?",
+  "Se quitará de la lista y de tus cuentas. Esta acción no se puede deshacer.": "It will be removed from the list and from your accounts. This can't be undone.",
+  "Cancelar": "Cancel",
+  "Borrando…": "Deleting…"
 }

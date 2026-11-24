@@ -3,6 +3,7 @@ import { displayName } from "@/lib/system-names";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { DeleteExpenseButton } from "@/components/expense/DeleteExpenseButton";
 import { EditExpenseButton } from "@/components/expense/EditExpenseButton";
 import { ReceiptUploader } from "@/components/expense/ReceiptUploader";
 import { ActionForm, inputClass } from "@/components/ui/ActionForm";
@@ -25,7 +26,7 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
 
   const { data: e } = await supabase.from("expenses").select("*").eq("id", id).maybeSingle();
   if (!e) notFound(); // RLS: si no eres miembro, es como si no existiera
-  const [{ data: members }, { data: splits }, { data: payers }, { data: priv }, { data: comments }, { data: reactions }, { data: history }, { data: tagRows }, { data: cat }] =
+  const [{ data: members }, { data: splits }, { data: payers }, { data: priv }, { data: comments }, { data: reactions }, { data: history }, { data: tagRows }, { data: cat }, { data: sp }] =
     await Promise.all([
       supabase.from("space_members").select("id, user_id, display_name, role").eq("space_id", e.space_id),
       supabase.from("expense_splits").select("member_id, amount_cents, share_bp").eq("expense_id", id),
@@ -36,9 +37,11 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
       supabase.from("audit_log").select("id, action, at, actor").eq("row_id", id).eq("table_name", "expenses").order("at", { ascending: false }).limit(20),
       supabase.from("expense_tags").select("tags(name)").eq("expense_id", id),
       e.category_id ? supabase.from("categories").select("name, system_key").eq("id", e.category_id).maybeSingle() : Promise.resolve({ data: null }),
+      supabase.from("spaces").select("kind").eq("id", e.space_id).maybeSingle(),
     ]);
   const me = members?.find((m) => m.user_id === user.id);
   const name = (mid: string) => members?.find((m) => m.id === mid)?.display_name ?? "—";
+  const personal = sp?.kind === "personal";
   const canEdit = me && (me.role !== "guest" || me.id === e.created_by_member);
   const title = e.is_private ? (priv?.description ?? x("Gasto privado")) : e.description;
   const tags = ((tagRows as unknown as { tags: { name: string } | null }[]) ?? []).map((t) => t.tags?.name).filter(Boolean) as string[];
@@ -48,11 +51,6 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
   const receiptPath = e.is_private ? priv?.receipt_path : e.receipt_path;
   const receiptUrl = receiptPath ? (await supabase.storage.from("receipts").createSignedUrl(receiptPath, 300)).data?.signedUrl : null;
 
-  async function remove() {
-    "use server";
-    await deleteExpense(id);
-    redirect("/movimientos");
-  }
 
   return (
     <section className="flex flex-col gap-5 pt-2">
@@ -69,6 +67,18 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
         {tags.length > 0 && <p className="mt-2 flex flex-wrap gap-2">{tags.map((t) => <span key={t} className="rounded-full border border-border px-3 py-1 text-xs text-ink-2">#{t}</span>)}</p>}
       </div>
 
+      {canEdit && (
+        <div className="flex gap-3">
+          <EditExpenseButton spaceId={e.space_id} prefill={{
+            spaceId: e.space_id, amountCents: e.amount_cents, categoryId: e.category_id ?? priv?.category_id ?? null, description: title,
+            participants: splits?.map((s) => s.member_id), payerId: payers?.[0]?.member_id, tags: tags.join(" "),
+            edit: { id, clientId: e.client_id, spentAt: e.spent_at, paidFrom: e.paid_from as "member" | "pot", splitMode: e.split_mode as "default" | "equal" | "custom", isPrivate: e.is_private },
+          }} />
+          <DeleteExpenseButton expenseId={id} />
+        </div>
+      )}
+
+      {!personal && (
       <div className="rounded-card border border-border bg-surface p-4">
         <h2 className="mb-2 font-semibold">{e.paid_from === "pot" ? x("Pagado desde el bote") : x("Pagó")}</h2>
         {e.paid_from === "member" && payers?.map((p) => (
@@ -82,6 +92,7 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
           </p>
         ))}
       </div>
+      )}
 
       {receiptUrl && (
         // eslint-disable-next-line @next/next/no-img-element
@@ -89,6 +100,8 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
       )}
       {canEdit && <ReceiptUploader expenseId={id} hasReceipt={!!receiptPath} />}
 
+      {!personal && (
+        <>
       <div className="flex flex-wrap gap-2" role="group" aria-label={x("Reacciones")}>
         {counts.map((c) => (
           <form action={toggleReaction} key={c.emoji}>
@@ -115,16 +128,7 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
           <input name="body" required maxLength={500} placeholder={x("Escribe un comentario")} aria-label={x("Comentario")} className={inputClass} />
         </ActionForm>
       </div>
-
-      {canEdit && (
-        <div className="flex gap-3">
-          <EditExpenseButton spaceId={e.space_id} prefill={{
-            spaceId: e.space_id, amountCents: e.amount_cents, categoryId: e.category_id ?? priv?.category_id ?? null, description: title,
-            participants: splits?.map((s) => s.member_id), payerId: payers?.[0]?.member_id, tags: tags.join(" "),
-            edit: { id, clientId: e.client_id, spentAt: e.spent_at, paidFrom: e.paid_from as "member" | "pot", splitMode: e.split_mode as "default" | "equal" | "custom", isPrivate: e.is_private },
-          }} />
-          <form action={remove}><button className="min-h-11 rounded-full border border-border px-5 font-semibold text-over-text">{x("Borrar")}</button></form>
-        </div>
+        </>
       )}
 
       <div>
