@@ -4,6 +4,8 @@ import { startTransition, useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTx } from "@/i18n/tx-client";
 import { formatMoney, parseToCents } from "@/lib/money";
+import { suggestCategory } from "@/lib/nl/parse";
+import { matchRule, type CategoryRule } from "@/lib/rules/match";
 import { parsePercentToBp } from "@/lib/validation/spaces";
 import { savePlan, saveRecurring } from "@/server/actions/plan";
 
@@ -11,7 +13,7 @@ type Member = { id: string; name: string; mine: boolean };
 type Fund = { id: string; name: string; color: string; suggested: number | null };
 
 /** Bienvenida en 2 pasos: ingresos del mes y plan sugerido editable. Se guarda con la misma acción (y validación) que el plan normal. */
-export function WelcomePlan({ initialStep = 1, spaceId, month, currency, members, funds }: { initialStep?: 1 | 2 | 3; spaceId: string; month: string; currency: string; members: Member[]; funds: Fund[] }) {
+export function WelcomePlan({ initialStep = 1, categories = [], rules = [], spaceId, month, currency, members, funds }: { initialStep?: 1 | 2 | 3; categories?: { id: string; name: string }[]; rules?: CategoryRule[]; spaceId: string; month: string; currency: string; members: Member[]; funds: Fund[] }) {
   const x = useTx();
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(initialStep);
@@ -50,6 +52,10 @@ export function WelcomePlan({ initialStep = 1, spaceId, month, currency, members
     next.setUTCDate(Math.min(d, new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0)).getUTCDate()));
     const fd = new FormData();
     fd.set("spaceId", spaceId); fd.set("description", fixed.description.trim()); fd.set("amount", fixed.amount); fd.set("frequency", "monthly"); fd.set("day", String(d)); fd.set("nextRun", next.toISOString().slice(0, 10));
+    // Misma sugerencia de categoría que en la hoja de gasto: tus reglas primero y luego el diccionario (Spotify → Suscripciones)
+    const byRule = matchRule(rules, fixed.description)?.categoryId ?? null;
+    const cat = byRule && categories.some((c) => c.id === byRule) ? byRule : suggestCategory(fixed.description, categories);
+    if (cat) fd.set("categoryId", cat);
     startTransition(() => fixedAction(fd));
   };
 
