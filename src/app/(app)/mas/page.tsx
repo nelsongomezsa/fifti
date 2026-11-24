@@ -98,9 +98,14 @@ export default async function MorePage() {
           <h2 className="mt-2 text-lg font-semibold">{x("Notificaciones")}</h2>
           <PushSettings publicKey={vapidPublicKey} />
           <ActionForm action={savePrefs} submit={x("Guardar preferencias")} tone="plain" className="flex flex-col gap-1 rounded-card border border-border bg-surface p-3">
-            {([["new_expense", "Gasto nuevo"], ["fixed_tomorrow", "Gasto fijo mañana"], ["fund_threshold", "Fondo al 80 % / 100 %"], ["goal_reached", "Meta alcanzada"], ["monthly_summary", "Resumen mensual"], ["contribution_pending", "Aportación pendiente"], ["offset_proposal", "Propuesta de compensación"]] as const).map(([k, l]) => (
+            {([["new_expense", "Gasto nuevo"], ["fixed_tomorrow", "Aviso de gasto fijo"], ["fund_threshold", "Fondo al 80 % / 100 %"], ["goal_reached", "Meta alcanzada"], ["monthly_summary", "Resumen mensual"], ["contribution_pending", "Aportación pendiente"], ["offset_proposal", "Propuesta de compensación"]] as const).map(([k, l]) => (
               <label key={k} className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" name={k} defaultChecked={(prefRow as Record<string, boolean> | null)?.[k] ?? true} /> {x(l)}</label>
             ))}
+            <label className="flex items-center justify-between gap-3 text-sm text-ink-2">{x("Avisar de un gasto fijo con")}
+              <select name="fixed_advance_days" defaultValue={String((prefRow as { fixed_advance_days?: number } | null)?.fixed_advance_days ?? 1)} aria-label={x("Antelación del aviso de gasto fijo")} className="min-h-11 rounded-card border border-border bg-surface px-3 text-ink">
+                <option value="1">{x("1 día de antelación")}</option><option value="3">{x("3 días de antelación")}</option><option value="7">{x("7 días de antelación")}</option>
+              </select>
+            </label>
             <div className="mt-2 flex flex-col gap-2 border-t border-border pt-3">
               <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" name="daily_reminder" defaultChecked={!!(prefRow as { daily_reminder?: boolean } | null)?.daily_reminder} /> {x("Recordarme apuntar gastos")}</label>
               <label className="flex items-center justify-between gap-3 text-sm text-ink-2">{x("Hora del recordatorio")}

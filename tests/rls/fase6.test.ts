@@ -43,6 +43,12 @@ describe.skipIf(!rlsConfigured)("RLS fase 6: tendencias y recordatorio", () => {
     expect((await ana.client.from("notification_prefs").update({ timezone: "x".repeat(65) }).eq("user_id", ana.id)).error).not.toBeNull();
   });
 
+  it("la antelación del aviso de gasto fijo solo admite 1, 3 o 7 días y por defecto es 1", async () => {
+    expect((await ana.client.from("notification_prefs").select("fixed_advance_days")).data).toEqual([{ fixed_advance_days: 1 }]);
+    for (const ok of [3, 7, 1]) expect((await ana.client.from("notification_prefs").update({ fixed_advance_days: ok }).eq("user_id", ana.id)).error).toBeNull();
+    for (const bad of [0, 2, 5, 30]) expect((await ana.client.from("notification_prefs").update({ fixed_advance_days: bad }).eq("user_id", ana.id)).error).not.toBeNull();
+  });
+
   it("la función que llama a la ruta del recordatorio no la puede ejecutar nadie desde la app", async () => {
     expect((await ana.client.rpc("call_reminders")).error).not.toBeNull();
   });

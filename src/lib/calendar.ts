@@ -34,3 +34,21 @@ export function occurrenceNumber(r: Pick<RecurringLite, "frequency" | "nextRun">
 }
 /** Quién paga el cobro nº `n` con turnos: la rotación gira desde la posición guardada. */
 export const rotationPayer = (rotation: string[], pos: number, n: number): string | null => (rotation.length > 1 ? rotation[(pos + n) % rotation.length]! : null);
+
+export type UpcomingCharge = { date: string; label: string; cents: number; spaceId: string; kind: "fijo" | "meta" };
+
+const addDaysIso = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+
+/** Próximos cobros: todos los de gastos fijos (y pagos de metas) que caen entre hoy y hoy + `days`, por orden de fecha. */
+export function upcomingCharges(recurring: (RecurringLite & { spaceId: string })[], milestones: { date: string; label: string; cents: number; spaceId: string }[], todayIso: string, days = 30): UpcomingCharge[] {
+  const end = addDaysIso(todayIso, days);
+  const out: UpcomingCharge[] = [];
+  const first = `${todayIso.slice(0, 7)}-01`;
+  const months: string[] = [];
+  for (let m = first; m <= end; ) { months.push(m); const d = new Date(`${m}T00:00:00Z`); m = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1)).toISOString().slice(0, 10); }
+  for (const r of recurring) {
+    for (const m of months) for (const date of projectRecurring(r, m)) if (date >= todayIso && date <= end) out.push({ date, label: r.description, cents: r.amountCents, spaceId: r.spaceId, kind: "fijo" });
+  }
+  for (const m of milestones) if (m.date >= todayIso && m.date <= end) out.push({ ...m, kind: "meta" });
+  return out.sort((a, b) => a.date.localeCompare(b.date) || a.label.localeCompare(b.label));
+}

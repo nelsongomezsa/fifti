@@ -889,5 +889,21 @@
   "Recordarme apuntar gastos": "Remind me to log expenses",
   "Hora del recordatorio": "Reminder time",
   "Solo si ese día aún no has apuntado nada. El aviso no lleva importes.": "Only if you haven't logged anything that day. The notification has no amounts.",
-  "Hora o zona horaria no válida.": "Invalid time or time zone."
+  "Hora o zona horaria no válida.": "Invalid time or time zone.",
+  "Vence": "Due",
+  "mañana": "tomorrow",
+  "en 3 días": "in 3 days",
+  "en 7 días": "in 7 days",
+  "Aviso de gasto fijo": "Fixed expense alert",
+  "Avisar de un gasto fijo con": "Alert me about a fixed expense",
+  "Antelación del aviso de gasto fijo": "Fixed expense alert lead time",
+  "1 día de antelación": "1 day ahead",
+  "3 días de antelación": "3 days ahead",
+  "7 días de antelación": "7 days ahead",
+  "Mes": "Month",
+  "Próximos cobros": "Upcoming charges",
+  "Total de los próximos 30 días": "Total for the next 30 days",
+  "cobro": "charge",
+  "cobros": "charges",
+  "No hay cobros en los próximos 30 días.": "No charges in the next 30 days."
 }

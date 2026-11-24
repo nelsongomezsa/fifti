@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { addMonths, monthStart, summarizeFund } from "@/lib/money";
 import { displayName } from "@/lib/system-names";
+import { daysBetween, fixedExpensePayload, usersForLead } from "@/lib/fixed-advance";
 import { isCronAuthorized } from "@/lib/security/cron";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadPlan } from "@/server/plan";
@@ -18,9 +19,18 @@ export async function GET(request: NextRequest) {
     ((await admin.from("space_members").select("user_id").eq("space_id", spaceId).in("role", ["owner", "member"]).not("user_id", "is", null)).data ?? []).map((m) => m.user_id as string);
 
   try {
-    // 1. Gastos fijos que vencen mañana
-    const { data: due } = await admin.from("recurring_expenses").select("id, space_id, next_run").eq("active", true).eq("next_run", tomorrow).limit(1000);
-    for (const r of due ?? []) await notify(await usersOf(r.space_id), "fixed_tomorrow", (t) => ({ title: "Fifti", body: t("Mañana vence un gasto fijo."), url: "/plan" }), `${r.id}:${r.next_run}`);
+    // 1. Gastos fijos que vencen en 1, 3 o 7 días: cada persona recibe el aviso con la antelación que eligió
+    const horizon = new Date(now.getTime() + 7 * 86400000).toISOString().slice(0, 10);
+    const { data: due } = await admin.from("recurring_expenses").select("id, space_id, description, next_run").eq("active", true).gte("next_run", tomorrow).lte("next_run", horizon).limit(2000);
+    const dueUsers = new Map<string, string[]>();
+    for (const r of due ?? []) if (!dueUsers.has(r.space_id)) dueUsers.set(r.space_id, await usersOf(r.space_id));
+    const everyone = [...new Set([...dueUsers.values()].flat())];
+    const { data: advPrefs } = everyone.length ? await admin.from("notification_prefs").select("user_id, fixed_advance_days").in("user_id", everyone) : { data: [] };
+    const adv = (advPrefs ?? []).map((p) => ({ userId: p.user_id as string, advance: p.fixed_advance_days as number }));
+    for (const r of due ?? []) {
+      const daysLeft = daysBetween(today, r.next_run);
+      await notify(usersForLead(adv, dueUsers.get(r.space_id) ?? [], daysLeft), "fixed_tomorrow", fixedExpensePayload(r.description, daysLeft), `${r.id}:${r.next_run}`);
+    }
 
     // 2. Aportaciones al hogar pendientes (a partir del día 5)
     if (now.getUTCDate() >= 5) {

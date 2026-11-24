@@ -4,6 +4,7 @@ import { getTx } from "@/i18n/tx";
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { toAdvance } from "@/lib/fixed-advance";
 import { createClient } from "@/lib/supabase/server";
 import type { FormState } from "./auth";
 
@@ -50,6 +51,7 @@ export async function savePrefs(_prev: FormState, fd: FormData): Promise<FormSta
   for (const k of KEYS) row[k] = fd.get(k) === "on";
   const rem = reminderSchema.safeParse({ hour: Number(fd.get("reminder_hour") ?? 21), timezone: String(fd.get("timezone") || "Europe/Madrid") });
   if (!rem.success) return { error: x("Hora o zona horaria no válida.") };
+  row.fixed_advance_days = toAdvance(Number(fd.get("fixed_advance_days") ?? 1));
   row.daily_reminder = fd.get("daily_reminder") === "on";
   row.reminder_hour = rem.data.hour;
   row.timezone = rem.data.timezone;
