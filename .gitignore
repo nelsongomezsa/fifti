@@ -4,12 +4,6 @@
 !.env.example
 !.env.*.example
 
-# herramientas locales
-CLAUDE.md
-AGENTS.md
-.claude/
-.codex/
-
 # dependencias y build
 node_modules/
 .next/
