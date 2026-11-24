@@ -20,7 +20,12 @@ for (const theme of ["dark", "light"]) {
     await page.deleteCookie(...(await page.cookies()));
     await page.setCookie(...base, ...(withSession ? cookies.map((c) => ({ ...c, domain: host })) : []));
     for (const r of routes) {
-      try { await page.goto(BASE + r, { waitUntil: "networkidle0", timeout: 30000 }); } catch { fails.push(`${r} (${theme}): no cargó`); continue; }
+      // Un reintento ante un tiempo agotado: con varias pruebas a la vez el servidor puede tardar más de 30 s en quedar en reposo
+      let loaded = false;
+      for (let intento = 0; intento < 2 && !loaded; intento++) {
+        try { await page.goto(BASE + r, { waitUntil: "networkidle2", timeout: 45000 }); loaded = true; } catch { /* se reintenta */ }
+      }
+      if (!loaded) { fails.push(`${r} (${theme}): no cargó`); continue; }
       const m = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: innerWidth }));
       if (m.sw > m.iw) fails.push(`${r} (${theme}, ${label}): scrollWidth ${m.sw} > ${m.iw}`);
       else console.log("  OK  ", r, theme);
