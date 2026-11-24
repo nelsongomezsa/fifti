@@ -30,7 +30,7 @@ export default async function SavingsDetailPage() {
       </div>
       {active.kind === "group" ? <p className="rounded-card border border-border bg-surface p-4 text-ink-2">{x("La tasa de ahorro no se aplica a grupos.")}</p> : <>
         <section className="rounded-card border border-border bg-surface p-4">
-          <p className="text-sm text-ink-2">{x("Durante el mes enseñamos la tasa PREVISTA de tu plan: lo que va al fondo de Ahorro entre tus ingresos. Así no sale un 99 % solo porque aún has gastado poco.")}</p>
+          <p className="text-sm text-ink-2">{x("Durante el mes enseñamos la tasa PREVISTA de tu plan: lo que va al fondo de Ahorro entre tus ingresos. Así no sale una tasa altísima solo porque aún has gastado poco.")}</p>
           <dl className="mt-4 flex flex-col gap-3 text-sm">
             <div className="flex justify-between gap-3"><dt>{x("Ingresos")}</dt><dd className="money font-mono">{amount(overview.income)}</dd></div>
             <div className="flex justify-between gap-3"><dt>{x("Ahorro previsto en el plan")}</dt><dd className="money font-mono">{amount(plannedSaved)}</dd></div>

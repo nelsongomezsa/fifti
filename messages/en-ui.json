@@ -1026,7 +1026,6 @@
   "Gasto del día a día que queda previsto": "Day-to-day spending still planned",
   "Lo que falta de tus fondos de día a día y ocio": "What's left in your day-to-day and leisure funds",
   "prevista este mes": "planned this month",
-  "Durante el mes enseñamos la tasa PREVISTA de tu plan: lo que va al fondo de Ahorro entre tus ingresos. Así no sale un 99 % solo porque aún has gastado poco.": "During the month we show the PLANNED rate from your plan: what goes to the Savings fund over your income. That way it doesn't show 99 % just because you've spent little so far.",
   "Ahorro previsto en el plan": "Savings planned in the plan",
   "Tasa de ahorro prevista": "Planned savings rate",
   "Al cierre del mes calculamos la real: (ingresos − gastos) ÷ ingresos. La verás aquí en cuanto el mes termine; los meses anteriores ya muestran la real.": "When the month closes we work out the actual one: (income − spending) ÷ income. You'll see it here once the month ends; previous months already show the actual rate.",
@@ -1034,5 +1033,7 @@
   "Categoría según tu regla": "Category from your rule",
   "Categoría sugerida": "Suggested category",
   "del bote": "from the pot",
-  "Tu primer mes en Fifti": "Your first month in Fifti"
+  "Tu primer mes en Fifti": "Your first month in Fifti",
+  "Durante el mes enseñamos la tasa PREVISTA de tu plan: lo que va al fondo de Ahorro entre tus ingresos. Así no sale una tasa altísima solo porque aún has gastado poco.": "During the month we show the PLANNED rate from your plan: what goes to the Savings fund over your income. That way you don't get a sky-high rate just because you've spent little so far.",
+  "Ingresos menos lo gastado y lo que aún queda previsto de fijos y de gasto del día a día.": "Income minus what you've spent and what's still planned for fixed and day-to-day spending."
 }

@@ -83,7 +83,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
       <div className="rounded-card border border-border bg-surface p-4">
         <p className="text-sm text-ink-3">{x("Previsión de fin de mes")}</p>
         <p className={`money font-mono text-2xl ${outlook.projectedLeftover < 0 ? "text-over-text" : ""}`}>{formatMoney(outlook.projectedLeftover, "EUR", x.locale)}</p>
-        <p className="mt-1 text-xs text-ink-3">{x("Según tu ritmo de gasto variable y los fijos que quedan por pagar.")}</p>
+        <p className="mt-1 text-xs text-ink-3">{x("Ingresos menos lo gastado y lo que aún queda previsto de fijos y de gasto del día a día.")}</p>
       </div>
 
       {!list && <PlanBubbles currency="EUR" funds={rows.filter(({ row }) => row.planned > 0).map(({ f, row }) => ({ id: f.id, name: f.name, color: f.color, planned: row.planned, spent: row.spent, savings: f.kind === "savings", href: `/inicio/fondo/${f.id}` }))} />}
