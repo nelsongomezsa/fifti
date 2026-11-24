@@ -33,20 +33,30 @@ export function ShoppingList({ spaceId, items: initial, names, currency }: { spa
     let stopped = false;
     const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "", { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
     let channel: ReturnType<typeof sb.channel> | null = null;
-    void (async () => {
+    // El token solo vive en esta variable (memoria): sin ningún almacenamiento del navegador. Se vuelve a pedir un minuto antes de que caduque.
+    let renew: ReturnType<typeof setTimeout> | null = null;
+    const connect = async () => {
       const access = await realtimeAccess().catch(() => null);
       if (!access || stopped) return;
       sb.realtime.setAuth(access.token);
-      channel = sb.channel(`shopping:${spaceId}`)
-        .on("postgres_changes", { event: "*", schema: "public", table: "shopping_items", filter: `space_id=eq.${spaceId}` }, refresh)
-        .subscribe((status) => setLive(status === "SUBSCRIBED"));
-    })();
+      const wait = Math.max(30_000, access.expiresAt * 1000 - Date.now() - 60_000);
+      renew = setTimeout(() => void connect(), wait);
+      if (!channel) {
+        channel = sb.channel(`shopping:${spaceId}`)
+          .on("postgres_changes", { event: "*", schema: "public", table: "shopping_items", filter: `space_id=eq.${spaceId}` }, refresh)
+          .subscribe((status) => {
+            setLive(status === "SUBSCRIBED");
+            if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT") && !stopped) { if (renew) clearTimeout(renew); renew = setTimeout(() => void connect(), 5000); }
+          });
+      }
+    };
+    void connect();
     // Respaldo: si Realtime no conecta, se actualiza cada 20 s mientras la pestaña está visible
     const poll = setInterval(() => { if (document.visibilityState === "visible") refresh(); }, 20000);
     const onVisible = () => { if (document.visibilityState === "visible") refresh(); };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
-      stopped = true; clearInterval(poll); document.removeEventListener("visibilitychange", onVisible);
+      stopped = true; if (renew) clearTimeout(renew); clearInterval(poll); document.removeEventListener("visibilitychange", onVisible);
       if (timer.current) clearTimeout(timer.current);
       if (channel) void sb.removeChannel(channel);
       void sb.realtime.disconnect();

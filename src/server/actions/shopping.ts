@@ -91,11 +91,15 @@ export async function finishShopping(input: unknown): Promise<Res & { expenseId?
   return { ok: true, expenseId: saved.id };
 }
 
-/** Token de la propia sesión para suscribirse a Realtime desde el navegador (las cookies son httpOnly). Solo lo recibe quien lo pide, ya autenticado. */
-export async function realtimeAccess(): Promise<{ token: string } | null> {
+/**
+ * Excepción documentada en SECURITY.md: Realtime necesita el JWT en el navegador y las cookies son httpOnly.
+ * Devuelve SOLO el access_token (caduca en ≤ 1 h) y su caducidad; nunca el refresh_token. Con rate limit y solo a quien ya tiene sesión.
+ */
+export async function realtimeAccess(): Promise<{ token: string; expiresAt: number } | null> {
   const { supabase, user } = await session();
   if (!user) return null;
   if (!(await allow(RULES.realtimeToken, user.id))) return null;
   const { data } = await supabase.auth.getSession();
-  return data.session?.access_token ? { token: data.session.access_token } : null;
+  const s = data.session;
+  return s?.access_token ? { token: s.access_token, expiresAt: s.expires_at ?? Math.floor(Date.now() / 1000) + 600 } : null;
 }
