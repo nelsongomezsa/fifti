@@ -996,5 +996,8 @@
   "Aún no hay gastos fijos": "No fixed expenses yet",
   "Apunta alquiler, luz o suscripciones una vez y verás aquí cuándo toca pagar cada uno, con aviso antes de que lleguen.": "Log rent, electricity or subscriptions once and you'll see here when each is due, with a heads-up before it arrives.",
   "Sin cobros en los próximos 30 días": "No charges in the next 30 days",
-  "Cuando añadas gastos fijos, aquí verás los próximos con su fecha y el total del periodo.": "Once you add fixed expenses, you'll see the upcoming ones here with their date and the period total."
+  "Cuando añadas gastos fijos, aquí verás los próximos con su fecha y el total del periodo.": "Once you add fixed expenses, you'll see the upcoming ones here with their date and the period total.",
+  "Quién pagó": "Who paid",
+  "Quitar filtros": "Clear filters",
+  "Gasto borrado": "Expense deleted"
 }

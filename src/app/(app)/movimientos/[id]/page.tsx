@@ -18,7 +18,7 @@ import { redirect } from "next/navigation";
 
 export const metadata: Metadata = { title: "Detalle del gasto" };
 
-export default async function ExpensePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ExpensePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ editar?: string }> }) {
   const x = await getTx();
   const { id } = await params;
   if (!uuidSchema.safeParse(id).success) notFound();

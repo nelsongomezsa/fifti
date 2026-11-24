@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTx } from "@/i18n/tx-client";
 import type { RuleHint } from "@/server/actions/expenses";
@@ -8,13 +8,20 @@ import { acceptRuleHint } from "@/server/actions/rules";
 import { loadSheetContext, type SheetContext } from "@/server/actions/sheet";
 import { ExpenseSheet, type SheetPrefill } from "./ExpenseSheet";
 
-export function EditExpenseButton({ prefill, spaceId, label }: { prefill: SheetPrefill; spaceId: string; label?: string }) {
+export function EditExpenseButton({ prefill, spaceId, label, autoOpen }: { prefill: SheetPrefill; spaceId: string; label?: string; autoOpen?: boolean }) {
   const x = useTx();
   const [ctx, setCtx] = useState<SheetContext | null>(null);
   const [open, setOpen] = useState(false);
   const [hint, setHint] = useState<RuleHint | null>(null);
   const [done, setDone] = useState(false);
   const router = useRouter();
+  // Llegar desde "Editar" en la lista: se abre la hoja de edición directamente
+  useEffect(() => {
+    if (!autoOpen) return;
+    let live = true;
+    void loadSheetContext().then((c) => { if (live) { setCtx(c); setOpen(true); } });
+    return () => { live = false; };
+  }, [autoOpen]);
   return (
     <>
       <button type="button" className="min-h-11 rounded-full border border-border px-5 font-semibold"

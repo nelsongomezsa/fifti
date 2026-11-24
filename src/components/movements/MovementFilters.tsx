@@ -6,9 +6,9 @@ import { useTx } from "@/i18n/tx-client";
 
 type Opt = { id: string; name: string };
 
-/** Filtros de Movimientos: la búsqueda se aplica en vivo mientras se escribe (con debounce); selects y etiqueta, al cambiar. */
-export function MovementFilters({ month, q: q0, cat: cat0, persona: persona0, tag: tag0, cats, members }: {
-  month: string; q?: string; cat?: string; persona?: string; tag?: string; cats: Opt[]; members: Opt[] | null;
+/** Filtros de Movimientos: búsqueda en vivo (con debounce); fondo, categoría, persona, quién pagó y etiqueta se aplican al cambiar. */
+export function MovementFilters({ month, q: q0, cat: cat0, fondo: fondo0, persona: persona0, pago: pago0, tag: tag0, cats, funds, members }: {
+  month: string; q?: string; cat?: string; fondo?: string; persona?: string; pago?: string; tag?: string; cats: Opt[]; funds: Opt[]; members: Opt[] | null;
 }) {
   const x = useTx();
   const router = useRouter();
@@ -17,8 +17,11 @@ export function MovementFilters({ month, q: q0, cat: cat0, persona: persona0, ta
   const [q, setQ] = useState(q0 ?? "");
   const [tag, setTag] = useState(tag0 ?? "");
   const [cat, setCat] = useState(cat0 ?? "");
+  const [fondo, setFondo] = useState(fondo0 ?? "");
   const [persona, setPersona] = useState(persona0 ?? "");
+  const [pago, setPago] = useState(pago0 ?? "");
   const first = useRef(true);
+  const active = [q.trim(), cat, fondo, persona, pago, tag.trim()].filter(Boolean).length;
 
   useEffect(() => {
     if (first.current) { first.current = false; return; }
@@ -26,29 +29,29 @@ export function MovementFilters({ month, q: q0, cat: cat0, persona: persona0, ta
       const p = new URLSearchParams({ mes: month });
       if (q.trim()) p.set("q", q.trim());
       if (cat) p.set("cat", cat);
+      if (fondo) p.set("fondo", fondo);
       if (persona) p.set("persona", persona);
+      if (pago) p.set("pago", pago);
       if (tag.trim()) p.set("tag", tag.trim());
       start(() => router.replace(`${path}?${p.toString()}`, { scroll: false }));
     }, 300);
     return () => clearTimeout(t);
-  }, [q, tag, cat, persona, month, path, router]);
+  }, [q, tag, cat, fondo, persona, pago, month, path, router]);
 
+  const sel = "min-h-11 min-w-0 flex-1 rounded-card border border-border bg-surface px-2 text-sm";
   return (
-    <form className="flex flex-wrap gap-2" role="search" onSubmit={(e) => e.preventDefault()}>
-      <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={x("Buscar")} aria-label={x("Buscar")} maxLength={50} autoComplete="off"
-        className="min-h-11 flex-1 rounded-card border border-border bg-surface px-3 text-sm" />
-      <select value={cat} onChange={(e) => setCat(e.target.value)} aria-label={x("Categoría")} className="min-h-11 rounded-card border border-border bg-surface px-2 text-sm">
-        <option value="">{x("Categoría")}</option>
-        {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-      </select>
-      {members && (
-        <select value={persona} onChange={(e) => setPersona(e.target.value)} aria-label={x("Persona")} className="min-h-11 rounded-card border border-border bg-surface px-2 text-sm">
-          <option value="">{x("Persona")}</option>
-          {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-        </select>
-      )}
-      <input value={tag} onChange={(e) => setTag(e.target.value)} placeholder={x("#etiqueta")} aria-label={x("Etiqueta")} maxLength={31} autoComplete="off"
-        className="min-h-11 w-28 rounded-card border border-border bg-surface px-3 text-sm" />
+    <form className="flex flex-col gap-2" role="search" onSubmit={(e) => e.preventDefault()}>
+      <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={x("Buscar")} aria-label={x("Buscar")} maxLength={50} autoComplete="off" className="min-h-11 w-full rounded-card border border-border bg-surface px-3 text-sm" />
+      <div className="flex gap-2">
+        <select value={fondo} onChange={(e) => setFondo(e.target.value)} aria-label={x("Fondo")} className={sel}><option value="">{x("Fondo")}</option>{funds.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}</select>
+        <select value={cat} onChange={(e) => setCat(e.target.value)} aria-label={x("Categoría")} className={sel}><option value="">{x("Categoría")}</option>{cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+      </div>
+      <div className="flex gap-2">
+        {members && <select value={pago} onChange={(e) => setPago(e.target.value)} aria-label={x("Quién pagó")} className={sel}><option value="">{x("Quién pagó")}</option>{members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select>}
+        {members && <select value={persona} onChange={(e) => setPersona(e.target.value)} aria-label={x("Persona")} className={sel}><option value="">{x("Persona")}</option>{members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select>}
+        <input value={tag} onChange={(e) => setTag(e.target.value)} placeholder={x("#etiqueta")} aria-label={x("Etiqueta")} maxLength={31} autoComplete="off" className={`${sel} ${members ? "max-w-28" : ""}`} />
+      </div>
+      {active > 0 && <button type="button" onClick={() => { setQ(""); setCat(""); setFondo(""); setPersona(""); setPago(""); setTag(""); }} className="min-h-11 self-start px-2 text-sm text-ink-2 underline-offset-4 hover:underline">{x("Quitar filtros")} ({active})</button>}
     </form>
   );
 }

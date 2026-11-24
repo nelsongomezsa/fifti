@@ -53,4 +53,19 @@ describe("demo en memoria", () => {
       expect(sum).toBe(e.amount_cents);
     }
   });
+
+  it("filtra por fondo y por quién pagó con las mismas relaciones que usa Movimientos", async () => {
+    const hogar = (await client.from("spaces").select("id").eq("kind", "household").maybeSingle()).data as { id: string };
+    const fondos = (await client.from("funds").select("id, name").eq("space_id", hogar.id)).data as { id: string; name: string }[];
+    const fijos = fondos.find((f) => f.name === "Gastos fijos")!;
+    const porFondo = (await client.from("expenses").select("id, description, categories!inner(fund_id)").eq("space_id", hogar.id).eq("categories.fund_id", fijos.id)).data as { description: string }[];
+    expect(porFondo.length).toBeGreaterThan(0);
+    expect(porFondo.every((e) => ["Alquiler", "Comunidad", "Internet", "Luz y agua"].includes(e.description))).toBe(true);
+    const miembros = (await client.from("space_members").select("id, display_name").eq("space_id", hogar.id)).data as { id: string; display_name: string }[];
+    const leo = miembros.find((m) => m.display_name === "Leo")!;
+    const pagoLeo = (await client.from("expenses").select("id, expense_payers!inner(member_id)").eq("space_id", hogar.id).eq("expense_payers.member_id", leo.id)).data as unknown[];
+    const todos = (await client.from("expenses").select("id").eq("space_id", hogar.id)).data as unknown[];
+    expect(pagoLeo.length).toBeGreaterThan(0);
+    expect(pagoLeo.length).toBeLessThan(todos.length);
+  });
 });

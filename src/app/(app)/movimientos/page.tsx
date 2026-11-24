@@ -3,6 +3,7 @@ import { displayName } from "@/lib/system-names";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CategoryIcon } from "@/components/ui/CategoryIcon";
+import { SwipeRow } from "@/components/movements/SwipeRow";
 import { MovementFilters } from "@/components/movements/MovementFilters";
 import { PendingExpenseRows } from "@/components/expense/optimistic";
 import { addMonths, formatMoney, isMonthStart, monthStart } from "@/lib/money";
@@ -11,7 +12,7 @@ import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
 
 export const metadata: Metadata = { title: "Movimientos" };
 
-type SP = { mes?: string; cat?: string; persona?: string; tag?: string; q?: string };
+type SP = { mes?: string; cat?: string; fondo?: string; persona?: string; pago?: string; tag?: string; q?: string };
 const esc = (s: string) => s.replace(/[\\%_,()]/g, " ").trim().slice(0, 50);
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -27,17 +28,19 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
 
   let q = supabase
     .from("expenses")
-    .select("id, description, spent_at, amount_cents, currency, category_id, is_private, created_by_member, expense_splits(member_id, amount_cents), expense_tags(tags(name))")
+    .select((`id, description, spent_at, amount_cents, currency, category_id, is_private, created_by_member, expense_splits(member_id, amount_cents), expense_tags(tags(name))${sp.pago && uuid.test(sp.pago) ? ", expense_payers!inner(member_id)" : ""}${sp.fondo && uuid.test(sp.fondo) ? ", categories!inner(fund_id)" : ""}`) as "id, description, spent_at, amount_cents, currency, category_id, is_private, created_by_member, expense_splits(member_id, amount_cents), expense_tags(tags(name))")
     .eq("space_id", active.id).gte("spent_at", month).lt("spent_at", next)
     .order("spent_at", { ascending: false }).order("created_at", { ascending: false }).limit(200);
   if (sp.cat && uuid.test(sp.cat)) q = q.eq("category_id", sp.cat);
   if (sp.persona && uuid.test(sp.persona)) q = q.eq("created_by_member", sp.persona);
+  if (sp.pago && uuid.test(sp.pago)) q = q.eq("expense_payers.member_id", sp.pago);
+  if (sp.fondo && uuid.test(sp.fondo)) q = q.eq("categories.fund_id", sp.fondo);
   if (sp.q && esc(sp.q)) q = q.ilike("description", `%${esc(sp.q)}%`);
   // Todas las consultas son independientes: una sola ronda de red
   const [{ data: members }, { data: cats }, { data: fundColors }, { data: expenses }, { data: privates }, { data: mirrors }] = await Promise.all([
     supabase.from("space_members").select("id, user_id, display_name").eq("space_id", active.id),
     supabase.from("categories").select("id, name, system_key, fund_id").eq("space_id", active.id),
-    supabase.from("funds").select("id, color").eq("space_id", active.id),
+    supabase.from("funds").select("id, name, color, system_key").eq("space_id", active.id).order("position"),
     q,
     supabase.from("expense_private_details").select("expense_id, description"),
     active.kind === "personal"
@@ -71,7 +74,8 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
         <Link href={href({ mes: next })} aria-label={x("Mes siguiente")} className="grid min-h-11 min-w-11 place-items-center rounded-full border border-border">›</Link>
       </div>
 
-      <MovementFilters month={month} q={sp.q} cat={sp.cat} persona={sp.persona} tag={sp.tag}
+      <MovementFilters month={month} q={sp.q} cat={sp.cat} fondo={sp.fondo} persona={sp.persona} pago={sp.pago} tag={sp.tag}
+        funds={(fundColors ?? []).map((f) => ({ id: f.id, name: displayName(x, f.name, f.system_key) }))}
         cats={(cats ?? []).map((c) => ({ id: c.id, name: displayName(x, c.name, c.system_key) }))}
         members={active.kind !== "personal" ? (members ?? []).map((m) => ({ id: m.id, name: m.display_name })) : null} />
 
@@ -109,6 +113,7 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
                   const info = e.category_id ? catInfo.get(e.category_id) : undefined;
                   return (
                     <li key={e.id}>
+                      <SwipeRow id={e.id}>
                       <Link href={`/movimientos/${e.id}`} className="flex min-h-16 items-center gap-3 rounded-card border border-border bg-surface px-3 py-3 transition-colors hover:bg-surface-2">
                         <CategoryIcon systemName={info?.sysName} color={info?.color} />
                         <span className="min-w-0 flex-1">
@@ -121,6 +126,7 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
                         </span>
                         <span aria-hidden className="text-ink-3">›</span>
                       </Link>
+                      </SwipeRow>
                     </li>
                   );
                 })}
