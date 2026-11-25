@@ -63,7 +63,7 @@ export default async function IncomeDetailPage() {
                     </div>
                     <details className="mt-2">
                       <summary className="flex min-h-11 cursor-pointer items-center text-sm text-ink-2">{x("Editar")}</summary>
-                      <ActionForm action={saveIncome} submit={x("Guardar ingreso")} className="flex flex-col gap-3 pt-2">
+                      <ActionForm action={saveIncome} optimistic submit={x("Guardar ingreso")} className="flex flex-col gap-3 pt-2">
                         <input type="hidden" name="spaceId" value={active.id} />
                         <input type="hidden" name="id" value={entry.id} />
                         <select name="memberId" aria-label={x("Persona")} className={inputClass} defaultValue={entry.member_id}>
@@ -86,7 +86,7 @@ export default async function IncomeDetailPage() {
           </section>
           <section className="rounded-card border border-border bg-surface p-4">
             <h2 className="mb-3 text-lg font-semibold">{x("Añadir ingreso")}</h2>
-            <ActionForm action={saveIncome} submit={x("Guardar ingreso")}>
+            <ActionForm action={saveIncome} optimistic submit={x("Guardar ingreso")}>
               <input type="hidden" name="spaceId" value={active.id} />
               <select name="memberId" aria-label={x("Persona")} className={inputClass} defaultValue={me?.id}>
                 {mine.map((member) => <option key={member.id} value={member.id}>{member.user_id === user.id ? x("Yo") : member.display_name}</option>)}

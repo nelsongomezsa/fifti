@@ -48,7 +48,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
               </fieldset>
             )}
             <input name="name" maxLength={40} placeholder={x("Tu nombre")} aria-label={x("Tu nombre")} className={inputClass} />
-            <Turnstile siteKey={turnstileSiteKey} />
+            <Turnstile siteKey={turnstileSiteKey} appearance="interaction-only" />
           </ActionForm>
         )
       ) : user && !user.is_anonymous ? (

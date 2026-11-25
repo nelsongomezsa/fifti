@@ -22,7 +22,7 @@ export async function newUser(name: string): Promise<TestUser> {
   const { data, error } = await admin().auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { display_name: name } });
   if (error || !data.user) throw error ?? new Error("no se pudo crear el usuario");
   const client = createClient(url!, anon!, opts);
-  const { error: signErr } = await client.auth.signInWithPassword({ email, password });
+  const { error: signErr } = await client.auth.signInWithPassword({ email, password, options: { captchaToken: TEST_CAPTCHA_TOKEN } });
   if (signErr) throw signErr;
   return { id: data.user.id, name, email, password, client };
 }
@@ -86,11 +86,20 @@ export async function login(page: Page, u: TestUser, bubbleId?: string) {
 }
 
 /** Entra por el formulario de acceso (para la prueba del propio formulario). */
+/** Con Turnstile activo (claves de prueba de Cloudflare) espera a que el formulario tenga su token; sin widget no espera nada. */
+export async function waitCaptcha(page: Page) {
+  await page.waitForFunction(() => { const i = document.querySelector<HTMLInputElement>('input[name="cf-turnstile-response"]'); return !i || i.value.length > 0; }, undefined, { timeout: 20_000 });
+}
+
+/** Token de prueba que acepta Supabase cuando el captcha está activado con la clave secreta de prueba de Cloudflare. */
+export const TEST_CAPTCHA_TOKEN = "XXXX.DUMMY.TOKEN.XXXX";
+
 export async function loginForm(page: Page, u: TestUser) {
   await page.context().addCookies([{ name: "fifti_locale", value: "es", url: BASE }]);
   await page.goto("/login");
   await page.getByLabel("Email").fill(u.email);
   await page.getByLabel("Contraseña").fill(u.password);
+  await waitCaptcha(page);
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page).toHaveURL(/\/(inicio|bienvenida)/);
 }

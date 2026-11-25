@@ -1,5 +1,6 @@
 "use server";
 
+import { CAPTCHA_ERROR, captchaFrom } from "@/lib/security/captcha";
 import { getTx } from "@/i18n/tx";
 
 import { cookies } from "next/headers";
@@ -60,7 +61,9 @@ export async function deleteAccount(_prev: FormState, fd: FormData): Promise<For
   if (!user || user.is_anonymous || !user.email || password.length < 1 || password.length > 128) return { error: x("No se ha podido completar.") };
   if (!(await allow(RULES.passwordChange, user.id))) return { error: x("Demasiados intentos. Espera un rato.") };
 
-  const { error: authErr } = await supabase.auth.signInWithPassword({ email: user.email, password });
+  const captcha = captchaFrom(fd);
+  if (captcha.missing) return { error: x(CAPTCHA_ERROR) };
+  const { error: authErr } = await supabase.auth.signInWithPassword({ email: user.email, password, options: { captchaToken: captcha.token } });
   if (authErr) return { error: x("Contraseña incorrecta.") };
   const { error } = await supabase.rpc("prepare_account_deletion");
   if (error) return { error: x(rpcMessage(error)) };

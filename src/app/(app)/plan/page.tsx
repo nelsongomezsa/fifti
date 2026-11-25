@@ -119,7 +119,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
           <div className="flex flex-wrap gap-3">
       {canEdit && (
         <SheetButton label={x("Cambiar reparto")} title={x("Cambiar reparto")}>
-          <ActionForm action={savePlan} submit={x("Guardar plan")} className="mt-3 flex flex-col gap-3">
+          <ActionForm action={savePlan} optimistic submit={x("Guardar plan")} className="mt-3 flex flex-col gap-3">
             <input type="hidden" name="spaceId" value={active.id} /><input type="hidden" name="month" value={month} />
             <h3 className="text-sm text-ink-3">{x("Ingresos previstos")}</h3>
             {d.members.map((m) => (
@@ -180,7 +180,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
           <h2 className="text-lg font-semibold">{x("Bote común y aportaciones")}</h2>
           {me?.role === "owner" && (
             <SheetButton label={x("Regla de aportación")}>
-              <ActionForm action={saveContributionRule} submit={x("Guardar regla")} className="mt-3 flex flex-col gap-3">
+              <ActionForm action={saveContributionRule} optimistic submit={x("Guardar regla")} className="mt-3 flex flex-col gap-3">
                 <input type="hidden" name="spaceId" value={active.id} />
                 <select name="mode" defaultValue={rule?.mode ?? "proportional_to_income"} aria-label={x("Modo")} className={inputClass}>
                   <option value="proportional_to_income">{x("Proporcional a los ingresos")}</option>
@@ -209,7 +209,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
                     <p className="flex justify-between"><span>{nm(c.member_id)}</span>
                       <span className="money font-mono">{formatMoney(c.paid_cents, "EUR", x.locale)} / {formatMoney(c.expected_cents, "EUR", x.locale)}</span></p>
                     {mineOrOwner && d.plan?.status !== "closed" && (
-                      <ActionForm action={markContributionPaid} submit={c.paid_cents > 0 ? x("Actualizar") : x("Marcar como hecha")} tone="plain" className="mt-2 flex gap-2">
+                      <ActionForm action={markContributionPaid} optimistic submit={c.paid_cents > 0 ? x("Actualizar") : x("Marcar como hecha")} tone="plain" className="mt-2 flex gap-2">
                         <input type="hidden" name="contributionId" value={c.id} />
                         <input name="paid" inputMode="decimal" defaultValue={centsText(c.paid_cents > 0 ? c.paid_cents : c.expected_cents)} aria-label={x("Importe aportado")} className={`${inputClass} font-mono`} />
                       </ActionForm>
@@ -230,7 +230,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
       {me && me.role !== "guest" && subs.map((c) => (
         <div key={c.description} className="rounded-card border border-border bg-surface p-4 text-sm">
           <p><strong>{c.description}</strong> {x("se repite cada mes (")}<span className="money font-mono">{formatMoney(c.amountCents, "EUR", x.locale)}</span>, {c.months} {x("meses seguidos). ¿Lo pasamos a gasto fijo?")}</p>
-          <ActionForm action={saveRecurring} submit={x("Pasar a gasto fijo")} tone="plain" className="mt-2">
+          <ActionForm action={saveRecurring} optimistic submit={x("Pasar a gasto fijo")} tone="plain" className="mt-2">
             <input type="hidden" name="spaceId" value={active.id} /><input type="hidden" name="description" value={c.description} />
             <input type="hidden" name="amount" value={(c.amountCents / 100).toFixed(2).replace(".", ",")} /><input type="hidden" name="day" value={c.day} />
             <input type="hidden" name="frequency" value="monthly" /><input type="hidden" name="detected" value="1" />

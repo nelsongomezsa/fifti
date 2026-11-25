@@ -13,19 +13,23 @@ export function ActionForm({
   submit,
   className,
   tone = "accent",
+  optimistic = false,
 }: {
   action: (prev: FormState, fd: FormData) => Promise<FormState>;
   children?: React.ReactNode;
   submit: string;
   className?: string;
   tone?: "accent" | "plain";
+  /** Respuesta optimista: «Guardado» se ve al instante y, si el servidor falla, lo sustituye el error */
+  optimistic?: boolean;
 }) {
   const x = useTx();
   const [state, formAction, pending] = useActionState(action, {});
   return (
     <form action={formAction} className={className ?? "flex flex-col gap-3"}>
       {children}
-      {state.error && (
+      {optimistic && pending && <p role="status" className="text-sm text-ink-2">✓ {x("Guardado")}</p>}
+      {state.error && !pending && (
         <p role="alert" className="text-sm text-over-text">
           {state.error}
         </p>
@@ -53,7 +57,7 @@ export function ActionForm({
           tone === "accent" ? "bg-accent text-on-accent" : "border border-border text-ink"
         }`}
       >
-        {pending ? x("Un momento…") : submit}
+        {pending && !optimistic ? x("Un momento…") : submit}
       </button>
     </form>
   );

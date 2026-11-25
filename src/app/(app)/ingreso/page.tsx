@@ -26,7 +26,7 @@ export default async function IncomePage() {
   return (
     <section className="flex flex-col gap-5 pt-2">
       <h1 className="text-2xl font-bold">{x("Ingresos")}</h1>
-      <ActionForm action={saveIncome} submit={x("Guardar ingreso")}>
+      <ActionForm action={saveIncome} optimistic submit={x("Guardar ingreso")}>
         <input type="hidden" name="spaceId" value={active.id} />
         <select name="memberId" aria-label={x("Persona")} className={inputClass} defaultValue={me?.id}>
           {mine.map((m) => <option key={m.id} value={m.id}>{m.user_id === user.id ? x("Yo") : m.display_name}</option>)}

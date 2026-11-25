@@ -17,6 +17,8 @@ import { vapidPublicKey } from "@/lib/vapid";
 import { savePrefs } from "@/server/actions/push";
 import { cookies } from "next/headers";
 import { getLocale, getTranslations } from "next-intl/server";
+import { Turnstile } from "@/components/ui/Turnstile";
+import { turnstileSiteKey } from "@/lib/turnstile-public";
 import { LockSettings } from "@/components/lock/LockSettings";
 import { deleteAccount, setLocale, setTheme, toggleAiPhrases, toggleDiscreet } from "@/server/actions/prefs";
 import { requireUser, listMySpaces } from "@/server/spaces";
@@ -62,12 +64,13 @@ export default async function SettingsPage() {
       {!user.is_anonymous && !demo ? (
         <RowSheet title={x("Tu cuenta y contraseña")} card={{ initial, name, hint: x("Tu cuenta y contraseña") }}>
           <div className="rounded-card border border-border bg-surface p-4">
-            <PasswordForm action={changePassword} submit={x("Cambiar contraseña")} withCurrent clearOnSuccess />
+            <PasswordForm action={changePassword} submit={x("Cambiar contraseña")} withCurrent clearOnSuccess captcha />
           </div>
           <div className="mt-4 flex flex-col gap-2 rounded-card border border-over p-4">
           <h2 className="font-semibold text-over-text">{t("danger")}</h2>
           <p className="text-sm text-ink-2">{t("deleteHelp")}</p>
           <ActionForm action={deleteAccount} submit={t("deleteAccount")} tone="plain">
+            {turnstileSiteKey && <Turnstile siteKey={turnstileSiteKey} appearance="interaction-only" />}
             <input name="password" type="password" autoComplete="current-password" required maxLength={128} aria-label={t("confirmPassword")} placeholder={t("confirmPassword")} className={inputClass} />
           </ActionForm>
         </div>
@@ -111,7 +114,7 @@ export default async function SettingsPage() {
           {spaces.filter((s) => s.kind !== "personal").map((s) => {
             const pr = prefs?.find((p) => p.space_id === s.id);
             return (
-              <ActionForm key={s.id} action={setMirrorPref} submit={x("Guardar")} tone="plain" className="flex flex-col gap-2 rounded-card border border-border bg-surface p-3">
+              <ActionForm key={s.id} action={setMirrorPref} optimistic submit={x("Guardar")} tone="plain" className="flex flex-col gap-2 rounded-card border border-border bg-surface p-3">
                 <input type="hidden" name="spaceId" value={s.id} />
                 <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" name="enabled" defaultChecked={pr?.enabled ?? true} /> {s.name}</label>
                 <select name="fundId" defaultValue={pr?.fund_id ?? ""} aria-label={`Fondo para ${s.name}`} className={inputClass}>
@@ -149,7 +152,7 @@ export default async function SettingsPage() {
           </li>
         ))}
       </ul>
-      <ActionForm action={addFavoriteForm} submit={x("Añadir favorito")} tone="plain">
+      <ActionForm action={addFavoriteForm} optimistic submit={x("Añadir favorito")} tone="plain">
         <select name="spaceId" aria-label={x("Burbuja")} className={inputClass}>{spaces.map((s) => <option key={s.id} value={s.id}>{s.kind === "personal" ? x("Personal") : s.name}</option>)}</select>
         <input name="label" required maxLength={30} placeholder={x("Café")} aria-label={x("Nombre")} className={inputClass} />
         <input name="amount" required inputMode="decimal" placeholder="2,50" aria-label={x("Importe")} className={`${inputClass} font-mono`} />

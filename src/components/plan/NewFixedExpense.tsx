@@ -121,8 +121,9 @@ export function NewFixedExpense({ spaceId, categories, rules, notify, initial, a
         <span role="img" aria-label={notify.on ? x("Activado") : x("Desactivado")} className={`h-7 w-12 shrink-0 rounded-full p-0.5 ${notify.on ? "bg-accent" : "bg-track"}`}><span className={`block size-6 rounded-full bg-bg transition-transform ${notify.on ? "translate-x-5" : ""}`} /></span>
       </div>
 
-      {state.error && <p role="alert" className="text-sm text-over-text">{state.error}</p>}
-      <button type="submit" disabled={!valid || pending || !!state.ok} className="min-h-14 rounded-full bg-accent px-6 text-base font-semibold text-on-accent disabled:cursor-not-allowed disabled:opacity-50">{pending ? x("Guardando…") : initial ? x("Guardar cambios") : x("Guardar gasto fijo")}</button>
+      {pending && <p role="status" className="text-sm text-ink-2">✓ {x("Gasto fijo guardado.")}</p>}
+      {state.error && !pending && <p role="alert" className="text-sm text-over-text">{state.error}</p>}
+      <button type="submit" disabled={!valid || pending || !!state.ok} className="min-h-14 rounded-full bg-accent px-6 text-base font-semibold text-on-accent disabled:cursor-not-allowed disabled:opacity-50">{initial ? x("Guardar cambios") : x("Guardar gasto fijo")}</button>
     </form>
   );
 }

@@ -25,7 +25,7 @@ export async function createUser(name: string): Promise<{ id: string; client: Su
   });
   if (error || !data.user) throw error ?? new Error("no se pudo crear el usuario");
   const client = createClient(url!, anon!, opts);
-  const { error: signErr } = await client.auth.signInWithPassword({ email, password });
+  const { error: signErr } = await client.auth.signInWithPassword({ email, password, options: { captchaToken: "XXXX.DUMMY.TOKEN.XXXX" } });
   if (signErr) throw signErr;
   return { id: data.user.id, client };
 }
@@ -35,7 +35,7 @@ export const anonClient = () => createClient(url!, anon!, opts);
 /** Sesión de invitado (usuario anónimo) con su propio cliente. */
 export async function createGuest(): Promise<{ id: string; client: SupabaseClient }> {
   const client = createClient(url!, anon!, opts);
-  const { data, error } = await client.auth.signInAnonymously();
+  const { data, error } = await client.auth.signInAnonymously({ options: { captchaToken: "XXXX.DUMMY.TOKEN.XXXX" } });
   if (error || !data.user) throw error ?? new Error("no se pudo crear el invitado");
   return { id: data.user.id, client };
 }

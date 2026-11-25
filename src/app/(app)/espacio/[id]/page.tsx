@@ -65,7 +65,7 @@ export default async function SpacePage({ params }: { params: Promise<{ id: stri
           <Link href={`/espacio/${id}/cerrar`} className="min-h-11 rounded-card border border-border bg-surface px-4 py-3 text-sm">{x("Cerrar plan y ver quién paga a quién ›")}</Link>
           <div className="flex flex-col gap-3">
             <h2 className="text-lg font-semibold">{x("Presupuesto por persona y día")}</h2>
-            <ActionForm action={setDailyBudget} submit={x("Guardar presupuesto")} tone="plain">
+            <ActionForm action={setDailyBudget} optimistic submit={x("Guardar presupuesto")} tone="plain">
               <input type="hidden" name="spaceId" value={id} />
               <input name="budget" inputMode="decimal" defaultValue={space.daily_budget_cents ? (space.daily_budget_cents / 100).toFixed(2).replace(".", ",") : ""} placeholder={x("50,00 (vacío = sin presupuesto)")} aria-label={x("Presupuesto por persona y día")} className={`${inputClass} font-mono`} />
             </ActionForm>
@@ -77,7 +77,7 @@ export default async function SpacePage({ params }: { params: Promise<{ id: stri
         <>
           <div className="flex flex-col gap-3">
             <h2 className="text-lg font-semibold">{x("Añadir persona sin cuenta")}</h2>
-            <ActionForm action={addVirtualMember} submit={x("Añadir")} tone="plain">
+            <ActionForm action={addVirtualMember} optimistic submit={x("Añadir")} tone="plain">
               <input type="hidden" name="spaceId" value={id} />
               <input name="name" required maxLength={40} placeholder={x("Nombre")} aria-label={x("Nombre")} className={inputClass} />
             </ActionForm>
@@ -85,7 +85,7 @@ export default async function SpacePage({ params }: { params: Promise<{ id: stri
 
           <div className="flex flex-col gap-3">
             <h2 className="text-lg font-semibold">{x("Porcentaje por defecto")}</h2>
-            <ActionForm action={saveShares} submit={x("Guardar porcentajes")} tone="plain">
+            <ActionForm action={saveShares} optimistic submit={x("Guardar porcentajes")} tone="plain">
               <input type="hidden" name="spaceId" value={id} />
               {members?.map((m) => (
                 <label key={m.id} className="flex items-center justify-between gap-3 text-sm text-ink-2">

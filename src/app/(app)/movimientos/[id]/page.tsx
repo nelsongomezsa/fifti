@@ -18,7 +18,7 @@ import { redirect } from "next/navigation";
 
 export const metadata: Metadata = { title: "Detalle del gasto" };
 
-export default async function ExpensePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ editar?: string }> }) {
+export default async function ExpensePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ editar?: string; error?: string }> }) {
   const x = await getTx();
   const { id } = await params;
   if (!uuidSchema.safeParse(id).success) notFound();
@@ -63,6 +63,7 @@ export default async function ExpensePage({ params, searchParams }: { params: Pr
             <span>{displayName(x, cat.name, cat.system_key)}{cat.funds ? <span className="text-ink-3"> · {x("Fondo")} {displayName(x, (cat.funds as unknown as { name: string }).name, (cat.funds as unknown as { system_key: string | null }).system_key)}</span> : null}</span>
           </p>
         )}
+        {(await searchParams).error === "borrar" && <p role="alert" className="text-sm text-over-text">{x("No se ha podido borrar el gasto. Inténtalo de nuevo.")}</p>}
         <h1 className="text-2xl font-bold">{title}</h1>
         <p className="money mt-1 font-mono text-3xl">{formatMoney(e.amount_cents, e.currency, x.locale)}</p>
         <p className="mt-1 text-sm text-ink-3">
@@ -134,7 +135,7 @@ export default async function ExpensePage({ params, searchParams }: { params: Pr
             <span className="block text-xs text-ink-3">{name(c.member_id)}</span>{c.body}
           </p>
         ))}
-        <ActionForm action={addComment} submit={x("Comentar")} tone="plain">
+        <ActionForm action={addComment} optimistic submit={x("Comentar")} tone="plain">
           <input type="hidden" name="expenseId" value={id} /><input type="hidden" name="spaceId" value={e.space_id} />
           <input name="body" required maxLength={500} placeholder={x("Escribe un comentario")} aria-label={x("Comentario")} className={inputClass} />
         </ActionForm>

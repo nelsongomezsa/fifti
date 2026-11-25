@@ -48,7 +48,7 @@ export default async function RulesPage() {
               </div>
               <details className="mt-1">
                 <summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold">{x("Editar")}</summary>
-                <ActionForm action={updateRule} submit={x("Guardar")} className="mt-1 flex flex-col gap-3">
+                <ActionForm action={updateRule} optimistic submit={x("Guardar")} className="mt-1 flex flex-col gap-3">
                   <input type="hidden" name="spaceId" value={active.id} /><input type="hidden" name="id" value={r.id} />
                   <select name="matchType" defaultValue={r.match_type} aria-label={x("Tipo de coincidencia")} className={inputClass}>{typeOptions}</select>
                   <input name="matchText" required maxLength={60} defaultValue={r.match_text} aria-label={x("Texto")} className={inputClass} />
@@ -64,7 +64,7 @@ export default async function RulesPage() {
 
       <h2 className="text-lg font-semibold">{x("Nueva regla")}</h2>
       <div className="rounded-card border border-border bg-surface p-4">
-        <ActionForm action={createRule} submit={x("Crear regla")} className="flex flex-col gap-3">
+        <ActionForm action={createRule} optimistic submit={x("Crear regla")} className="flex flex-col gap-3">
           <input type="hidden" name="spaceId" value={active.id} />
           <select name="matchType" defaultValue="contains" aria-label={x("Tipo de coincidencia")} className={inputClass}>{typeOptions}</select>
           <input name="matchText" required maxLength={60} placeholder={x("Mercadona")} aria-label={x("Texto")} className={inputClass} />

@@ -1206,5 +1206,9 @@
   "Cuenta día a día": "Daily account",
   "Saltar: lo haré después": "Skip: I'll do it later",
   "Día de cobro: reparte tu nómina": "Payday: split your pay",
-  "Es día de cobro: reparte tu nómina entre tus cuentas.": "It's payday: split your pay between your accounts."
+  "Es día de cobro: reparte tu nómina entre tus cuentas.": "It's payday: split your pay between your accounts.",
+  "Estamos comprobando que eres una persona. Inténtalo de nuevo en un momento.": "We're checking you're a person. Try again in a moment.",
+  "Gasto deshecho": "Expense undone",
+  "Guardado": "Saved",
+  "No se ha podido borrar el gasto. Inténtalo de nuevo.": "The expense couldn't be deleted. Try again."
 }

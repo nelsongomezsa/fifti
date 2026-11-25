@@ -31,6 +31,13 @@ enable_confirmations = true
 secure_password_change = true
 max_frequency = "60s"
 
+# Captcha (Cloudflare Turnstile) en las llamadas a Auth. En local queda apagado para trabajar sin red; el CI lo enciende con la
+# clave secreta de PRUEBA de Cloudflare (que acepta cualquier token) para comprobar que el token viaja en todas las llamadas.
+[auth.captcha]
+enabled = false
+provider = "turnstile"
+secret = ""
+
 [storage]
 enabled = true
 file_size_limit = "5MiB"
@@ -49,6 +56,12 @@ additional_redirect_urls = ["https://fifti-seven.vercel.app/auth/callback"]
 enable_anonymous_sign_ins = true
 minimum_password_length = 12
 enable_refresh_token_rotation = true
+
+# La clave secreta de Turnstile llega por variable de entorno al ejecutar `supabase config push`; nunca se escribe aquí.
+[remotes.production.auth.captcha]
+enabled = true
+provider = "turnstile"
+secret = "env(AUTH_CAPTCHA_SECRET)"
 
 [remotes.production.auth.email]
 enable_signup = true

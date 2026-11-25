@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { admin, e2eConfigured, login, newUser, openSheet, removeUsers, seedPlan, typeAmount, type TestUser } from "./helpers";
+import { admin, waitCaptcha, e2eConfigured, login, newUser, openSheet, removeUsers, seedPlan, typeAmount, type TestUser } from "./helpers";
 
 test.skip(!e2eConfigured, "Faltan las claves de pruebas (.env.test.local)");
 
@@ -24,7 +24,7 @@ test("sin conexión el gasto se guarda en la cola y se envía al volver la red",
 test("un invitado entra a un plan de grupo con Turnstile (claves de prueba de Cloudflare)", async ({ page, browser }) => {
   test.skip(!process.env.E2E_TURNSTILE_TEST, "Requiere compilar la app con las claves de prueba de Turnstile (E2E_TURNSTILE_TEST=1)");
   const { data: group } = await ana.client.rpc("create_space", { p_name: "Viaje Lisboa", p_kind: "group", p_currency: "EUR", p_emoji: null, p_template: null, p_starts: null, p_ends: null });
-  const token = crypto.randomUUID().replace(/-/g, "");
+  const token = Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url"); // 32 bytes, como los enlaces reales
   const hash = Buffer.from(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token))).toString("hex");
   await ana.client.rpc("create_share_link", { p_space: group as string, p_kind: "guest", p_token_hash: hash, p_ttl_seconds: 3600, p_max_uses: 3 });
   void page;
@@ -32,8 +32,7 @@ test("un invitado entra a un plan de grupo con Turnstile (claves de prueba de Cl
   const guest = await ctx.newPage();
   await guest.goto(`${process.env.E2E_BASE_URL ?? "http://localhost:3113"}/unirse/${token}`);
   await guest.getByLabel("Tu nombre").fill("Marta");
-  await expect(guest.locator("iframe[src*='challenges.cloudflare.com']")).toBeVisible();
-  await guest.waitForTimeout(3000); // el widget de prueba se resuelve solo
+  await waitCaptcha(guest); // el widget de prueba de Cloudflare se resuelve solo
   await guest.getByRole("button", { name: "Entrar al plan" }).click();
   await expect(guest).toHaveURL(/\/(inicio|movimientos|espacio)/);
   await ctx.close();

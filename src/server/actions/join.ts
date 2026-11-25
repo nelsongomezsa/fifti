@@ -5,7 +5,7 @@ import { getTx } from "@/i18n/tx";
 import { redirect } from "next/navigation";
 import { clientIp } from "@/lib/security/ip";
 import { RULES, hitIp } from "@/lib/security/rate-limit";
-import { verifyTurnstile } from "@/lib/security/turnstile";
+import { CAPTCHA_ERROR, captchaFrom } from "@/lib/security/captcha";
 import { hashToken, isValidToken } from "@/lib/security/tokens";
 import { createClient } from "@/lib/supabase/server";
 import { guestJoinSchema } from "@/lib/validation/spaces";
@@ -23,14 +23,15 @@ export async function joinAsGuest(_prev: FormState, fd: FormData): Promise<FormS
   const parsed = guestJoinSchema.safeParse({ token: fv(fd, "token") ?? "", memberId: fv(fd, "memberId"), name: fv(fd, "name") });
   if (!parsed.success || !isValidToken(parsed.data.token)) return { error: x("Elige tu nombre o escribe uno.") };
   if (!(await hitIp(RULES.guestJoin))) return { error: x("Demasiados intentos. Espera un rato.") };
-  // Anti-bots: sin esta comprobación no se crea ninguna sesión anónima
-  if (!(await verifyTurnstile(fv(fd, "cf-turnstile-response"), await clientIp()))) return { error: x("No hemos podido verificar que eres una persona. Inténtalo de nuevo.") };
+  // Anti-bots: el token de Turnstile se pasa a Supabase Auth, que lo valida (una sola vez); sin token no se crea ninguna sesión anónima
+  const captcha = captchaFrom(fd);
+  if (captcha.missing) return { error: x(CAPTCHA_ERROR) };
 
   const supabase = await createClient();
   let { data: { user } } = await supabase.auth.getUser();
   if (user && !user.is_anonymous) return { error: x("Ya tienes una cuenta: usa la invitación con tu cuenta.") };
   if (!user) {
-    const res = await supabase.auth.signInAnonymously();
+    const res = await supabase.auth.signInAnonymously({ options: { captchaToken: captcha.token } });
     if (res.error || !res.data.user) {
       console.error("[guest]", res.error?.message);
       return { error: x("No se ha podido crear la sesión de invitado.") };

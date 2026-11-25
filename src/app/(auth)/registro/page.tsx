@@ -16,6 +16,7 @@ export default async function SignUpPage({ searchParams }: { searchParams: Promi
       <PasswordForm
         action={signUp}
         next={safe}
+        captcha
         submit={t("signup")}
         leading={[
           { name: "displayName", label: t("yourName"), type: "text", autoComplete: "given-name", maxLength: 40 },

@@ -39,6 +39,7 @@ test("Deshacer quita el gasto recién guardado", async ({ page }) => {
   const toast = page.getByRole("status").filter({ hasText: "Guardado en" });
   await expect(toast).toBeVisible();
   await toast.getByRole("button", { name: "Deshacer" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Gasto deshecho" })).toBeVisible(); // ya se ha borrado de verdad
   await page.goto("/movimientos");
   await expect(page.getByRole("link", { name: /Para deshacer/ })).toHaveCount(0);
 });

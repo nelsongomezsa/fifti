@@ -78,7 +78,7 @@ export default async function GoalPage({ params }: { params: Promise<{ id: strin
       </div>
 
       {canEdit && (
-        <ActionForm action={addContribution} submit={x("Aportar")} className="flex gap-2">
+        <ActionForm action={addContribution} optimistic submit={x("Aportar")} className="flex gap-2">
           <input type="hidden" name="goalId" value={id} />
           <input name="amount" required inputMode="decimal" placeholder="50,00" aria-label={x("Importe")} className={`${inputClass} font-mono`} />
         </ActionForm>
@@ -89,7 +89,7 @@ export default async function GoalPage({ params }: { params: Promise<{ id: strin
           <h2 className="font-semibold">{x("Reto de las 52 semanas")}</h2>
           <p className="mt-1 text-sm text-ink-2">{x("Semana")}{" "}{nextWeek.week}: <span className="money font-mono">{formatMoney(nextWeek.amountCents, "EUR", x.locale)}</span> {x("· llevas")}{" "}{doneWeeks} {x("de 52")}</p>
           {canEdit && doneWeeks < 52 && (
-            <ActionForm action={addContribution} submit={`${x("Aportar semana")} ${nextWeek.week}`} className="mt-3 flex">
+            <ActionForm action={addContribution} optimistic submit={`${x("Aportar semana")} ${nextWeek.week}`} className="mt-3 flex">
               <input type="hidden" name="goalId" value={id} /><input type="hidden" name="source" value="challenge" />
               <input type="hidden" name="amount" value={(nextWeek.amountCents / 100).toFixed(2).replace(".", ",")} />
             </ActionForm>
@@ -117,7 +117,7 @@ export default async function GoalPage({ params }: { params: Promise<{ id: strin
             ))}
           </ul>
           {canEdit && (
-            <ActionForm action={addMilestone} submit={x("Añadir pago")} tone="plain" className="flex flex-col gap-2">
+            <ActionForm action={addMilestone} optimistic submit={x("Añadir pago")} tone="plain" className="flex flex-col gap-2">
               <input type="hidden" name="goalId" value={id} /><input type="hidden" name="spaceId" value={g.space_id} />
               <input name="name" required maxLength={60} placeholder={x("Fotógrafo")} aria-label={x("Concepto del pago")} className={inputClass} />
               <input name="amount" required inputMode="decimal" placeholder="800,00" aria-label={x("Importe del pago")} className={`${inputClass} font-mono`} />
@@ -138,11 +138,11 @@ export default async function GoalPage({ params }: { params: Promise<{ id: strin
               </li>
             ))}
           </ul>
-          <ActionForm action={saveRule} submit={x("Activar redondeo")} tone="plain" className="flex gap-2">
+          <ActionForm action={saveRule} optimistic submit={x("Activar redondeo")} tone="plain" className="flex gap-2">
             <input type="hidden" name="goalId" value={id} /><input type="hidden" name="spaceId" value={g.space_id} /><input type="hidden" name="kind" value="roundup" />
             <input name="value" inputMode="decimal" placeholder="1,00" aria-label={x("Redondear al siguiente")} className={`${inputClass} font-mono`} />
           </ActionForm>
-          <ActionForm action={saveRule} submit={x("Activar % de ingresos")} tone="plain" className="flex gap-2">
+          <ActionForm action={saveRule} optimistic submit={x("Activar % de ingresos")} tone="plain" className="flex gap-2">
             <input type="hidden" name="goalId" value={id} /><input type="hidden" name="spaceId" value={g.space_id} /><input type="hidden" name="kind" value="percent_of_income" />
             <input name="value" inputMode="decimal" placeholder="10" aria-label={x("Porcentaje de cada ingreso")} className={`${inputClass} font-mono`} />
           </ActionForm>
@@ -169,7 +169,7 @@ export default async function GoalPage({ params }: { params: Promise<{ id: strin
       {canEdit && (
         <details className="rounded-card border border-border bg-surface p-4">
           <summary className="min-h-11 cursor-pointer font-semibold">{x("Editar meta")}</summary>
-          <ActionForm action={updateGoal} submit={x("Guardar meta")} className="mt-3 flex flex-col gap-3">
+          <ActionForm action={updateGoal} optimistic submit={x("Guardar meta")} className="mt-3 flex flex-col gap-3">
             <input type="hidden" name="goalId" value={id} />
             <input name="name" required maxLength={60} defaultValue={g.name} aria-label={x("Nombre")} className={inputClass} />
             <input name="target" required inputMode="decimal" defaultValue={(g.target_cents / 100).toFixed(2).replace(".", ",")} aria-label={x("Objetivo")} className={`${inputClass} font-mono`} />

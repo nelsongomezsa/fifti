@@ -40,6 +40,16 @@ Revisión del 25-11-2026 contra el código y las migraciones.
 
 Cabeceras (`next.config.ts`): CSP estricta (origen propio, Turnstile y el proyecto de Supabase), HSTS, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy` y `Permissions-Policy`. Las cabeceras de producción en vivo no se han podido consultar en esta revisión: se leen del código.
 
+## Captcha en las llamadas a Supabase Auth (Cloudflare Turnstile)
+
+Con la clave anónima pública, cualquiera puede llamar a Auth directamente y saltarse un captcha que solo valide la app. Por eso el token viaja hasta Supabase y es **Supabase quien lo valida**:
+
+- **Dónde se pide** (widget gestionado, modo «solo si hace falta», accesible): registro, entrar, recuperar contraseña, entrada de invitados, cambiar contraseña y borrar cuenta (estas dos reautentican con `signInWithPassword`).
+- **Cómo viaja**: el formulario deja el token en `cf-turnstile-response`; la acción lo pasa como `options.captchaToken` a `signUp`, `signInWithPassword`, `resetPasswordForEmail` y `signInAnonymously` (`src/lib/security/captcha.ts`). El token es de un solo uso: la app no lo valida por su cuenta para no gastarlo antes que Supabase. Un test comprueba que todas esas llamadas lo llevan.
+- **Si falta el token** y hay clave de sitio configurada, la acción se rechaza antes de llamar a Auth.
+- **Activación en producción**: Supabase → Authentication → Attack Protection → *Enable Captcha protection* → proveedor Turnstile y su **clave secreta**. Hasta que se active, el token se ignora (siguen los límites de tasa). Si se usa `supabase config push`, la clave se lee de la variable `AUTH_CAPTCHA_SECRET` (nunca se escribe en el repositorio).
+- **Local y CI**: en local el captcha de Auth está apagado para trabajar sin red. El CI lo enciende con la clave secreta de **prueba** de Cloudflare (acepta cualquier token) y compila la app con la clave de sitio de prueba, de modo que los e2e de registro, acceso e invitados pasan por el widget real.
+
 ## Excepciones documentadas
 
 ### E1. El navegador recibe el `access_token` para Realtime

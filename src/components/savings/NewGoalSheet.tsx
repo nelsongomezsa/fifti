@@ -30,7 +30,7 @@ export function NewGoalSheet({ spaceId }: { spaceId: string }) {
               <h2 className="text-lg font-bold">{x("Nueva meta")}</h2>
               <button type="button" onClick={() => setOpen(false)} aria-label={x("Cerrar")} className="grid min-h-11 min-w-11 place-items-center text-ink-2">✕</button>
             </div>
-            <ActionForm action={createGoal} submit={x("Crear meta")} className="flex flex-col gap-3">
+            <ActionForm action={createGoal} optimistic submit={x("Crear meta")} className="flex flex-col gap-3">
               <input type="hidden" name="spaceId" value={spaceId} />
               <select name="kind" defaultValue="simple" aria-label={x("Tipo")} className={inputClass}>
                 <option value="simple">{x("Meta simple")}</option><option value="big_event">{x("Meta grande con pagos (boda, piso)")}</option><option value="challenge">{x("Reto de las 52 semanas")}</option>

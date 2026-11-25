@@ -8,6 +8,7 @@ import { SheetShell } from "@/components/ui/SheetShell";
 import { ExpenseSheet, type SheetPrefill } from "@/components/expense/ExpenseSheet";
 import { usePendingExpenses } from "@/components/expense/optimistic";
 import { useTx } from "@/i18n/tx-client";
+import { removeItem } from "@/lib/offline/queue";
 import { submitExpense } from "@/lib/offline/submit";
 import { formatMoney } from "@/lib/money";
 import { parseQuickExpense, sameText, type QuickExpense } from "@/lib/validation/quick-expense";
@@ -20,7 +21,8 @@ export const CTX_CACHE_KEY = "fifti:sheetCtx:v3";
 
 type Toast =
   | { type: "saved"; cid: string; id: string | null; spaceName: string; shareCents: number; currency: string; queued: boolean }
-  | { type: "error"; message: string; retry: SheetPrefill };
+  | { type: "error"; message: string; retry: SheetPrefill }
+  | { type: "undone" };
 
 /** Contexto guardado en el dispositivo, comprobado: si le falta algo, se descarta en vez de romper la hoja. */
 /** El aviso que devuelve la demo al intentar guardar (ya traducido por el servidor según el idioma). */
@@ -66,6 +68,8 @@ export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
   const press = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longFired = useRef(false);
   const cancelled = useRef(new Set<string>());
+  /** Guardados en curso: «Deshacer» antes de que terminen espera al id real y lo borra */
+  const inflight = useRef(new Map<string, Promise<{ ok: boolean; id?: string }>>());
 
   const refreshCtx = useCallback(async () => {
     try {
@@ -122,17 +126,14 @@ export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
     const cid = input.clientId;
     pending.add({ cid, spaceId: input.spaceId, description: input.description, amountCents: input.amountCents, baseCents: info.baseCents, shareCents: info.shareCents, currency: input.currency, spentAt: input.spentAt, status: "saving" });
     showToast({ type: "saved", cid, id: null, spaceName: info.spaceName, shareCents: info.shareCents, currency: info.currency, queued: false });
-    const res = await submitExpense(input).catch(() => ({ ok: false as const, error: "No se ha podido guardar el gasto." }));
+    const job = submitExpense(input).catch(() => ({ ok: false as const, error: "No se ha podido guardar el gasto." }));
+    inflight.current.set(cid, job as Promise<{ ok: boolean; id?: string }>);
+    const res = await job;
+    inflight.current.delete(cid);
+    if (cancelled.current.has(cid)) { cancelled.current.delete(cid); return; } // «Deshacer» ya se ocupó de él
     if (!res.ok) {
       pending.remove([cid]);
       showToast({ type: "error", message: res.error, retry: { spaceId: input.spaceId, amountCents: input.amountCents, categoryId: input.categoryId ?? null, description: input.description } });
-      return;
-    }
-    if (cancelled.current.has(cid)) { // la persona pulsó Deshacer antes de que terminara el guardado
-      cancelled.current.delete(cid);
-      if (res.id !== "pending") await deleteExpense(res.id);
-      pending.remove([cid]);
-      startRefresh(() => router.refresh());
       return;
     }
     const queued = res.id === "pending";
@@ -148,14 +149,18 @@ export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
     if (!toast || toast.type !== "saved") return;
     const t = toast;
     setToast(null);
-    if (t.id) {
-      pending.remove([t.cid]);
-      await deleteExpense(t.id);
-      startRefresh(() => router.refresh());
-    } else {
-      cancelled.current.add(t.cid);
-      pending.remove([t.cid]);
+    pending.remove([t.cid]);
+    let id = t.id;
+    const job = inflight.current.get(t.cid);
+    if (!id && job) {
+      cancelled.current.add(t.cid); // el guardado en curso no debe pintar nada al terminar
+      const res = await job; // se espera al id real del servidor
+      id = res.ok ? res.id ?? null : null;
     }
+    if (id && id !== "pending") await deleteExpense(id);
+    else if (id === "pending") await removeItem(t.cid).catch(() => undefined); // estaba en la cola sin conexión: se saca de ella
+    showToast({ type: "undone" });
+    startRefresh(() => router.refresh());
   };
 
   const onDown = () => {
@@ -194,16 +199,13 @@ export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
             <Receipt size={26} aria-hidden /><span><span className="block text-lg font-bold">{x("Gasto")}</span><span className="block text-sm opacity-80">{x("Lo que acabas de pagar")}</span></span>
           </button>
           <div className="mt-3 grid grid-cols-2 gap-3">
-            {([["/fijos/nuevo", Repeat, "Gasto fijo", "Alquiler, Spotify…"], ["/ingreso", Wallet, "Ingreso", "Nómina, un extra…"], ["/plan?vista=ahorro", PiggyBank, "Aportar a una meta", "A tu viaje o colchón"], ["/prestamos#nuevo-prestamo", HandCoins, "Préstamo", "Dejaste o te dejaron"], ["/traspaso", ArrowRightLeft, "Traspaso", "Entre tus cuentas"]] as const).map(([href, Icon, title, hint]) => (
+            {([["/fijos/nuevo", Repeat, "Gasto fijo", "Alquiler, Spotify…"], ["/ingreso", Wallet, "Ingreso", "Nómina, un extra…"], ["/plan?vista=ahorro", PiggyBank, "Aportar a una meta", "A tu viaje o colchón"], ["/prestamos#nuevo-prestamo", HandCoins, "Préstamo", "Dejaste o te dejaron"], ["/traspaso", ArrowRightLeft, "Traspaso", "Entre tus cuentas"], ["/aportar", Home, "Aportar al hogar", "Tu parte del gasto común"]] as const).map(([href, Icon, title, hint]) => (
               <Link key={href} href={href} prefetch={false} onClick={() => setChooser(false)} className="flex min-h-28 flex-col justify-between rounded-card border border-border bg-surface p-3">
                 <Icon size={22} aria-hidden className="text-ink-2" />
                 <span><span className="block font-semibold">{x(title)}</span><span className="block text-xs text-ink-3">{x(hint)}</span></span>
               </Link>
             ))}
           </div>
-          <Link href="/aportar" prefetch={false} onClick={() => setChooser(false)} className="mt-3 flex min-h-14 items-center gap-3 rounded-card border border-border bg-surface px-4">
-            <Home size={22} aria-hidden className="text-ink-2" /><span><span className="block font-semibold">{x("Aportar al hogar")}</span><span className="block text-xs text-ink-3">{x("Tu parte del gasto común")}</span></span>
-          </Link>
           <form className="mt-4 flex gap-2" onSubmit={(e) => { e.preventDefault(); const t = phraseText.trim(); if (!t) return; setChooser(false); setPhraseText(""); openSheet({ phrase: t }); }}>
             <input value={phraseText} onChange={(e) => setPhraseText(e.target.value)} maxLength={200} aria-label={x("Frase rápida")} placeholder={x("O escríbelo: «12 cena con Leo a medias»")}
               className="min-h-12 min-w-0 flex-1 rounded-card border border-border bg-surface px-4 text-sm text-ink placeholder:text-ink-3" />
@@ -261,6 +263,8 @@ export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
               </span>
               <button type="button" onClick={undo} className="min-h-11 px-3 text-sm font-semibold">{x("Deshacer")}</button>
             </>
+          ) : toast.type === "undone" ? (
+            <span className="text-sm">{x("Gasto deshecho")}</span>
           ) : (
             <>
               <span className="text-sm text-over-text">{x(toast.message)}</span>

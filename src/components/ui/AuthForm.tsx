@@ -2,7 +2,9 @@
 
 
 import { useTx } from "@/i18n/tx-client";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import { captchaReady, Turnstile } from "@/components/ui/Turnstile";
+import { turnstileSiteKey } from "@/lib/turnstile-public";
 import type { FormState } from "@/server/actions/auth";
 
 type Field = { name: string; label: string; type: string; autoComplete: string; maxLength?: number; hint?: string };
@@ -20,6 +22,7 @@ export function AuthForm({
 }) {
   const x = useTx();
   const [state, formAction, pending] = useActionState(action, {});
+  const [waiting, setWaiting] = useState(false);
 
   if (state.ok && state.message) {
     return (
@@ -30,7 +33,8 @@ export function AuthForm({
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-4" noValidate>
+    <form action={formAction} className="flex flex-col gap-4" noValidate
+      onSubmit={(e) => { if (!captchaReady(e.currentTarget)) { e.preventDefault(); setWaiting(true); } else setWaiting(false); }}>
       {next && <input type="hidden" name="next" value={next} />}
       {fields.map((f) => (
         <label key={f.name} className="flex flex-col gap-1.5 text-sm text-ink-2">
@@ -51,6 +55,8 @@ export function AuthForm({
           )}
         </label>
       ))}
+      {turnstileSiteKey && <Turnstile siteKey={turnstileSiteKey} appearance="interaction-only" />}
+      {waiting && <p role="status" className="text-sm text-ink-2">{x("Estamos comprobando que eres una persona. Inténtalo de nuevo en un momento.")}</p>}
       {state.error && (
         <p role="alert" className="text-sm text-over-text">
           {state.error}

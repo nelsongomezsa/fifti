@@ -33,14 +33,14 @@ export default async function FundsPage({ params }: { params: Promise<{ id: stri
           <p className="mt-2 flex flex-wrap gap-2 text-sm text-ink-2">
             {cats?.filter((c) => c.fund_id === f.id).map((c) => <span key={c.id} className="rounded-full border border-border px-3 py-1">{displayName(x, c.name, c.system_key)}</span>)}
           </p>
-          <ActionForm action={addCategory} submit={x("Añadir categoría")} tone="plain" className="mt-3 flex gap-2">
+          <ActionForm action={addCategory} optimistic submit={x("Añadir categoría")} tone="plain" className="mt-3 flex gap-2">
             <input type="hidden" name="spaceId" value={id} /><input type="hidden" name="fundId" value={f.id} />
             <input name="name" required maxLength={40} placeholder={x("Nueva categoría")} aria-label={x("Nueva categoría")} className={inputClass} />
           </ActionForm>
         </div>
       ))}
       <h2 className="font-semibold">{x("Nuevo fondo")}</h2>
-      <ActionForm action={addFund} submit={x("Crear fondo")}>
+      <ActionForm action={addFund} optimistic submit={x("Crear fondo")}>
         <input type="hidden" name="spaceId" value={id} />
         <input name="name" required maxLength={40} placeholder={x("Nombre del fondo")} aria-label={x("Nombre del fondo")} className={inputClass} />
         <select name="kind" className={inputClass} aria-label={x("Tipo")} defaultValue="other">{KINDS.map(([v, l]) => <option key={v} value={v}>{x(l)}</option>)}</select>

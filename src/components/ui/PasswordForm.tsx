@@ -2,6 +2,8 @@
 
 import { startTransition, useActionState, useState } from "react";
 import { useTx } from "@/i18n/tx-client";
+import { captchaReady, Turnstile } from "@/components/ui/Turnstile";
+import { turnstileSiteKey } from "@/lib/turnstile-public";
 import { passwordRequirements } from "@/lib/validation/auth";
 import type { FormState } from "@/server/actions/auth";
 import { PasswordField } from "./PasswordField";
@@ -27,16 +29,19 @@ function Requirement({ met, text }: { met: boolean; text: string }) {
  * desactivado hasta cumplirlos. Se usa en registro, restablecer contraseña y cambiar contraseña (misma regla que el servidor).
  */
 export function PasswordForm({
-  action, submit, leading = [], next, withCurrent = false, clearOnSuccess = false,
+  action, submit, leading = [], next, withCurrent = false, clearOnSuccess = false, captcha = false,
 }: {
   action: (prev: FormState, fd: FormData) => Promise<FormState>;
   submit: string; leading?: Field[]; next?: string; withCurrent?: boolean; clearOnSuccess?: boolean;
+  /** Pide el desafío de Turnstile (registro y cambio de contraseña: llaman a Supabase Auth) */
+  captcha?: boolean;
 }) {
   const x = useTx();
   const [current, setCurrent] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [snap, setSnap] = useState<string | null>(null);
+  const [waiting, setWaiting] = useState(false);
   const [state, formAction, pending] = useActionState(async (prev: FormState, fd: FormData) => {
     const r = await action(prev, fd);
     setSnap(`${fd.get("password")}\u0000${fd.get("confirmPassword")}`);
@@ -56,11 +61,15 @@ export function PasswordForm({
       // Se envía a mano para que React no vacíe los campos al terminar la acción (si hay un error, la persona no tiene que reescribir)
       onSubmit={(e) => {
         e.preventDefault();
+        if (captcha && !captchaReady(e.currentTarget)) return setWaiting(true);
+        setWaiting(false);
         const fd = new FormData(e.currentTarget);
         startTransition(() => formAction(fd));
       }}
     >
       {next && <input type="hidden" name="next" value={next} />}
+      {captcha && turnstileSiteKey && <Turnstile siteKey={turnstileSiteKey} appearance="interaction-only" />}
+      {waiting && <p role="status" className="text-sm text-ink-2">{x("Estamos comprobando que eres una persona. Inténtalo de nuevo en un momento.")}</p>}
       {leading.map((f) => (
         <label key={f.name} className="flex flex-col gap-1.5 text-sm text-ink-2">
           {f.label}

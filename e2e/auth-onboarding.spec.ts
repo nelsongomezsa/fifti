@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { admin, confirmationLink, e2eConfigured, followConfirmation, loginForm, newUser, removeUsers } from "./helpers";
+import { admin, waitCaptcha, confirmationLink, e2eConfigured, followConfirmation, loginForm, newUser, removeUsers } from "./helpers";
 
 test.skip(!e2eConfigured, "Faltan las claves de pruebas (.env.test.local)");
 
@@ -11,6 +11,7 @@ test("registro con correo de confirmación, bienvenida en 3 pasos y primer gasto
   await page.getByLabel("Email").fill(email);
   await page.getByLabel(/^Contraseña/).first().fill(password);
   await page.getByLabel("Repetir contraseña").fill(password);
+  await waitCaptcha(page);
   await page.getByRole("button", { name: /Crear cuenta/ }).click();
 
   // Supabase local manda el correo a Mailpit: se abre el enlace de confirmación
@@ -19,6 +20,7 @@ test("registro con correo de confirmación, bienvenida en 3 pasos y primer gasto
   if (/login/.test(page.url())) {
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("Contraseña").fill(password);
+    await waitCaptcha(page);
     await page.getByRole("button", { name: "Entrar" }).click();
   }
   await page.goto("/bienvenida");
@@ -47,6 +49,7 @@ test("el acceso rechaza una contraseña incorrecta con un mensaje claro", async 
   await page.goto("/login");
   await page.getByLabel("Email").fill("nadie@example.test");
   await page.getByLabel("Contraseña").fill("incorrecta-123");
+  await waitCaptcha(page);
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page.getByRole("alert")).toBeVisible();
   await expect(page).toHaveURL(/\/login/);

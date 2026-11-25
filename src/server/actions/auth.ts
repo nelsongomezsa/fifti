@@ -4,6 +4,7 @@ import { getTx } from "@/i18n/tx";
 
 import { redirect } from "next/navigation";
 import { publicEnv } from "@/lib/env";
+import { CAPTCHA_ERROR, captchaFrom } from "@/lib/security/captcha";
 import { hit, hitIp, RULES } from "@/lib/security/rate-limit";
 import { pwnedCount } from "@/lib/security/hibp";
 import { createClient } from "@/lib/supabase/server";
@@ -34,6 +35,8 @@ export async function signUp(_prev: FormState, fd: FormData): Promise<FormState>
   const { displayName, email, password } = parsed.data;
 
   if (!(await hitIp(RULES.signup))) return { error: x(TOO_MANY) };
+  const captcha = captchaFrom(fd);
+  if (captcha.missing) return { error: x(CAPTCHA_ERROR) };
 
   const count = await pwnedCount(password);
   if (count !== null && count > 0) return { error: x(PWNED) };
@@ -44,6 +47,7 @@ export async function signUp(_prev: FormState, fd: FormData): Promise<FormState>
       email,
       password,
       options: {
+        captchaToken: captcha.token,
         data: { display_name: displayName },
         emailRedirectTo: `${publicEnv().NEXT_PUBLIC_SITE_URL}/auth/callback?next=${encodeURIComponent(safeNext(field(fd, "next")))}`,
       },
@@ -74,9 +78,11 @@ export async function logIn(_prev: FormState, fd: FormData): Promise<FormState> 
 
   const [ipOk, emailOk] = await Promise.all([hitIp(RULES.login), hit(RULES.loginEmail, `email:${email}`)]);
   if (!ipOk || !emailOk) return { error: x(TOO_MANY) };
+  const captcha = captchaFrom(fd);
+  if (captcha.missing) return { error: x(CAPTCHA_ERROR) };
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await supabase.auth.signInWithPassword({ email, password, options: { captchaToken: captcha.token } });
   if (error) {
     if (error.code === "email_not_confirmed") return { error: x("Confirma tu email antes de entrar. Revisa tu bandeja.") };
     return { error: x("Email o contraseña incorrectos.") };
@@ -93,10 +99,13 @@ export async function requestPasswordReset(_prev: FormState, fd: FormData): Prom
 
   const [ipOk, emailOk] = await Promise.all([hitIp(RULES.recover), hit(RULES.recoverEmail, `email:${email}`)]);
   if (!ipOk || !emailOk) return { error: x(TOO_MANY) };
+  const captcha = captchaFrom(fd);
+  if (captcha.missing) return { error: x(CAPTCHA_ERROR) };
 
   try {
     const supabase = await createClient();
     await supabase.auth.resetPasswordForEmail(email, {
+      captchaToken: captcha.token,
       redirectTo: `${publicEnv().NEXT_PUBLIC_SITE_URL}/auth/callback?next=/restablecer`,
     });
   } catch (err) {
@@ -164,7 +173,9 @@ export async function changePassword(_prev: FormState, fd: FormData): Promise<Fo
   if (!data.user?.email || data.user.is_anonymous) return { error: x(GENERIC) };
   if (!(await hit(RULES.passwordChange, `user:${data.user.id}`)) || !(await hitIp(RULES.passwordChange))) return { error: x(TOO_MANY) };
 
-  const { error: authErr } = await supabase.auth.signInWithPassword({ email: data.user.email, password: parsed.data.currentPassword });
+  const captcha = captchaFrom(fd);
+  if (captcha.missing) return { error: x(CAPTCHA_ERROR) };
+  const { error: authErr } = await supabase.auth.signInWithPassword({ email: data.user.email, password: parsed.data.currentPassword, options: { captchaToken: captcha.token } });
   if (authErr) return { error: x("La contraseña actual no es correcta.") };
   if (parsed.data.password === parsed.data.currentPassword) return { error: x("La contraseña nueva debe ser distinta de la actual.") };
   const count = await pwnedCount(parsed.data.password);

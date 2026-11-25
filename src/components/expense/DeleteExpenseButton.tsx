@@ -23,10 +23,12 @@ export function DeleteExpenseButton({ expenseId }: { expenseId: string }) {
   }, [open]);
 
   const confirm = async () => {
+    // Respuesta optimista: se vuelve a la lista al instante y el borrado se confirma por detrás; si falla, se regresa al gasto con el aviso
     setBusy(true); setError(null);
-    const r = await deleteExpense(expenseId).catch(() => ({ ok: false as const, error: "No se ha podido completar." }));
-    if (!r.ok) { setBusy(false); setError(x(r.error ?? "No se ha podido completar.")); return; }
+    const job = deleteExpense(expenseId).catch(() => ({ ok: false as const, error: "No se ha podido completar." }));
     router.replace("/movimientos");
+    const r = await job;
+    if (!r.ok) { router.replace(`/movimientos/${expenseId}?error=borrar`); return; }
     router.refresh();
   };
 

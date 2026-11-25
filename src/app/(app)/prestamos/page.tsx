@@ -41,7 +41,7 @@ export default async function LoansPage() {
         <div className="mt-2 flex flex-col gap-3 text-sm">
           <p className="text-ink-2">{x("Total prestado")}: <span className="money font-mono">{fmt(r.amountCents)}</span>{r.note ? ` · ${r.note}` : ""}</p>
           {r.mine && r.remainingCents > 0 && (
-            <ActionForm action={repayLoan} submit={x("Apuntar devolución")} tone="plain" className="flex flex-col gap-2">
+            <ActionForm action={repayLoan} optimistic submit={x("Apuntar devolución")} tone="plain" className="flex flex-col gap-2">
               <input type="hidden" name="loanId" value={r.id} />
               <input name="amount" inputMode="decimal" defaultValue={(r.remainingCents / 100).toFixed(2).replace(".", ",")} aria-label={x("Importe devuelto")} className={`${inputClass} font-mono`} />
               <p className="text-xs text-ink-3">{x("Pon menos para una devolución parcial.")}</p>
@@ -65,7 +65,7 @@ export default async function LoansPage() {
 
       <h2 className="text-lg font-semibold">{x("Apuntar un préstamo")}</h2>
       <div id="nuevo-prestamo" className="scroll-mt-4 rounded-card border border-border bg-surface p-4">
-        <ActionForm action={createLoan} submit={x("Guardar préstamo")} className="flex flex-col gap-3">
+        <ActionForm action={createLoan} optimistic submit={x("Guardar préstamo")} className="flex flex-col gap-3">
           <select name="direction" defaultValue="lent" aria-label={x("Tipo")} className={inputClass}><option value="lent">{x("Le dejé dinero")}</option><option value="borrowed">{x("Me dejaron dinero")}</option></select>
           <input name="personName" required maxLength={40} placeholder={x("Marta")} aria-label={x("Persona")} className={inputClass} />
           {people.length > 0 && (
