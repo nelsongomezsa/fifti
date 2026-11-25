@@ -79,6 +79,10 @@ Scripts: `npm test` (lógica de dinero, validación, CSV, cola offline…), `npm
 - `npm run e2e:overflow` y `npm run e2e:parity`: sin desbordes horizontales a 390 px en oscuro y claro, y mismos elementos tocables en la demo y en una cuenta real.
 - **CI** (GitHub Actions): lint, tipos, tests, auditoría de dependencias, gitleaks, OSV, RLS y e2e con Playwright sobre Supabase local; las trazas y capturas solo se suben si algo falla.
 
+## Pendiente (opcional)
+
+- **Monitorización de errores (Sentry)**: no está activada. Los pasos y las condiciones de privacidad (sin datos personales, sin replay, CSP solo al host de ingestión) están en [SECURITY.md](SECURITY.md).
+
 ## Licencia
 
 MIT. Ver [LICENSE](LICENSE).

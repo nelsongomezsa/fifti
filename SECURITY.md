@@ -34,6 +34,17 @@ Resumen de las medidas del proyecto y de las excepciones que se han tomado a pro
 
 **Comprobación automática.** `tests/unit/realtime-security.test.ts` falla si la acción devolviera el `refresh_token`, si el cliente usara almacenamiento del navegador, si dejara de renovar el token o si la CSP admitiera un WebSocket genérico.
 
+## Pendiente (opcional): monitorización de errores con Sentry
+
+No está instalada. Si algún día se activa, estas son las condiciones para no filtrar datos:
+
+1. Crear un proyecto Next.js en Sentry (región UE) y guardar el DSN como variable `NEXT_PUBLIC_SENTRY_DSN` en Vercel.
+2. Instalar el SDK (servidor y cliente) con `sendDefaultPii: false`.
+3. `beforeSend` y `beforeBreadcrumb` que eliminen importes, conceptos, emails, nombres, tokens, cookies y cabeceras de autorización antes de enviar nada.
+4. Sin *session replay* ni captura de entradas de formulario.
+5. Ampliar la CSP (`connect-src`) solo con el host de ingestión del proyecto, nunca con comodines.
+6. Probar con un error provocado que el evento llega sin datos personales.
+
 ## Cómo avisar de un problema
 
 Escribe al responsable del repositorio por un canal privado antes de publicar nada.

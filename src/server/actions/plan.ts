@@ -7,6 +7,8 @@ import { z } from "zod";
 import { MAX_AMOUNT_CENTS, addMonths, contributionTargets, isMonthStart, parseToCents, plannedFor } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 import { parsePercentToBp, uuidSchema } from "@/lib/validation/spaces";
+import { RULES } from "@/lib/security/rate-limit";
+import { allow } from "@/lib/security/user-limit";
 import { rpcMessage } from "@/server/rpc-error";
 import type { FormState } from "./auth";
 
@@ -96,6 +98,7 @@ export async function saveRecurring(_prev: FormState, fd: FormData): Promise<For
   if (!parsed.success) return { error: x(parsed.error.issues[0]?.message ?? "Datos no válidos") };
   const { supabase, user } = await ctx();
   if (!user) return { error: x("Sesión caducada.") };
+  if (!(await allow(RULES.planWrites, user.id))) return { error: x("Demasiados intentos. Espera un rato.") };
   const v = parsed.data;
   const { error } = await supabase.rpc("save_recurring", {
     p: { id: v.id ?? null, space_id: v.spaceId, description: v.description, amount_cents: v.amountCents, frequency: v.frequency, day: v.day, next_run: v.nextRun, category_id: v.categoryId, paid_from: v.paidFrom, detected: v.detected, rotation: v.rotation },
@@ -240,6 +243,7 @@ export async function setRecurringSkip(input: unknown): Promise<{ ok: boolean; e
   if (!p.success) return { ok: false, error: x("Datos no válidos") };
   const { supabase, user } = await ctx();
   if (!user) return { ok: false, error: x("Sesión caducada.") };
+  if (!(await allow(RULES.planWrites, user.id))) return { ok: false, error: x("Demasiados intentos. Espera un rato.") };
   const { error } = await supabase.rpc("set_recurring_skip", { p_recurring: p.data.recurringId, p_date: p.data.date, p_skip: p.data.skip });
   if (error) return { ok: false, error: x(rpcMessage(error)) };
   revalidatePath("/calendario");
