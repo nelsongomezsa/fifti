@@ -17,10 +17,14 @@ export type CalEvent = {
 const addDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 
 /** Mes en cuadrícula: cada día con su número, el punto del color de la partida y el importe corto; el día elegido (borde lila) enseña sus cobros con Editar y Saltar este mes. */
-export function CalendarMonth({ label, offset, days, events, todayDay, advanceDays }: { label: string; offset: number; days: number; events: CalEvent[]; todayDay: number | null; advanceDays: number }) {
+export function CalendarMonth({ label, offset, days, events: serverEvents, todayDay, advanceDays }: { label: string; offset: number; days: number; events: CalEvent[]; todayDay: number | null; advanceDays: number }) {
   const x = useTx();
   const router = useRouter();
   const [, start] = useTransition();
+  // Respuesta optimista: «Saltar» se ve al instante y se confirma por detrás (si falla, vuelve a como estaba)
+  const [optimistic, setOptimistic] = useState<Record<string, boolean>>({});
+  const keyOf = (e: CalEvent) => `${e.recurringId}|${e.date}`;
+  const events = serverEvents.map((e) => (e.recurringId && keyOf(e) in optimistic ? { ...e, skipped: optimistic[keyOf(e)] } : e));
   const byDay = new Map<number, CalEvent[]>();
   for (const e of events) { const d = Number(e.date.slice(8, 10)); byDay.set(d, [...(byDay.get(d) ?? []), e]); }
   const firstDay = [...byDay.keys()].sort((a, b) => a - b)[0] ?? null;
@@ -33,11 +37,16 @@ export function CalendarMonth({ label, offset, days, events, todayDay, advanceDa
   const total = active.reduce((a, e) => a + e.cents, 0);
   const shown = sel === null ? [] : (byDay.get(sel) ?? []);
 
-  const skip = (e: CalEvent, skipIt: boolean) => start(async () => {
+  const skip = (e: CalEvent, skipIt: boolean) => {
     setError(null);
-    const r = await setRecurringSkip({ recurringId: e.recurringId, date: e.date, skip: skipIt }).catch(() => ({ ok: false as const, error: x("No se ha podido completar.") }));
-    if (!r.ok) setError(r.error ?? x("No se ha podido completar.")); else router.refresh();
-  });
+    const k = keyOf(e);
+    setOptimistic((o) => ({ ...o, [k]: skipIt }));
+    start(async () => {
+      const r = await setRecurringSkip({ recurringId: e.recurringId, date: e.date, skip: skipIt }).catch(() => ({ ok: false as const, error: x("No se ha podido completar.") }));
+      if (!r.ok) { setOptimistic((o) => { const n = { ...o }; delete n[k]; return n; }); setError(r.error ?? x("No se ha podido completar.")); }
+      else router.refresh();
+    });
+  };
 
   return (
     <>

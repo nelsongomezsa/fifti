@@ -112,8 +112,8 @@ export default async function HomePage() {
             <p className="text-sm text-ink-2">{x("Llevas")} <OptimisticSpent base={spentOfBudget} spaceId={active.id} kind={active.kind} currency="EUR" inline /> {x("de")} <span className="money font-mono text-ink">{formatMoney(plannedTotal, "EUR", x.locale)}</span> {x("previstos")}</p>
           </div>
           <div className="mt-1 flex flex-wrap gap-x-4">
-            <Link href="/inicio/prevision" className="inline-flex min-h-11 items-center text-xs text-ink-3 underline-offset-4 hover:underline">{x("Ver desglose")}</Link>
-            <Link href="/inicio/ingresos" className="inline-flex min-h-11 items-center text-xs text-ink-3 underline-offset-4 hover:underline">{x("Ingresos")} {formatMoney(o.income, "EUR", x.locale)}</Link>
+            <Link prefetch href="/inicio/prevision" className="inline-flex min-h-11 items-center text-xs text-ink-3 underline-offset-4 hover:underline">{x("Ver desglose")}</Link>
+            <Link prefetch href="/inicio/ingresos" className="inline-flex min-h-11 items-center text-xs text-ink-3 underline-offset-4 hover:underline">{x("Ingresos")} {formatMoney(o.income, "EUR", x.locale)}</Link>
           </div>
           <Suspense fallback={null}><ChangeLine seriesP={seriesP} month={o.month} leftover={o.forecastLeftover} locale={x.locale} vsPrev={t("vsPrev")} label={x("Variación frente al mes anterior")} /></Suspense>
         </div>
@@ -131,7 +131,7 @@ export default async function HomePage() {
               <p className="mt-1 text-xs text-ink-3">{weekly.status === "over" ? x("de tu gasto variable") : `≈ ${formatMoney(perDay, "EUR", x.locale)} ${x("al día")}`}</p>
             </div>
           )}
-          <Link href="/inicio/ahorro" className={`${cardCls} block transition-colors hover:bg-surface-2`}>
+          <Link prefetch href="/inicio/ahorro" className={`${cardCls} block transition-colors hover:bg-surface-2`}>
             <p className="t-label flex justify-between"><span>{x("Ahorro este mes")}</span><span aria-hidden>›</span></p>
             <p className="money t-figure mt-1"><AnimatedMoney cents={savedPlanned} /></p>
             <p className="mt-1 text-xs text-ink-3">{pctText(o.plannedSavingsBp)} {x("de tus ingresos")}</p>
@@ -166,7 +166,7 @@ export default async function HomePage() {
           <ul className="mt-1 divide-y divide-border">
             {featured.map((f) => (
               <li key={f.fundId}>
-                <Link href={`/inicio/fondo/${f.fundId}`} className="block py-3">
+                <Link prefetch href={`/inicio/fondo/${f.fundId}`} className="block py-3">
                   <span className="flex items-center justify-between gap-3 text-sm"><span className="flex items-center gap-2 font-medium"><span aria-hidden className="size-2.5 rounded-full" style={{ background: f.color }} />{f.name}</span>
                     <span className="money font-mono text-ink-2">{formatMoney(f.spent, "EUR", x.locale)} {x("de")} {formatMoney(f.planned, "EUR", x.locale)}</span></span>
                   <span className="mt-2 block h-2 w-full overflow-hidden rounded-full bg-track"><span className="block h-full rounded-full" style={{ width: `${Math.min(100, f.usedBp / 100)}%`, background: f.color }} /></span>
@@ -180,7 +180,7 @@ export default async function HomePage() {
 
       {/* Balance del hogar o del grupo */}
       {balance && active.kind !== "personal" && (
-        <Link href="/balance" className="flex min-h-16 items-center justify-between gap-3 rounded-card border border-border bg-surface px-4 py-3 transition-colors hover:bg-surface-2">
+        <Link prefetch href="/balance" className="flex min-h-16 items-center justify-between gap-3 rounded-card border border-border bg-surface px-4 py-3 transition-colors hover:bg-surface-2">
           <span className="min-w-0">
             <span className="t-label block">{x("Balance")}</span>
             <span className="block truncate font-medium">
@@ -207,7 +207,7 @@ export default async function HomePage() {
               const cat = e.categories as unknown as { system_key: string | null; funds: { color: string } | null } | null;
               return (
                 <li key={e.id}>
-                  <Link href={`/movimientos/${e.id}`} className="flex items-center gap-3 text-sm">
+                  <Link prefetch href={`/movimientos/${e.id}`} className="flex items-center gap-3 text-sm">
                     <CategoryIcon systemName={cat?.system_key} color={cat?.funds?.color} size={36} />
                     <span className="min-w-0 flex-1 truncate"><span className="text-ink-3">{whenLabel(e.spent_at as string)} ·</span> <span className="font-medium">{e.description}</span></span>
                     <span className="money shrink-0 font-mono">{formatMoney(e.amount_cents, e.currency, x.locale)}</span>

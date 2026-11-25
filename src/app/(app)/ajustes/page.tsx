@@ -3,6 +3,7 @@ import { displayName } from "@/lib/system-names";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ActionForm, inputClass } from "@/components/ui/ActionForm";
+import { ClearSpace } from "@/components/settings/ClearSpace";
 import { RowLink, RowSheet, SettingsGroup } from "@/components/settings/Rows";
 import { loadLoans, loanTotals } from "@/server/loans";
 import { formatMoney } from "@/lib/money";
@@ -25,25 +26,26 @@ import { changePassword, signOut, upgradeGuest } from "@/server/actions/auth";
 export const metadata: Metadata = { title: "Ajustes" };
 
 export default async function SettingsPage() {
-  const x = await getTx();
-  const user = await requireUser();
+  const [x, user, spaces, t, locale, jar, supabase] = await Promise.all([getTx(), requireUser(), listMySpaces(), getTranslations("more"), getLocale(), cookies(), createClient()]);
   const demo = user.app_metadata?.demo === true;
-  const spaces = await listMySpaces();
-  const t = await getTranslations("more");
-  const locale = await getLocale();
-  const theme = (await cookies()).get("fifti_theme")?.value ?? "dark";
-  const supabase = await createClient();
-  const { data: pf } = user.is_anonymous ? { data: [] } : await supabase.from("spaces").select("id").eq("kind", "personal").maybeSingle().then((r) => ({ data: r.data ? [r.data] : [] }));
-  const { data: pFunds } = pf?.[0] ? await supabase.from("funds").select("id, name, system_key").eq("space_id", pf[0].id).order("position") : { data: [] };
-  const { data: prefs } = await supabase.from("mirror_prefs").select("space_id, enabled, fund_id");
-  const { data: archived } = await supabase.from("spaces").select("id, name").eq("kind", "group").not("archived_at", "is", null).order("archived_at", { ascending: false });
-  const { data: prefRow } = user.is_anonymous ? { data: null } : await supabase.from("notification_prefs").select("*").maybeSingle();
-  const { data: aiRow } = user.is_anonymous ? { data: null } : await supabase.from("profiles").select("ai_phrases").maybeSingle();
+  const theme = jar.get("fifti_theme")?.value ?? "dark";
+  const personalId = user.is_anonymous ? undefined : spaces.find((s) => s.kind === "personal")?.id;
+  // Todas las consultas de la pantalla salen a la vez: una sola ida y vuelta al servidor
+  const [{ data: pFunds }, { data: prefs }, { data: archived }, { data: prefRow }, { data: aiRow }, { data: favs }, { data: members }, { data: owned }, loanRows] = await Promise.all([
+    personalId ? supabase.from("funds").select("id, name, system_key").eq("space_id", personalId).order("position") : Promise.resolve({ data: [] as { id: string; name: string; system_key: string | null }[] }),
+    supabase.from("mirror_prefs").select("space_id, enabled, fund_id"),
+    supabase.from("spaces").select("id, name").eq("kind", "group").not("archived_at", "is", null).order("archived_at", { ascending: false }),
+    user.is_anonymous ? Promise.resolve({ data: null }) : supabase.from("notification_prefs").select("*").maybeSingle(),
+    user.is_anonymous ? Promise.resolve({ data: null }) : supabase.from("profiles").select("ai_phrases").maybeSingle(),
+    supabase.from("favorites").select("id, label, amount_cents").order("label"),
+    supabase.from("space_members").select("space_id, user_id"),
+    supabase.from("spaces").select("id, created_by").eq("created_by", user.id),
+    user.is_anonymous ? Promise.resolve(null) : loadLoans(supabase, user.id),
+  ]);
   const aiOn = !!aiRow?.ai_phrases;
-  const { data: favs } = await supabase.from("favorites").select("id, label, amount_cents").order("label");
-  const { data: members } = await supabase.from("space_members").select("space_id, user_id");
+  const createdByMe = new Set((owned ?? []).map((o) => o.id));
   const peopleOf = (id: string) => (members ?? []).filter((m) => m.space_id === id).length;
-  const loans = user.is_anonymous ? null : loanTotals(await loadLoans(supabase, user.id));
+  const loans = loanRows ? loanTotals(loanRows) : null;
   const name = (user.user_metadata?.display_name as string | undefined) ?? user.email ?? "";
   const initial = (name.trim()[0] ?? "A").toUpperCase();
   const themeLabel = theme === "light" ? t("themeLight") : theme === "system" ? t("themeSystem") : t("themeDark");
@@ -89,9 +91,16 @@ export default async function SettingsPage() {
 
 
       <SettingsGroup title={x("Espacios")}>
-        {spaces.map((s) => s.kind === "personal"
-          ? <RowLink key={s.id} href="/plan" label={x("Personal")} value={x("Solo tú")} />
-          : <RowLink key={s.id} href={`/espacio/${s.id}`} label={s.name} value={`${peopleOf(s.id)} ${peopleOf(s.id) === 1 ? x("persona") : x("personas")}`} />)}
+        {spaces.map((s) => {
+          const people = peopleOf(s.id);
+          const label = s.kind === "personal" ? x("Personal") : s.name;
+          return (
+            <RowSheet key={s.id} label={label} value={s.kind === "personal" || people <= 1 ? x("Solo tú") : `${people} ${x("personas")}`} title={label}>
+              <Link href={s.kind === "personal" ? "/plan" : `/espacio/${s.id}`} className="flex min-h-12 items-center justify-between rounded-card border border-border bg-surface px-4">{x("Abrir")} {label}<span aria-hidden className="text-ink-3">›</span></Link>
+              <ClearSpace spaceId={s.id} name={label} canClear={demo || createdByMe.has(s.id)} shared={s.kind !== "personal" && people > 1} demo={demo} />
+            </RowSheet>
+          );
+        })}
         {(archived ?? []).map((a) => <RowLink key={a.id} href={`/espacio/${a.id}/cerrar`} label={a.name} value={x("Archivado")} />)}
         {!user.is_anonymous && <RowLink href="/nueva" label={x("Crear o unirse a un espacio")} />}
         {!user.is_anonymous && spaces.some((s) => s.kind !== "personal") && (

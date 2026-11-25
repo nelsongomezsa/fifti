@@ -26,6 +26,8 @@ const csp = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
+  // Caché de navegación en el cliente: las pantallas ya vistas (o precargadas) salen al instante y se revalidan por detrás (RefreshOnNav)
+  experimental: { staleTimes: { dynamic: 180, static: 600 } },
   async headers() {
     return [
       {

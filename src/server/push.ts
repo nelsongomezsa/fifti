@@ -3,7 +3,7 @@ import * as webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { localizePayload, type PushContent } from "@/i18n/push-content";
 
-export type PushKind = "new_expense" | "fixed_tomorrow" | "fund_threshold" | "goal_reached" | "monthly_summary" | "contribution_pending" | "offset_proposal" | "daily_reminder";
+export type PushKind = "new_expense" | "fixed_tomorrow" | "fund_threshold" | "goal_reached" | "monthly_summary" | "contribution_pending" | "offset_proposal" | "daily_reminder" | "space_cleared";
 let configured = false;
 function configure(): boolean {
   if (configured) return true;

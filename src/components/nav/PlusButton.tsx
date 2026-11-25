@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { HandCoins, PiggyBank, Receipt, Repeat, Wallet } from "lucide-react";
+import { HandCoins, Home, PiggyBank, Receipt, Repeat, Wallet } from "lucide-react";
 import { SheetShell } from "@/components/ui/SheetShell";
 import { ExpenseSheet, type SheetPrefill } from "@/components/expense/ExpenseSheet";
 import { usePendingExpenses } from "@/components/expense/optimistic";
@@ -201,6 +201,9 @@ export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
               </Link>
             ))}
           </div>
+          <Link href="/aportar" prefetch={false} onClick={() => setChooser(false)} className="mt-3 flex min-h-14 items-center gap-3 rounded-card border border-border bg-surface px-4">
+            <Home size={22} aria-hidden className="text-ink-2" /><span><span className="block font-semibold">{x("Aportar al hogar")}</span><span className="block text-xs text-ink-3">{x("Tu parte del gasto común")}</span></span>
+          </Link>
           <form className="mt-4 flex gap-2" onSubmit={(e) => { e.preventDefault(); const t = phraseText.trim(); if (!t) return; setChooser(false); setPhraseText(""); openSheet({ phrase: t }); }}>
             <input value={phraseText} onChange={(e) => setPhraseText(e.target.value)} maxLength={200} aria-label={x("Frase rápida")} placeholder={x("O escríbelo: «12 cena con Leo a medias»")}
               className="min-h-12 min-w-0 flex-1 rounded-card border border-border bg-surface px-4 text-sm text-ink placeholder:text-ink-3" />

@@ -54,6 +54,12 @@ export default async function FundDetailPage({ params }: { params: Promise<{ id:
       <Link href="/inicio" className="min-h-11 self-start text-sm text-ink-2">{x("‹ Inicio")}</Link>
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold"><span aria-hidden className="size-3 rounded-full" style={{ background: fund.color }} />{name}</h1>
+        {fund.kind === "contribution" && (
+          <div className="rounded-card border border-border bg-surface p-4">
+            <p className="text-sm text-ink-2">{x("Lo que pones al bote del hogar: sale de tu plan personal y entra en el hogar a tu nombre.")}</p>
+            <Link href="/aportar" className="mt-3 inline-flex min-h-11 items-center rounded-full bg-accent px-5 text-sm font-semibold text-on-accent">{x("Aportar al hogar")}</Link>
+          </div>
+        )}
         <p className="text-sm text-ink-3 first-letter:uppercase">{monthName}</p>
       </div>
 

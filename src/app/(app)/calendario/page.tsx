@@ -15,10 +15,7 @@ export const metadata: Metadata = { title: "Calendario" };
 type Cat = { system_key: string | null; name: string; funds: { color: string } | null } | null;
 
 export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ mes?: string; vista?: string }> }) {
-  const x = await getTx();
-  const sp = await searchParams;
-  const user = await requireUser();
-  const spaces = await listMySpaces();
+  const [x, sp, user, spaces] = await Promise.all([getTx(), searchParams, requireUser(), listMySpaces()]);
   const active = await getActiveSpace(spaces);
   if (!active) return null;
   const supabase = await createClient();
@@ -39,9 +36,15 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     </>
   );
 
-  const [{ data: prefs }, { data: skipRows }] = await Promise.all([
+  const monthEnd = addMonths(month, 1);
+  const [{ data: prefs }, { data: skipRows }, monthData] = await Promise.all([
     user.is_anonymous ? Promise.resolve({ data: null }) : supabase.from("notification_prefs").select("fixed_tomorrow, fixed_advance_days").maybeSingle(),
     supabase.from("recurring_skips").select("recurring_id, skip_on"),
+    proximos ? Promise.resolve(null) : Promise.all([
+      supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, next_run, rotation, rotation_pos, categories(system_key, name, funds(color))").eq("space_id", active.id).eq("active", true),
+      supabase.from("space_members").select("id, display_name").eq("space_id", active.id),
+      supabase.from("goal_milestones").select("name, due_on, amount_cents, paid").eq("space_id", active.id).eq("paid", false).gte("due_on", month).lt("due_on", monthEnd),
+    ]),
   ]);
   const advance = prefs && prefs.fixed_tomorrow === false ? 0 : (prefs?.fixed_advance_days ?? 1);
   const skips = new Set((skipRows ?? []).map((s) => `${s.recurring_id}|${s.skip_on}`));
@@ -85,11 +88,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     );
   }
 
-  const [{ data: rec }, { data: mem }, { data: miles }] = await Promise.all([
-    supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, next_run, rotation, rotation_pos, categories(system_key, name, funds(color))").eq("space_id", active.id).eq("active", true),
-    supabase.from("space_members").select("id, display_name").eq("space_id", active.id),
-    supabase.from("goal_milestones").select("name, due_on, amount_cents, paid").eq("space_id", active.id).eq("paid", false).gte("due_on", month).lt("due_on", addMonths(month, 1)),
-  ]);
+  const [{ data: rec }, { data: mem }, { data: miles }] = monthData!;
   const events: CalEvent[] = [
     ...(rec ?? []).flatMap((r) => projectRecurring({ id: r.id, description: r.description, amountCents: r.amount_cents, frequency: r.frequency, day: r.day, nextRun: r.next_run }, month)
       .map((date) => {
