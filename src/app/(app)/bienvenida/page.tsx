@@ -28,9 +28,11 @@ export default async function WelcomePage() {
     supabase.from("category_rules").select("id, match_text, match_type, category_id, priority").eq("space_id", active.id),
   ]);
   const { count: fixedCount } = await supabase.from("recurring_expenses").select("id", { count: "exact", head: true }).eq("space_id", active.id);
-  if (d.configured && (fixedCount ?? 0) > 0) redirect("/inicio");
+  const { count: accountCount } = await supabase.from("accounts").select("id", { count: "exact", head: true }).eq("space_id", active.id);
+  // Plan y gasto fijo hechos: queda el paso opcional de las cuentas; con cuentas creadas ya no hay nada que hacer aquí
+  if (d.configured && (fixedCount ?? 0) > 0 && (accountCount ?? 0) > 0) redirect("/inicio");
 
   const members = [me, ...d.members.filter((m) => m.id !== me.id)].map((m) => ({ id: m.id, name: m.display_name, mine: m.id === me.id }));
   const funds = d.funds.map((f) => ({ id: f.id, name: displayName(x, f.name, f.system_key), color: f.color, suggested: SUGGESTED[f.kind] ?? null }));
-  return <WelcomePlan initialStep={d.configured ? 3 : 1} categories={(cats ?? []).map((c) => ({ id: c.id, name: displayName(x, c.name, c.system_key) }))} rules={(catRules ?? []).map((r) => ({ id: r.id, matchText: r.match_text, matchType: r.match_type as "contains" | "starts_with" | "exact", categoryId: r.category_id, priority: r.priority }))} spaceId={active.id} month={month} currency="EUR" members={members} funds={funds} />;
+  return <WelcomePlan initialStep={d.configured ? ((fixedCount ?? 0) > 0 ? 4 : 3) : 1} categories={(cats ?? []).map((c) => ({ id: c.id, name: displayName(x, c.name, c.system_key) }))} rules={(catRules ?? []).map((r) => ({ id: r.id, matchText: r.match_text, matchType: r.match_type as "contains" | "starts_with" | "exact", categoryId: r.category_id, priority: r.priority }))} spaceId={active.id} month={month} currency="EUR" members={members} funds={funds} />;
 }

@@ -35,7 +35,7 @@ export async function removePushSubscription(endpoint: string): Promise<void> {
   await supabase.from("push_subscriptions").delete().eq("endpoint", endpoint);
 }
 
-const KEYS = ["new_expense", "fixed_tomorrow", "fund_threshold", "goal_reached", "monthly_summary", "contribution_pending", "offset_proposal"] as const;
+const KEYS = ["new_expense", "fixed_tomorrow", "fund_threshold", "goal_reached", "monthly_summary", "contribution_pending", "offset_proposal", "payday_split"] as const;
 
 const reminderSchema = z.object({
   hour: z.number().int().min(0).max(23),

@@ -109,3 +109,23 @@ describe("categoría de cada fila del extracto", () => {
     expect(pickCategory(null, null, null)).toEqual({ id: null, source: null });
   });
 });
+
+import { findManualDuplicate, similarText } from "@/lib/bank-csv";
+
+describe("duplicados con lo apuntado a mano y saldo del extracto", () => {
+  it("conceptos parecidos aunque el banco añada ruido", () => {
+    expect(similarText("Mercadona", "COMPRA TARJ. 1234 MERCADONA")).toBe(true);
+    expect(similarText("Cena con Leo", "Restaurante La Pepa")).toBe(false);
+    expect(similarText("", "algo")).toBe(false);
+  });
+  it("mismo importe, fecha a ±2 días y concepto parecido; cada apunte se consume una vez", () => {
+    const manual = [{ date: "2026-11-10", amountCents: 1850, description: "Mercadona" }];
+    expect(findManualDuplicate(manual, { date: "2026-11-12", amountCents: 1850, description: "COMPRA MERCADONA 0412" })).toBe(0);
+    expect(findManualDuplicate(manual, { date: "2026-11-13", amountCents: 1850, description: "Mercadona" })).toBe(-1); // 3 días
+    expect(findManualDuplicate(manual, { date: "2026-11-10", amountCents: 1851, description: "Mercadona" })).toBe(-1); // otro importe
+  });
+  it("lee el saldo de la fila más reciente si el extracto trae columna de saldo", () => {
+    const csv = "Fecha;Concepto;Importe;Saldo\n10/11/2026;Mercadona;-18,50;1.200,00\n12/11/2026;Cafe;-2,00;1.198,00\n";
+    expect(parseBankCsv(csv).closingBalanceCents).toBe(119800);
+  });
+});

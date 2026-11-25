@@ -28,6 +28,8 @@ export const expenseInputSchema = z
       .default([]),
     isPrivate: z.boolean().default(false),
     tags: z.array(tagSchema).max(8).default([]),
+    /** Cuenta del movimiento; sin ella se usa la cuenta por defecto del espacio */
+    accountId: z.uuid().nullable().optional(),
   })
   .strict();
 export type ExpenseInput = z.infer<typeof expenseInputSchema>;
@@ -41,6 +43,7 @@ export const incomeInputSchema = z
     source: z.string().trim().min(1).max(60).default("Nómina"),
     receivedAt: isoDate,
     isRecurring: z.boolean().default(false),
+    accountId: z.uuid().nullable().optional(),
   })
   .strict();
 

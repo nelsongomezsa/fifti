@@ -15,6 +15,8 @@ export type SheetSpace = {
   categories: { id: string; name: string; fundName: string; fundColor: string }[];
   topCategoryId: string | null;
   rules: CategoryRule[];
+  /** Cuentas que la persona puede usar en este espacio (las suyas y las comunes) */
+  accounts: { id: string; name: string; color: string; isDefault: boolean }[];
 };
 export type SheetFavorite = { id: string; spaceId: string; label: string; amountCents: number; categoryId: string | null };
 export type SheetContext = { spaces: SheetSpace[]; favorites: SheetFavorite[]; /** La persona activó "usar IA para entender frases" */ ai?: boolean };
@@ -27,7 +29,7 @@ export async function loadSheetContext(): Promise<SheetContext> {
   const uid = auth.user.id;
   const x = await getTx();
 
-  const [{ data: spaces }, { data: members }, { data: funds }, { data: cats }, { data: recent }, { data: favs }, { data: rules }, { data: prof }] = await Promise.all([
+  const [{ data: spaces }, { data: members }, { data: funds }, { data: cats }, { data: recent }, { data: favs }, { data: rules }, { data: prof }, { data: accts }] = await Promise.all([
     supabase.from("spaces").select("id, name, kind, base_currency, created_at").is("archived_at", null).order("created_at"),
     supabase.from("space_members").select("id, space_id, user_id, display_name, default_share_bp").order("joined_at"),
     supabase.from("funds").select("id, space_id, name, color, position, system_key").order("position"),
@@ -36,6 +38,7 @@ export async function loadSheetContext(): Promise<SheetContext> {
     supabase.from("favorites").select("id, space_id, label, amount_cents, category_id").order("label"),
     supabase.from("category_rules").select("id, space_id, match_text, match_type, category_id, priority").order("priority"),
     supabase.from("profiles").select("ai_phrases").eq("id", uid).maybeSingle(),
+    supabase.from("accounts").select("id, space_id, name, color, is_default, owner_user_id, kind").is("archived_at", null).order("created_at"),
   ]);
 
   const order = { personal: 0, household: 1, group: 2 } as const;
@@ -57,6 +60,7 @@ export async function loadSheetContext(): Promise<SheetContext> {
       id: s.id, name: s.name, kind: s.kind, currency: s.base_currency, meId: me.id,
       members: ms.map((m) => ({ id: m.id, name: m.display_name, defaultBp: m.default_share_bp })),
       categories, topCategoryId: top,
+      accounts: (accts ?? []).filter((a) => a.space_id === s.id).map((a) => ({ id: a.id, name: a.name, color: a.color, isDefault: a.is_default && a.owner_user_id === uid })),
       rules: (rules ?? []).filter((r) => r.space_id === s.id).map((r) => ({ id: r.id, matchText: r.match_text, matchType: r.match_type as RuleType, categoryId: r.category_id, priority: r.priority })),
     });
   }

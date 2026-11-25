@@ -188,13 +188,21 @@ function rpc(db: Db, name: string, a: Record<string, unknown>) {
     case "monthly_mirror": { const r = (db.personal_mirror ?? []).filter((e) => e.enabled && String(e.spent_at) >= from); return [...sumBy(r, (e) => monthOf(e.spent_at), (e) => Number(e.amount_cents))].sort(([x], [y]) => String(x).localeCompare(String(y))).map(([month, total_cents]) => ({ month, total_cents })); }
     case "monthly_breakdown": { const r = (db.expenses ?? []).filter((e) => e.space_id === a.p_space && String(e.spent_at) >= from); return [...sumBy(r, (e) => `${monthOf(e.spent_at)}|${e.category_id ?? ""}`, (e) => Number(e.amount_base_cents))].map(([k, total_cents]) => { const [month, cat] = String(k).split("|"); return { month, category_id: cat || null, total_cents }; }).sort((x, y) => String(x.month).localeCompare(String(y.month))); }
     case "monthly_mirror_by_fund": { const r = (db.personal_mirror ?? []).filter((e) => e.enabled && String(e.spent_at) >= from); return [...sumBy(r, (e) => `${monthOf(e.spent_at)}|${e.fund_id ?? ""}`, (e) => Number(e.amount_cents))].map(([k, total_cents]) => { const [month, fund] = String(k).split("|"); return { month, fund_id: fund || null, total_cents }; }); }
+    case "account_balances": {
+      const sum = (t: string, k: string, dk: string, v: string, id: unknown, from: string, sign = 1) => (db[t] ?? []).filter((r) => r[k] === id && String(r[dk]) >= from).reduce((s, r) => s + sign * Number(r[v]), 0);
+      return (db.accounts ?? []).map((ac) => {
+        const f = String(ac.opening_date);
+        return { account_id: ac.id, balance_cents: Number(ac.opening_cents) + sum("incomes", "account_id", "received_at", "amount_cents", ac.id, f) - sum("expenses", "account_id", "spent_at", "amount_base_cents", ac.id, f)
+          + sum("account_transfers", "to_account", "transfer_date", "amount_cents", ac.id, f) - sum("account_transfers", "from_account", "transfer_date", "amount_cents", ac.id, f) + sum("account_adjustments", "account_id", "adjust_date", "amount_cents", ac.id, f) };
+      });
+    }
     default: void list; return undefined;
   }
 }
 
 export function createDemoClient(db: Db) {
   const user = { id: DEMO_USER_ID, email: "ana@demo.fifti", is_anonymous: false, app_metadata: { demo: true }, user_metadata: { display_name: "Ana" }, aud: "authenticated", created_at: new Date().toISOString() };
-  const READ_RPC = new Set(["monthly_spend", "monthly_income", "monthly_mirror", "monthly_breakdown", "monthly_mirror_by_fund"]);
+  const READ_RPC = new Set(["monthly_spend", "monthly_income", "monthly_mirror", "monthly_breakdown", "monthly_mirror_by_fund", "account_balances"]);
   return {
     from: (table: string) => new Query(db, table),
     rpc: (name: string, args: Record<string, unknown> = {}) => Promise.resolve(READ_RPC.has(name) ? { data: rpc(db, name, args), error: null } : { data: null, error: DEMO_ERROR }),

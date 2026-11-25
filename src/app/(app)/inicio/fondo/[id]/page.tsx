@@ -4,6 +4,9 @@ import { notFound } from "next/navigation";
 import { formatMoney, summarizeFund } from "@/lib/money";
 import { displayName } from "@/lib/system-names";
 import { uuidSchema } from "@/lib/validation/spaces";
+import { FundAccountPicker } from "@/components/accounts/FundAccountPicker";
+import { loadAccounts } from "@/server/accounts";
+import { requireUser } from "@/server/spaces";
 import { detailContext } from "@/server/inicio-detail";
 import { loadMirrorByFund, loadPlan } from "@/server/plan";
 
@@ -15,22 +18,25 @@ export default async function FundDetailPage({ params }: { params: Promise<{ id:
   const { id } = await params;
   if (!uuidSchema.safeParse(id).success) notFound();
   const { x, active, supabase, month, monthName } = await detailContext();
+  const user = await requireUser();
   const nextMonth = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 1)).toISOString().slice(0, 10);
   const personal = active.kind === "personal";
 
-  const { data: fund } = await supabase.from("funds").select("id, name, color, kind, system_key").eq("id", id).eq("space_id", active.id).maybeSingle();
+  const { data: fund } = await supabase.from("funds").select("id, name, color, kind, system_key, account_id").eq("id", id).eq("space_id", active.id).maybeSingle();
   if (!fund) notFound();
   const { data: cats } = await supabase.from("categories").select("id, name, system_key").eq("fund_id", id).eq("space_id", active.id);
   const catIds = (cats ?? []).map((c) => c.id);
   const isDaily = fund.system_key === "fund.daily";
 
-  const [plan, { data: exp }, { data: mir }] = await Promise.all([
+  const accountsP = personal ? loadAccounts(supabase, (await requireUser()).id) : Promise.resolve([]);
+  const [plan, { data: exp }, { data: mir }, accounts] = await Promise.all([
     (async () => loadPlan(supabase, active.id, month, personal ? await loadMirrorByFund(supabase, month) : {}, { uncategorizedToDaily: personal }))(),
     catIds.length || (personal && isDaily)
       ? supabase.from("expenses").select("id, description, amount_base_cents, spent_at, category_id").eq("space_id", active.id).gte("spent_at", month).lt("spent_at", nextMonth)
           .or([catIds.length ? `category_id.in.(${catIds.join(",")})` : "", personal && isDaily ? "category_id.is.null" : ""].filter(Boolean).join(",")).order("spent_at", { ascending: false }).limit(300)
       : Promise.resolve({ data: [] }),
     personal ? supabase.from("personal_mirror").select("source_expense_id, label, amount_cents, spent_at").eq("fund_id", id).eq("enabled", true).gte("spent_at", month).lt("spent_at", nextMonth).order("spent_at", { ascending: false }).limit(300) : Promise.resolve({ data: [] }),
+    accountsP,
   ]);
 
   const a = plan.allocations[id];
@@ -54,6 +60,7 @@ export default async function FundDetailPage({ params }: { params: Promise<{ id:
       <Link href="/inicio" className="min-h-11 self-start text-sm text-ink-2">{x("‹ Inicio")}</Link>
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold"><span aria-hidden className="size-3 rounded-full" style={{ background: fund.color }} />{name}</h1>
+        {personal && <FundAccountPicker fundId={fund.id} accounts={accounts.filter((a) => a.mine || a.kind === "shared").map((a) => ({ id: a.id, name: a.name }))} current={fund.account_id} demo={user.app_metadata?.demo === true} />}
         {fund.kind === "contribution" && (
           <div className="rounded-card border border-border bg-surface p-4">
             <p className="text-sm text-ink-2">{x("Lo que pones al bote del hogar: sale de tu plan personal y entra en el hogar a tu nombre.")}</p>

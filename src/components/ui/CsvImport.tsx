@@ -1,5 +1,6 @@
 "use client";
 
+import { adjustBalance } from "@/server/actions/accounts";
 import { useState } from "react";
 import { useTx } from "@/i18n/tx-client";
 import { formatMoney } from "@/lib/money";
@@ -11,13 +12,15 @@ const shortDay = (iso: string, locale: string) => new Date(`${iso}T00:00:00Z`).t
 const FORMAT_NAME: Record<string, string> = { santander: "Santander", bbva: "BBVA", caixabank: "CaixaBank", ing: "ING", revolut: "Revolut", n26: "N26", fifti: "Fifti", generic: "CSV" };
 
 /** Importar un extracto: vista previa con filas elegibles, categoría editable por fila, duplicados marcados y mapeo de columnas si hace falta. */
-export function CsvImport({ spaceId, currency = "EUR" }: { spaceId: string; currency?: string }) {
+export function CsvImport({ spaceId, currency = "EUR", accounts = [] }: { spaceId: string; currency?: string; accounts?: { id: string; name: string; isDefault: boolean; balanceCents: number }[] }) {
   const x = useTx();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<BankPreview | null>(null);
   const [picked, setPicked] = useState<Record<number, boolean>>({});
   const [cats, setCats] = useState<Record<number, string>>({});
   const [map, setMap] = useState({ date: 0, description: 1, amount: 2, positiveIsExpense: false });
+  const [accountId, setAccountId] = useState(() => accounts.find((a) => a.isDefault)?.id ?? "");
+  const [adjusted, setAdjusted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [inputKey, setInputKey] = useState(0); // al terminar se vacía el selector de archivo: así se puede volver a elegir el mismo archivo
@@ -30,6 +33,9 @@ export function CsvImport({ spaceId, currency = "EUR" }: { spaceId: string; curr
     if (mapping) fd.set("mapping", JSON.stringify(mapping));
     const p = await previewCsv(fd);
     setPreview(p);
+    setAdjusted(false);
+    // Se recuerda la última cuenta usada con cada banco (formato detectado)
+    try { const last = localStorage.getItem(`fifti:csvAccount:${p.format}`); if (last && accounts.some((a) => a.id === last)) setAccountId(last); } catch { /* sin almacenamiento */ }
     setPicked(Object.fromEntries(p.rows.map((r) => [r.line, r.duplicate === null])));
     setCats(Object.fromEntries(p.rows.map((r) => [r.line, r.categoryId ?? ""])));
     setBusy(false);
@@ -100,12 +106,24 @@ export function CsvImport({ spaceId, currency = "EUR" }: { spaceId: string; curr
               </li>
             ))}
           </ul>
+          {accounts.length > 0 && preview.rows.length > 0 && (
+            <label className="flex items-center justify-between gap-3 text-sm text-ink-2">{x("¿A qué cuenta va este extracto?")}
+              <select value={accountId} onChange={(e) => setAccountId(e.target.value)} aria-label={x("Cuenta")} className="min-h-11 max-w-[55%] rounded-card border border-border bg-surface px-3 text-ink">
+                <option value="">{x("Sin cuenta")}</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </label>
+          )}
+          {accountId && preview.closingBalanceCents !== undefined && !adjusted && preview.closingBalanceCents !== accounts.find((a) => a.id === accountId)?.balanceCents && (
+            <button type="button" disabled={busy} onClick={async () => { setBusy(true); const r = await adjustBalance({ accountId, targetCents: preview.closingBalanceCents!, note: x("Saldo del extracto") }).catch(() => null); setBusy(false); setAdjusted(!!r?.ok); setResult(r?.ok ? x("Saldo ajustado al del extracto.") : (r?.error ?? x("Error"))); }} className="min-h-11 rounded-full border border-border px-4 text-sm font-semibold">
+              {x("Ajustar saldo al del extracto")}: {formatMoney(preview.closingBalanceCents, currency, x.locale)}</button>
+          )}
           {preview.rows.length > 0 && (
             <button disabled={busy || chosen.length === 0} className="min-h-12 rounded-full bg-accent px-5 font-semibold text-on-accent disabled:opacity-60"
               onClick={async () => {
                 setBusy(true);
-                const r = await confirmImport({ spaceId, rows: chosen.map((c) => ({ date: c.date, description: c.description, amountCents: c.amountCents, categoryId: cats[c.line] || null })) });
+                const r = await confirmImport({ spaceId, ...(accounts.length > 0 ? { accountId: accountId || null } : {}), rows: chosen.map((c) => ({ date: c.date, description: c.description, amountCents: c.amountCents, categoryId: cats[c.line] || null })) });
                 setBusy(false);
+                try { if (accountId) localStorage.setItem(`fifti:csvAccount:${preview.format}`, accountId); } catch { /* sin almacenamiento */ }
                 setResult(r.ok ? `${x("Importados")} ${r.imported}${r.failed ? `, ${r.failed} ${x("no se han podido guardar")}` : ""}.` : (r.error ?? x("Error")));
                 if (r.ok) { setPreview(null); setFile(null); setInputKey((k) => k + 1); }
               }}>

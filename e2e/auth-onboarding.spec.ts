@@ -23,16 +23,19 @@ test("registro con correo de confirmación, bienvenida en 3 pasos y primer gasto
   }
   await page.goto("/bienvenida");
 
-  await expect(page.getByText("Paso 1 de 3")).toBeVisible();
+  await expect(page.getByText("Paso 1 de 4")).toBeVisible();
   await page.getByLabel("Tus ingresos").fill("2100");
   await page.getByRole("button", { name: "Siguiente" }).click();
-  await expect(page.getByText("Paso 2 de 3")).toBeVisible();
+  await expect(page.getByText("Paso 2 de 4")).toBeVisible();
   await page.getByRole("button", { name: "Guardar plan" }).click();
-  await expect(page.getByText("Paso 3 de 3")).toBeVisible(); // tras guardar el plan sale siempre el paso 3
+  await expect(page.getByText("Paso 3 de 4")).toBeVisible(); // tras guardar el plan sale siempre el paso 3
   await page.getByLabel("Concepto").fill("Spotify");
   await page.getByLabel("Importe").fill("10,99");
   await page.getByRole("button", { name: "Guardar y terminar" }).click();
+  await expect(page.getByText("Paso 4 de 4")).toBeVisible(); // paso opcional de cuentas
+  await page.getByRole("button", { name: "Nómina + ahorro" }).click();
   await expect(page).toHaveURL(/\/inicio/);
+  await expect(page.getByText("Tus cuentas")).toBeVisible();
   await expect(page.getByText("Te sobrará a final de mes")).toBeVisible();
 
   const { data: users } = await admin().auth.admin.listUsers({ perPage: 200 });

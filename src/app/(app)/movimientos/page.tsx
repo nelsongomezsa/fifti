@@ -1,3 +1,4 @@
+import { loadAccounts } from "@/server/accounts";
 import { getTx } from "@/i18n/tx";
 import { displayName } from "@/lib/system-names";
 import type { Metadata } from "next";
@@ -12,7 +13,7 @@ import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
 
 export const metadata: Metadata = { title: "Movimientos" };
 
-type SP = { mes?: string; cat?: string; fondo?: string; persona?: string; pago?: string; tag?: string; q?: string };
+type SP = { mes?: string; cat?: string; fondo?: string; persona?: string; pago?: string; tag?: string; q?: string; cuenta?: string };
 const esc = (s: string) => s.replace(/[\\%_,()]/g, " ").trim().slice(0, 50);
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -35,9 +36,11 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
   if (sp.persona && uuid.test(sp.persona)) q = q.eq("created_by_member", sp.persona);
   if (sp.pago && uuid.test(sp.pago)) q = q.eq("expense_payers.member_id", sp.pago);
   if (sp.fondo && uuid.test(sp.fondo)) q = q.eq("categories.fund_id", sp.fondo);
+  if (sp.cuenta === "none") q = q.is("account_id", null);
+  else if (sp.cuenta && uuid.test(sp.cuenta)) q = q.eq("account_id", sp.cuenta);
   if (sp.q && esc(sp.q)) q = q.ilike("description", `%${esc(sp.q)}%`);
   // Todas las consultas son independientes: una sola ronda de red
-  const [{ data: members }, { data: cats }, { data: fundColors }, { data: expenses }, { data: privates }, { data: mirrors }] = await Promise.all([
+  const [{ data: members }, { data: cats }, { data: fundColors }, { data: expenses }, { data: privates }, { data: mirrors }, accountList] = await Promise.all([
     supabase.from("space_members").select("id, user_id, display_name").eq("space_id", active.id),
     supabase.from("categories").select("id, name, system_key, fund_id").eq("space_id", active.id),
     supabase.from("funds").select("id, name, color, system_key").eq("space_id", active.id).order("position"),
@@ -46,7 +49,9 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
     active.kind === "personal"
       ? supabase.from("personal_mirror").select("id, label, amount_cents, spent_at").eq("enabled", true).gte("spent_at", month).lt("spent_at", next).order("spent_at", { ascending: false })
       : Promise.resolve({ data: [] as { id: string; label: string; amount_cents: number; spent_at: string }[] }),
+    user.is_anonymous ? Promise.resolve([]) : loadAccounts(supabase, user.id),
   ]);
+  const accountOpts = accountList.map((a) => ({ id: a.id, name: a.name }));
   const me = members?.find((m) => m.user_id === user.id);
   const priv = new Map((privates ?? []).map((p) => [p.expense_id, p.description]));
   type Row = NonNullable<typeof expenses>[number];
@@ -74,7 +79,8 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
         <Link href={href({ mes: next })} aria-label={x("Mes siguiente")} className="grid min-h-11 min-w-11 place-items-center rounded-full border border-border">›</Link>
       </div>
 
-      <MovementFilters month={month} q={sp.q} cat={sp.cat} fondo={sp.fondo} persona={sp.persona} pago={sp.pago} tag={sp.tag}
+      <MovementFilters month={month} q={sp.q} cat={sp.cat} fondo={sp.fondo} persona={sp.persona} pago={sp.pago} tag={sp.tag} cuenta={sp.cuenta}
+        accounts={user.is_anonymous ? [] : accountOpts}
         funds={(fundColors ?? []).map((f) => ({ id: f.id, name: displayName(x, f.name, f.system_key) }))}
         cats={(cats ?? []).map((c) => ({ id: c.id, name: displayName(x, c.name, c.system_key) }))}
         members={active.kind !== "personal" ? (members ?? []).map((m) => ({ id: m.id, name: m.display_name })) : null} />

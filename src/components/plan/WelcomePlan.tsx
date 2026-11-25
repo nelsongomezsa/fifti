@@ -1,5 +1,6 @@
 "use client";
 
+import { saveAccount } from "@/server/actions/accounts";
 import { startTransition, useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTx } from "@/i18n/tx-client";
@@ -13,10 +14,12 @@ type Member = { id: string; name: string; mine: boolean };
 type Fund = { id: string; name: string; color: string; suggested: number | null };
 
 /** Bienvenida en 2 pasos: ingresos del mes y plan sugerido editable. Se guarda con la misma acción (y validación) que el plan normal. */
-export function WelcomePlan({ initialStep = 1, categories = [], rules = [], spaceId, month, currency, members, funds }: { initialStep?: 1 | 2 | 3; categories?: { id: string; name: string }[]; rules?: CategoryRule[]; spaceId: string; month: string; currency: string; members: Member[]; funds: Fund[] }) {
+export function WelcomePlan({ initialStep = 1, categories = [], rules = [], spaceId, month, currency, members, funds }: { initialStep?: 1 | 2 | 3 | 4; categories?: { id: string; name: string }[]; rules?: CategoryRule[]; spaceId: string; month: string; currency: string; members: Member[]; funds: Fund[] }) {
   const x = useTx();
   const router = useRouter();
-  const [step, setStep] = useState<1 | 2 | 3>(initialStep);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(initialStep);
+  const [accBusy, setAccBusy] = useState(false);
+  const [accErr, setAccErr] = useState<string | null>(null);
   const [fixed, setFixed] = useState({ description: "", amount: "", day: "1" });
   const [fixedState, fixedAction, fixedPending] = useActionState(saveRecurring, {});
   const [income, setIncome] = useState<Record<string, string>>({});
@@ -40,10 +43,25 @@ export function WelcomePlan({ initialStep = 1, categories = [], rules = [], spac
   }, [state.ok]);
   useEffect(() => {
     if (!fixedState.ok) return;
-    const t = setTimeout(() => { router.replace("/inicio"); router.refresh(); }, 500);
+    const t = setTimeout(() => setStep(4), 500);
     return () => clearTimeout(t);
-  }, [fixedState.ok, router]);
-  const skip = () => { router.replace("/inicio"); router.refresh(); };
+  }, [fixedState.ok]);
+  const leave = () => { router.replace("/inicio"); router.refresh(); };
+  const skip = () => { if (step === 3) setStep(4); else leave(); };
+  const TEMPLATES: { title: string; hint: string; list: { name: string; kind: "payroll" | "daily" | "savings" }[] }[] = [
+    { title: "1 cuenta", hint: "Todo en una", list: [{ name: "Mi cuenta", kind: "daily" }] },
+    { title: "Nómina + ahorro", hint: "Dos cuentas", list: [{ name: "Cuenta nómina", kind: "payroll" }, { name: "Cuenta ahorro", kind: "savings" }] },
+    { title: "Nómina + día a día + ahorro", hint: "Tres cuentas", list: [{ name: "Cuenta nómina", kind: "payroll" }, { name: "Cuenta día a día", kind: "daily" }, { name: "Cuenta ahorro", kind: "savings" }] },
+  ];
+  const COLORS = ["#7DD3FC", "#FDBA74", "#A78BFA"];
+  const createAccounts = async (list: { name: string; kind: "payroll" | "daily" | "savings" }[]) => {
+    setAccBusy(true); setAccErr(null);
+    for (const [i, a] of list.entries()) {
+      const r = await saveAccount({ spaceId, name: x(a.name), bank: "", color: COLORS[i % COLORS.length]!, kind: a.kind, openingCents: 0, openingDate: new Date().toISOString().slice(0, 10), isDefault: i === 0 }).catch(() => null);
+      if (!r?.ok) { setAccBusy(false); return setAccErr(r?.error ?? x("No se ha podido completar.")); }
+    }
+    setAccBusy(false); leave();
+  };
   const fixedCents = parseToCents(fixed.amount) ?? 0;
   const submitFixed = () => {
     const d = Math.min(31, Math.max(1, Number(fixed.day) || 1));
@@ -69,8 +87,8 @@ export function WelcomePlan({ initialStep = 1, categories = [], rules = [], spac
 
   return (
     <section className="flex flex-col gap-5 pt-2" aria-labelledby="welcome-title">
-      <p className="text-sm text-ink-3" aria-live="polite">{x("Paso")} {step} {x("de")} 3</p>
-      <h1 id="welcome-title" className="text-2xl font-bold">{step === 1 ? x("¿Cuánto ingresas este mes?") : step === 2 ? x("Tu plan sugerido") : x("Tu primer gasto fijo")}</h1>
+      <p className="text-sm text-ink-3" aria-live="polite">{x("Paso")} {step} {x("de")} 4</p>
+      <h1 id="welcome-title" className="text-2xl font-bold">{step === 1 ? x("¿Cuánto ingresas este mes?") : step === 2 ? x("Tu plan sugerido") : step === 3 ? x("Tu primer gasto fijo") : x("¿Cuántas cuentas usas?")}</h1>
 
       {step === 1 ? (
         <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); if (step1Ok) setStep(2); }}>
@@ -85,6 +103,16 @@ export function WelcomePlan({ initialStep = 1, categories = [], rules = [], spac
           ))}
           <button type="submit" disabled={!step1Ok} className="min-h-12 rounded-full bg-accent px-6 font-semibold text-on-accent disabled:cursor-not-allowed disabled:opacity-50">{x("Siguiente")}</button>
         </form>
+      ) : step === 4 ? (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-ink-2">{x("Opcional. Fifti no se conecta a tu banco: usa las cuentas para saber cuánto hay en cada una y repartir tu nómina.")}</p>
+          {TEMPLATES.map((t) => (
+            <button key={t.title} type="button" disabled={accBusy} onClick={() => void createAccounts(t.list)} className="flex min-h-16 flex-col items-start justify-center rounded-card border border-border bg-surface px-4 text-left disabled:opacity-60">
+              <span className="font-semibold">{x(t.title)}</span><span className="text-xs text-ink-3">{x(t.hint)}</span>
+            </button>
+          ))}
+          {accErr && <p role="alert" className="text-sm text-over-text">{accErr}</p>}
+        </div>
       ) : step === 3 ? (
         <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); if (fixed.description.trim() && fixedCents > 0) submitFixed(); }}>
           <p className="text-sm text-ink-2">{x("Alquiler, luz, una suscripción… Lo apuntamos cada mes y te avisamos antes de que llegue. Puedes añadir más después en Plan.")}</p>
@@ -124,7 +152,7 @@ export function WelcomePlan({ initialStep = 1, categories = [], rules = [], spac
           </div>
         </form>
       )}
-      <button type="button" onClick={skip} className="min-h-11 self-center px-4 text-sm text-ink-2 underline-offset-4 hover:underline">{step === 3 ? x("Terminar sin gasto fijo") : x("Saltar por ahora")}</button>
+      <button type="button" onClick={skip} className="min-h-11 self-center px-4 text-sm text-ink-2 underline-offset-4 hover:underline">{step === 3 ? x("Terminar sin gasto fijo") : step === 4 ? x("Saltar: lo haré después") : x("Saltar por ahora")}</button>
     </section>
   );
 }

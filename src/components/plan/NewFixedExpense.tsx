@@ -18,7 +18,7 @@ const WEEKDAYS = ["L", "M", "X", "J", "V", "S", "D"];
 const FIELD = "min-h-12 w-full rounded-card border border-border bg-surface px-4 text-base text-ink placeholder:text-ink-3";
 
 /** Nuevo gasto fijo: importe grande, concepto con categoría sugerida, frecuencia, día de cobro tocando un número y próximo cobro calculado. */
-export function NewFixedExpense({ spaceId, categories, rules, notify, initial }: { spaceId: string; categories: { id: string; name: string }[]; rules: CategoryRule[]; notify: { on: boolean; days: number }; initial?: { id: string; description: string; cents: number; freq: NewFrequency; day: number; category: string } }) {
+export function NewFixedExpense({ spaceId, categories, rules, notify, initial, accounts = [] }: { accounts?: { id: string; name: string; isDefault: boolean }[]; spaceId: string; categories: { id: string; name: string }[]; rules: CategoryRule[]; notify: { on: boolean; days: number }; initial?: { id: string; description: string; cents: number; freq: NewFrequency; day: number; category: string } }) {
   const x = useTx();
   const router = useRouter();
   const today = new Date().toISOString().slice(0, 10);
@@ -29,6 +29,7 @@ export function NewFixedExpense({ spaceId, categories, rules, notify, initial }:
   const [month, setMonth] = useState(new Date().getUTCMonth() + 1);
   const [category, setCategory] = useState(initial?.category ?? "");
   const [touched, setTouched] = useState(!!initial);
+  const [accountId, setAccountId] = useState(() => accounts.find((a) => a.isDefault)?.id ?? "");
   const [state, formAction, pending] = useActionState(saveRecurring, {});
 
   const cents = parseToCents(amount) ?? 0;
@@ -50,6 +51,7 @@ export function NewFixedExpense({ spaceId, categories, rules, notify, initial }:
   const submit = () => {
     const fd = new FormData();
     if (initial) fd.set("id", initial.id);
+    if (accounts.length > 0) fd.set("accountId", accountId);
     fd.set("spaceId", spaceId); fd.set("description", description.trim()); fd.set("amount", amount); fd.set("frequency", freq);
     fd.set("day", String(day)); fd.set("nextRun", next); if (category) fd.set("categoryId", category);
     startTransition(() => formAction(fd));
@@ -106,6 +108,13 @@ export function NewFixedExpense({ spaceId, categories, rules, notify, initial }:
         <p className="text-sm text-ink-2" aria-live="polite">{x("Próximo cobro")}: <strong className="text-ink first-letter:uppercase">{nextLabel}</strong></p>
       </div>
 
+      {accounts.length > 1 && (
+        <label className="flex min-h-14 items-center justify-between gap-3 rounded-card border border-border bg-surface px-4 text-sm font-medium">{x("Cuenta")}
+          <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className="min-h-11 max-w-[60%] rounded-card border border-border bg-surface-2 px-3 text-ink">
+            <option value="">{x("Sin cuenta")}</option>{accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+        </label>
+      )}
       <div className="flex min-h-14 items-center justify-between gap-3 rounded-card border border-border bg-surface px-4">
         <span className="min-w-0"><span className="block text-sm font-medium">{x("Avisarme antes")}</span>
           <span className="block text-xs text-ink-3">{notify.on ? `${notify.days} ${notify.days === 1 ? x("día") : x("días")} ${x("de antelación")}` : x("Desactivado en Notificaciones")} · <Link href="/ajustes#notificaciones" className="underline">{x("Cambiar")}</Link></span></span>

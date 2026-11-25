@@ -18,7 +18,7 @@ export function buildDemoDb(now: Date = new Date()): Db {
 
   const db: Db = {};
   const add = (t: string, row: Row) => { (db[t] ??= []).push(row); return row; };
-  for (const t of ["spaces", "space_members", "profiles", "funds", "categories", "expenses", "expense_splits", "expense_payers", "expense_tags", "tags", "expense_comments", "expense_reactions", "expense_private_details", "audit_log", "incomes", "monthly_plans", "plan_incomes", "plan_allocations", "recurring_expenses", "recurring_skips", "savings_goals", "goal_contributions", "goal_milestones", "saving_rules", "personal_mirror", "mirror_prefs", "favorites", "category_rules", "loans", "loan_repayments", "shopping_lists", "shopping_items", "settlements", "cross_offsets", "cross_offset_lines", "contributions", "contribution_rules", "notification_prefs", "notification_log", "push_subscriptions", "share_links", "fx_rates"]) db[t] = [];
+  for (const t of ["accounts", "account_transfers", "account_adjustments", "spaces", "space_members", "profiles", "funds", "categories", "expenses", "expense_splits", "expense_payers", "expense_tags", "tags", "expense_comments", "expense_reactions", "expense_private_details", "audit_log", "incomes", "monthly_plans", "plan_incomes", "plan_allocations", "recurring_expenses", "recurring_skips", "savings_goals", "goal_contributions", "goal_milestones", "saving_rules", "personal_mirror", "mirror_prefs", "favorites", "category_rules", "loans", "loan_repayments", "shopping_lists", "shopping_items", "settlements", "cross_offsets", "cross_offset_lines", "contributions", "contribution_rules", "notification_prefs", "notification_log", "push_subscriptions", "share_links", "fx_rates"]) db[t] = [];
 
   add("profiles", { id: DEMO_USER_ID, display_name: "Ana", locale: "es", discreet_mode: false, ai_phrases: false, avatar_color: "#A78BFA" });
   add("notification_prefs", { user_id: DEMO_USER_ID, new_expense: true, fixed_tomorrow: true, fund_threshold: true, goal_reached: true, monthly_summary: true, contribution_pending: true, offset_proposal: true, daily_reminder: false, reminder_hour: 21, timezone: "Europe/Madrid", fixed_advance_days: 1 });
@@ -145,5 +145,27 @@ export function buildDemoDb(now: Date = new Date()): Db {
   add("contribution_rules", { space_id: H, mode: "proportional_to_income", monthly_target_cents: 100000, values: {} });
   add("contributions", { id: id(), space_id: H, member_id: hAna, month: monthStart(0), expected_cents: 50000, paid_cents: 50000 });
   add("contributions", { id: id(), space_id: H, member_id: hLeo, month: monthStart(0), expected_cents: 50000, paid_cents: 20000 });
+
+  // ───── Cuentas ficticias, traspasos y reparto de la nómina (Fifti no se conecta a ningún banco)
+  const acc = (space: string, name: string, bank: string, color: string, kind: string, opening: number, isDefault: boolean) =>
+    add("accounts", { id: id(), space_id: space, owner_user_id: DEMO_USER_ID, name, bank, color, kind, opening_cents: opening, opening_date: monthStart(5), is_default: isDefault, archived_at: null, created_at: created }).id as string;
+  const aNom = acc(P, "Santander nómina", "Santander", "#EC0000", "payroll", 320000, true);
+  const aRev = acc(P, "Revolut día a día", "Revolut", "#7DD3FC", "daily", 40000, false);
+  const aIng = acc(P, "ING ahorro", "ING", "#FDBA74", "savings", 600000, false);
+  const aCom = acc(H, "Cuenta común", "BBVA", "#C8F060", "shared", 150000, false);
+  const fundKindOf = new Map((db.funds ?? []).map((f) => [f.id as string, f.kind as string]));
+  const catFund = new Map((db.categories ?? []).map((c) => [c.id as string, c.fund_id as string]));
+  for (const e of db.expenses ?? []) {
+    if (e.space_id === P) { const k = fundKindOf.get(catFund.get(e.category_id as string) ?? "") ?? "fixed"; e.account_id = k === "variable" || k === "leisure" ? aRev : k === "savings" ? aIng : aNom; }
+    else if (e.space_id === H && e.paid_from === "pot") e.account_id = aCom;
+  }
+  for (const i of db.incomes ?? []) if (i.space_id === P) i.account_id = aNom;
+  for (const f of db.funds ?? []) if (f.space_id === P) f.account_id = f.kind === "fixed" ? aNom : f.kind === "savings" ? aIng : aRev;
+  const tr = (from: string, to: string, cents: number, date: string, source: string, note: string) =>
+    add("account_transfers", { id: id(), user_id: DEMO_USER_ID, from_account: from, to_account: to, amount_cents: cents, transfer_date: date, note, source, created_at: created });
+  for (let back = 5; back >= 1; back--) { tr(aNom, aRev, 63000, monthStart(back), "payroll_split", "Reparto de la nómina"); tr(aNom, aIng, 42000, monthStart(back), "payroll_split", "Reparto de la nómina"); tr(aNom, aCom, 50000, monthStart(back), "household_contribution", "Aportación al hogar"); }
+  tr(aNom, aRev, 63000, monthStart(0), "payroll_split", "Reparto de la nómina"); // este mes queda pendiente el traspaso a ING
+  tr(aNom, aCom, 50000, monthStart(0), "household_contribution", "Aportación al hogar");
+  add("account_adjustments", { id: id(), account_id: aRev, amount_cents: -1250, adjust_date: monthStart(1), note: "Ajuste de saldo", created_by: DEMO_USER_ID, created_at: created });
   return db;
 }

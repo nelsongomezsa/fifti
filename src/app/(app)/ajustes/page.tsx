@@ -128,6 +128,7 @@ export default async function SettingsPage() {
       </SettingsGroup>
 
       <SettingsGroup title={x("Herramientas")}>
+        {!user.is_anonymous && <RowLink href="/cuentas" label={x("Mis cuentas")} />}
         <RowLink href="/compra" label={x("Lista de la compra")} />
         <RowLink href="/prestamos" label={x("Préstamos")} value={loans && loans.owedToMe > 0 ? `${x("Te deben")} ${formatMoney(loans.owedToMe, "EUR", x.locale)}` : undefined} />
         <RowLink href="/tendencias" label={x("Tendencias")} />
@@ -164,7 +165,7 @@ export default async function SettingsPage() {
         <>
           <PushSettings publicKey={vapidPublicKey} />
           <ActionForm action={savePrefs} submit={x("Guardar preferencias")} tone="plain" className="flex flex-col gap-1 rounded-card border border-border bg-surface p-3">
-            {([["new_expense", "Gasto nuevo"], ["fixed_tomorrow", "Aviso de gasto fijo"], ["fund_threshold", "Fondo al 80 % / 100 %"], ["goal_reached", "Meta alcanzada"], ["monthly_summary", "Resumen mensual"], ["contribution_pending", "Aportación pendiente"], ["offset_proposal", "Propuesta de compensación"]] as const).map(([k, l]) => (
+            {([["new_expense", "Gasto nuevo"], ["fixed_tomorrow", "Aviso de gasto fijo"], ["fund_threshold", "Fondo al 80 % / 100 %"], ["goal_reached", "Meta alcanzada"], ["monthly_summary", "Resumen mensual"], ["contribution_pending", "Aportación pendiente"], ["payday_split", "Día de cobro: reparte tu nómina"], ["offset_proposal", "Propuesta de compensación"]] as const).map(([k, l]) => (
               <label key={k} className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" name={k} defaultChecked={(prefRow as Record<string, boolean> | null)?.[k] ?? true} /> {x(l)}</label>
             ))}
             <label className="flex items-center justify-between gap-3 text-sm text-ink-2">{x("Avisar de un gasto fijo con")}

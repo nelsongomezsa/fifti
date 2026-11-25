@@ -68,6 +68,8 @@ export function ExpenseSheet({
   const [included, setIncluded] = useState<Set<string>>(new Set(prefill?.participants ?? initialSpace.members.map((m) => m.id)));
   const [pct, setPct] = useState<Record<string, string>>({});
   const [isPrivate, setIsPrivate] = useState(prefill?.edit?.isPrivate ?? false);
+  const [accountId, setAccountId] = useState<string | null>(() => space.accounts?.find((a) => a.isDefault)?.id ?? null);
+  const [accountTouched, setAccountTouched] = useState(false);
   const [fromPot, setFromPot] = useState(prefill?.edit?.paidFrom === "pot");
   const [tags, setTags] = useState(prefill?.tags ?? "");
   const [currency, setCurrency] = useState(initialSpace.currency);
@@ -140,6 +142,7 @@ export function ExpenseSheet({
   }, [currency, space.currency, date]);
 
   const changeSpace = (s: SheetSpace) => {
+    setAccountId(s.accounts?.find((a) => a.isDefault)?.id ?? null);
     setCurrency(s.currency); setFx(1);
     setSpace(s);
     setCategoryId(s.topCategoryId);
@@ -202,6 +205,7 @@ export function ExpenseSheet({
       description: desc.trim(), categoryId, spentAt: date, amountCents: cents, currency,
       paidFrom: fromPot ? "pot" : "member", splitMode: mode, participants: participants.map((p) => p.id), custom,
       payers, isPrivate: isGroup && isPrivate,
+      ...(accountTouched ? { accountId } : {}),
       tags: tags.split(/[\s,#]+/).map((t) => t.trim().toLowerCase()).filter(Boolean).slice(0, 8),
     };
     if (optimistic && !prefill?.edit && !photo) {
@@ -318,6 +322,14 @@ export function ExpenseSheet({
             <p className="mt-2 text-sm text-ink-3">{x("Solo lo ves tú.")}</p>
           )}
 
+          {(space.accounts?.length ?? 0) > 1 && (
+            <label className="mt-2 flex items-center justify-between gap-3 text-sm text-ink-2">{x("Cuenta")}
+              <select value={accountId ?? ""} onChange={(e) => { setAccountId(e.target.value || null); setAccountTouched(true); }} aria-label={x("Cuenta")} className="min-h-11 max-w-[60%] rounded-card border border-border bg-surface px-3 text-ink">
+                <option value="">{x("Sin cuenta")}</option>
+                {space.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </label>
+          )}
           <details className="mt-1 pb-2">
             <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium text-ink-2">{x("Más opciones")}</summary>
             <div className="flex flex-col gap-3 pb-2">

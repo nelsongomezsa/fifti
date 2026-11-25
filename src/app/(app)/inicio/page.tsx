@@ -15,6 +15,9 @@ import { ChangeLine, ChartCard } from "@/components/home/Deferred";
 import { upcomingCharges } from "@/lib/calendar";
 import { AnimatedMoney } from "@/components/ui/AnimatedMoney";
 import { weeklyBudget } from "@/lib/weekly";
+import { PayrollSplitCard } from "@/components/accounts/PayrollSplitCard";
+import { payrollSource, payrollSplit } from "@/lib/payroll-split";
+import { loadAccounts } from "@/server/accounts";
 import { loadLoans, loanTotals } from "@/server/loans";
 import { loadOverview, startSeries } from "@/server/overview";
 import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
@@ -30,7 +33,7 @@ export default async function HomePage() {
   // La serie de 6 meses arranca ya, pero no bloquea las cifras: la gráfica y la variación llegan después (Suspense)
   const seriesP = startSeries(supabase, active.id, active.kind);
   // Resumen, saldo del grupo y presupuesto del día no dependen entre sí: se piden a la vez.
-  const [o, balance, budget, loanRows, { data: recRows }, { data: skipRows }, { data: recent }] = await Promise.all([
+  const [o, balance, budget, loanRows, { data: recRows }, { data: skipRows }, { data: recent }, accounts, { data: fundAcc }, { data: monthIncomes }, { data: splitDone }] = await Promise.all([
     loadOverview(supabase, active.id, active.kind, undefined, undefined, x.locale, true),
     active.kind !== "personal" ? loadSpaceBalance(supabase, active.id) : Promise.resolve(null),
     (async () => {
@@ -48,6 +51,10 @@ export default async function HomePage() {
     supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, next_run, categories(system_key, funds(color))").eq("space_id", active.id).eq("active", true),
     supabase.from("recurring_skips").select("recurring_id, skip_on"),
     supabase.from("expenses").select("id, description, spent_at, amount_cents, currency, categories(system_key, funds(color))").eq("space_id", active.id).order("spent_at", { ascending: false }).order("created_at", { ascending: false }).limit(3),
+    user.is_anonymous ? Promise.resolve([]) : loadAccounts(supabase, user.id),
+    supabase.from("funds").select("id, account_id").eq("space_id", active.id),
+    supabase.from("incomes").select("account_id, source").eq("space_id", active.id).gte("received_at", monthStart(new Date())),
+    supabase.from("account_transfers").select("to_account, amount_cents").eq("source", "payroll_split").gte("transfer_date", monthStart(new Date())),
   ]);
   const loans = loanTotals(loanRows);
   const todayIso = new Date().toISOString().slice(0, 10);
@@ -66,6 +73,14 @@ export default async function HomePage() {
     if (tr) transfer = { from: balance.members.find((m) => m.id === tr.from)?.display_name ?? "—", to: balance.members.find((m) => m.id === tr.to)?.display_name ?? "—", amountCents: tr.amountCents };
   }
   const budgetLeft: number | null = budget;
+  // Reparto de la nómina: solo si ya hay un ingreso este mes y alguna partida tiene cuenta asociada
+  const accById = new Map(accounts.map((a) => [a.id, a]));
+  const payIncome = (monthIncomes ?? [])[0];
+  const fromId = payIncome ? payrollSource(payIncome.account_id, accounts) : null;
+  const acctOfFund = new Map((fundAcc ?? []).map((f) => [f.id, f.account_id as string | null]));
+  const splitItems = (active.kind !== "group" && fromId ? payrollSplit(o.funds.map((f) => ({ plannedCents: f.planned, accountId: acctOfFund.get(f.fundId) ?? null })), fromId, (splitDone ?? []).map((d) => ({ toAccount: d.to_account, amountCents: d.amount_cents }))) : [])
+    .map((s) => ({ toId: s.toAccountId, toName: accById.get(s.toAccountId)?.name ?? "—", color: accById.get(s.toAccountId)?.color ?? "#9AA3AF", cents: s.amountCents }));
+  const mineAccounts = accounts.filter((a) => a.mine);
   const weekly = o.plan.configured && active.kind !== "group" ? weeklyBudget(o.funds, new Date().toISOString().slice(0, 10)) : null;
   const today = new Date();
   const showSummary = today.getUTCDate() <= 3 && o.month === monthStart(today);
@@ -119,6 +134,8 @@ export default async function HomePage() {
         </div>
       )}
 
+      {fromId && splitItems.length > 0 && <PayrollSplitCard fromId={fromId} fromName={accById.get(fromId)?.name ?? ""} items={splitItems} demo={user.app_metadata?.demo === true} />}
+
       {budgetLeft !== null && <p className={`${cardCls} text-sm text-ink-2`}>{t("budgetLeft", { amount: formatMoney(budgetLeft, "EUR", locale) })}</p>}
 
       {/* 2 · Esta semana y ahorro */}
@@ -136,6 +153,25 @@ export default async function HomePage() {
             <p className="money t-figure mt-1"><AnimatedMoney cents={savedPlanned} /></p>
             <p className="mt-1 text-xs text-ink-3">{pctText(o.plannedSavingsBp)} {x("de tus ingresos")}</p>
           </Link>
+        </div>
+      )}
+
+      {/* Tus cuentas */}
+      {mineAccounts.length > 0 && (
+        <div className={cardCls}>
+          <div className="flex items-center justify-between"><h2 className="font-semibold">{x("Tus cuentas")}</h2>{more("/cuentas", x("Ver cuentas"))}</div>
+          <p className="money t-figure mt-1">{formatMoney(mineAccounts.reduce((s, a) => s + a.balanceCents, 0), "EUR", x.locale)}</p>
+          <ul className="mt-1 divide-y divide-border">
+            {mineAccounts.map((a) => (
+              <li key={a.id}>
+                <Link prefetch href={`/cuentas/${a.id}`} className="flex min-h-12 items-center gap-3 text-sm">
+                  <span aria-hidden className="size-2.5 shrink-0 rounded-full" style={{ background: a.color }} />
+                  <span className="min-w-0 flex-1 truncate">{a.name}</span>
+                  <span className="money shrink-0 font-mono">{formatMoney(a.balanceCents, "EUR", x.locale)}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

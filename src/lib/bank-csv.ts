@@ -11,6 +11,8 @@ export type BankParse = {
   errors: { line: number; message: string }[];
   /** Filas que son ingresos (o gastos, según el signo) y no se importan */
   skipped: number;
+  /** Saldo que trae el extracto en su fila más reciente (si tiene columna de saldo): sirve para ajustar el saldo de la cuenta */
+  closingBalanceCents?: number;
   /** El formato no se reconoce: hay que elegir las columnas */
   needsMapping?: { headers: string[]; headerRow: number };
   fatal?: string;
@@ -85,6 +87,7 @@ export function parseBankCsv(text: string, opts: { mapping?: Mapping; currency?:
   const gi = hs.indexOf("categoria") >= 0 ? hs.indexOf("categoria") : hs.indexOf("category");
   const cur = hs.indexOf("currency") >= 0 ? hs.indexOf("currency") : hs.indexOf("divisa");
   const st = hs.indexOf("state");
+  const bi = ["saldo", "balance", "saldo eur", "saldo contable", "disponible"].map((h) => hs.indexOf(h)).find((i) => i >= 0) ?? -1;
   const format = m ? "generic" : detectFormat(hs);
   if (di < 0 || ai < 0 || ci < 0) return { format, rows: [], errors: [], skipped: 0, needsMapping: { headers: raw.map((h) => h.trim() || "—"), headerRow } };
 
@@ -94,12 +97,17 @@ export function parseBankCsv(text: string, opts: { mapping?: Mapping; currency?:
 
   const rows: BankRow[] = [], errors: BankParse["errors"] = [];
   let skipped = 0;
+  const closing: { v: { date: string; line: number; cents: number } | null } = { v: null };
   body.forEach((r, i) => {
     const line = headerRow + i + 2;
     if (r.every((c) => c.trim() === "")) return;
     const date = parseBankDate(r[di] ?? "");
     const cents = signed[i]!;
     if (!date) return void errors.push({ line, message: "Fecha no válida" });
+    if (bi >= 0) {
+      const bal = parseSignedAmount(r[bi] ?? "");
+      if (bal !== null && (!closing.v || date > closing.v.date || (date === closing.v.date && line < closing.v.line))) closing.v = { date, line, cents: bal };
+    }
     if (cents === null || cents === 0) return void errors.push({ line, message: "Importe no válido" });
     if (st >= 0 && (r[st] ?? "").trim().toUpperCase() !== "COMPLETED") return void errors.push({ line, message: "Movimiento no completado" });
     if (cur >= 0 && opts.currency && (r[cur] ?? "").trim() && (r[cur] ?? "").trim().toUpperCase() !== opts.currency.toUpperCase()) return void errors.push({ line, message: "Moneda distinta de la burbuja" });
@@ -108,7 +116,7 @@ export function parseBankCsv(text: string, opts: { mapping?: Mapping; currency?:
     if (!description) return void errors.push({ line, message: "Falta el concepto" });
     rows.push({ line, date, description, amountCents: Math.abs(cents), ...(gi >= 0 && (r[gi] ?? "").trim() ? { category: unescapeFormula(r[gi]!.trim()).slice(0, 40) } : {}) });
   });
-  return { format, rows, errors, skipped };
+  return { format, rows, errors, skipped, ...(closing.v ? { closingBalanceCents: closing.v.cents } : {}) };
 }
 
 export type CategorySource = "csv" | "rule" | "suggested";
@@ -118,4 +126,23 @@ export function pickCategory(fromCsv: string | null, fromRule: string | null, fr
   if (fromRule) return { id: fromRule, source: "rule" };
   if (fromDictionary) return { id: fromDictionary, source: "suggested" };
   return { id: null, source: null };
+}
+
+const tokens = (t: string) => new Set(normText(t).split(/[^a-z0-9]+/).filter((w) => w.length >= 3));
+/** Conceptos parecidos: uno contiene al otro, o comparten al menos la mitad de sus palabras (el banco suele añadir ruido: «COMPRA TARJ. 1234 MERCADONA»). */
+export function similarText(a: string, b: string): boolean {
+  const na = normText(a), nb = normText(b);
+  if (!na || !nb) return false;
+  if (na.includes(nb) || nb.includes(na)) return true;
+  const ta = tokens(a), tb = tokens(b);
+  if (ta.size === 0 || tb.size === 0) return false;
+  let shared = 0;
+  for (const w of ta) if (tb.has(w)) shared++;
+  return shared / Math.min(ta.size, tb.size) >= 0.5;
+}
+
+const dayNum = (iso: string) => Math.round(Date.parse(`${iso}T00:00:00Z`) / 86400000);
+/** Busca un gasto ya apuntado (a mano) con el mismo importe, fecha a ±2 días y concepto parecido; devuelve su posición para consumirlo una sola vez. */
+export function findManualDuplicate(existing: { date: string; amountCents: number; description: string }[], row: { date: string; amountCents: number; description: string }): number {
+  return existing.findIndex((e) => e.amountCents === row.amountCents && Math.abs(dayNum(e.date) - dayNum(row.date)) <= 2 && similarText(e.description, row.description));
 }

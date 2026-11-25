@@ -6,7 +6,7 @@ import { displayName } from "@/lib/system-names";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createHash } from "node:crypto";
-import { dupKey, parseBankCsv, pickCategory, type BankFormat, type CategorySource } from "@/lib/bank-csv";
+import { dupKey, findManualDuplicate, parseBankCsv, pickCategory, type BankFormat, type CategorySource } from "@/lib/bank-csv";
 import { suggestCategory } from "@/lib/nl/parse";
 import { CSV_MAX_BYTES, CSV_MAX_ROWS } from "@/lib/csv";
 import { MAX_AMOUNT_CENTS } from "@/lib/money";
@@ -20,6 +20,8 @@ export type PreviewRow = { line: number; date: string; description: string; amou
 export type BankPreview = {
   fatal?: string; format: BankFormat; rows: PreviewRow[]; errors: { line: number; message: string }[]; skipped: number;
   needsMapping?: { headers: string[]; headerRow: number }; categories: { id: string; name: string }[];
+  /** Saldo final que trae el extracto, si lo trae */
+  closingBalanceCents?: number;
 };
 
 const mappingSchema = z.object({
@@ -65,10 +67,14 @@ export async function previewCsv(fd: FormData): Promise<BankPreview> {
 
   // Duplicados contra lo ya guardado (mismo día, importe y concepto) y dentro del propio archivo
   const existing = new Map<string, number>();
+  const manual: { date: string; amountCents: number; description: string }[] = [];
   if (parsed.rows.length) {
     const dates = parsed.rows.map((r) => r.date).sort();
-    const { data: ex } = await supabase.from("expenses").select("spent_at, amount_cents, description").eq("space_id", spaceId.data).gte("spent_at", dates[0]!).lte("spent_at", dates[dates.length - 1]!).limit(5000);
-    for (const e of ex ?? []) { const k = sha(dupKey(e.spent_at, e.amount_cents, e.description ?? "")); existing.set(k, (existing.get(k) ?? 0) + 1); }
+    const lo = new Date(Date.parse(`${dates[0]}T00:00:00Z`) - 2 * 86400000).toISOString().slice(0, 10);
+    const hi = new Date(Date.parse(`${dates[dates.length - 1]}T00:00:00Z`) + 2 * 86400000).toISOString().slice(0, 10);
+    const { data: ex } = await supabase.from("expenses").select("spent_at, amount_cents, description").eq("space_id", spaceId.data).gte("spent_at", lo).lte("spent_at", hi).limit(5000);
+    for (const e of ex ?? []) manual.push({ date: e.spent_at as string, amountCents: e.amount_cents, description: e.description ?? "" });
+    for (const e of (ex ?? []).filter((q) => (q.spent_at as string) >= dates[0]! && (q.spent_at as string) <= dates[dates.length - 1]!)) { const k = sha(dupKey(e.spent_at, e.amount_cents, e.description ?? "")); existing.set(k, (existing.get(k) ?? 0) + 1); }
   }
   const seen = new Set<string>();
   const rows: PreviewRow[] = parsed.rows.map((r) => {
@@ -76,24 +82,29 @@ export async function previewCsv(fd: FormData): Promise<BankPreview> {
     let duplicate: PreviewRow["duplicate"] = null;
     if ((existing.get(k) ?? 0) > 0) { existing.set(k, existing.get(k)! - 1); duplicate = "saved"; }
     else if (seen.has(k)) duplicate = "file";
+    else {
+      // Apuntado a mano con otro concepto o a otro día cercano: se marca para no duplicarlo
+      const at = findManualDuplicate(manual, r);
+      if (at >= 0) { manual.splice(at, 1); duplicate = "saved"; }
+    }
     seen.add(k);
     return { line: r.line, date: r.date, description: r.description, amountCents: r.amountCents, ...(() => { const c = pickCategory(byName(r.category), matchRule(ruleList, r.description)?.categoryId ?? null, suggestCategory(r.description, categories)); return { categoryId: c.id, categorySource: c.source }; })(), duplicate };
   });
-  return { format: parsed.format, rows, errors: parsed.errors.map((e) => ({ ...e, message: x(e.message) })), skipped: parsed.skipped, needsMapping: parsed.needsMapping, categories };
+  return { format: parsed.format, rows, errors: parsed.errors.map((e) => ({ ...e, message: x(e.message) })), skipped: parsed.skipped, needsMapping: parsed.needsMapping, categories, closingBalanceCents: parsed.closingBalanceCents };
 }
 
 const confirmRow = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), description: z.string().trim().min(1).max(120),
   amountCents: z.number().int().min(1).max(MAX_AMOUNT_CENTS), categoryId: z.uuid().nullable(),
 }).strict();
-const confirmSchema = z.object({ spaceId: z.uuid(), rows: z.array(confirmRow).min(1).max(CSV_MAX_ROWS) }).strict();
+const confirmSchema = z.object({ spaceId: z.uuid(), accountId: z.uuid().nullable().optional(), rows: z.array(confirmRow).min(1).max(CSV_MAX_ROWS) }).strict();
 
 /** Paso 2: guarda las filas elegidas. Cada una pasa por la misma ruta segura que un gasto normal. */
 export async function confirmImport(input: unknown): Promise<{ ok: boolean; imported: number; failed: number; error?: string }> {
   const x = await getTx();
   const parsed = confirmSchema.safeParse(input);
   if (!parsed.success) return { ok: false, imported: 0, failed: 0, error: x("Datos no válidos") };
-  const { spaceId, rows } = parsed.data;
+  const { spaceId, rows, accountId } = parsed.data;
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return { ok: false, imported: 0, failed: 0, error: x("Sesión caducada.") };
@@ -115,7 +126,7 @@ export async function confirmImport(input: unknown): Promise<{ ok: boolean; impo
     const n = nth.get(k) ?? 0; nth.set(k, n + 1);
     const res = await saveExpense({
       clientId: rowClientId(spaceId, k, n), spaceId, description: r.description, categoryId: r.categoryId, spentAt: r.date, amountCents: r.amountCents,
-      currency: space.base_currency, paidFrom: "member", splitMode: "default", participants: members.map((m) => m.id), payers: [], isPrivate: false, tags: [],
+      currency: space.base_currency, paidFrom: "member", splitMode: "default", participants: members.map((m) => m.id), payers: [], isPrivate: false, tags: [], ...(accountId !== undefined ? { accountId } : {}),
     });
     if (res.ok) imported++; else failed++;
   }

@@ -76,6 +76,10 @@ export async function saveExpense(input: unknown): Promise<SaveResult> {
       },
     });
     if (error) return { ok: false, error: x(rpcMessage(error)) };
+    if (v.accountId !== undefined) {
+      const acc = await supabase.rpc("set_movement_account", { p_kind: "expense", p_id: data as string, p_account: v.accountId });
+      if (acc.error) return { ok: false, error: x(rpcMessage(acc.error)) };
+    }
     revalidatePath("/", "layout");
     if (!v.id && !personal) {
       const others = (await supabase.from("space_members").select("user_id").eq("space_id", v.spaceId).not("user_id", "is", null)).data ?? [];
@@ -173,16 +177,26 @@ export async function saveIncome(_prev: FormState, fd: FormData): Promise<FormSt
   const parsed = incomeInputSchema.safeParse({
     id: fd.get("id") || undefined, spaceId: fd.get("spaceId"), memberId: fd.get("memberId"), amountCents: cents ?? 0,
     source: String(fd.get("source") ?? "Nómina") || "Nómina", receivedAt: fd.get("receivedAt"), isRecurring: fd.get("isRecurring") === "on",
+    accountId: fd.has("accountId") ? (String(fd.get("accountId")) || null) : undefined,
   });
   if (!parsed.success) return { error: x(parsed.error.issues[0]?.message ?? "Datos no válidos") };
   const { supabase, user } = await ctx();
   if (!user) return { error: x("Sesión caducada.") };
   const v = parsed.data;
-  const { error } = await supabase.rpc("save_income", {
+  const { data: incomeId, error } = await supabase.rpc("save_income", {
     p: { id: v.id ?? null, space_id: v.spaceId, member_id: v.memberId, amount_cents: v.amountCents, source: v.source, received_at: v.receivedAt, is_recurring: v.isRecurring },
   });
   if (error) return { error: x(rpcMessage(error)) };
+  if (v.accountId !== undefined && incomeId) {
+    const acc = await supabase.rpc("set_movement_account", { p_kind: "income", p_id: (incomeId as string) ?? v.id, p_account: v.accountId });
+    if (acc.error) return { error: x(rpcMessage(acc.error)) };
+  }
   revalidatePath("/", "layout");
+  // Día de cobro: si hay partidas con cuenta asociada, un aviso genérico (sin importes) recuerda repartir la nómina
+  if (!v.id && /n[oó]mina/i.test(v.source)) {
+    const { count } = await supabase.from("funds").select("id", { count: "exact", head: true }).eq("space_id", v.spaceId).not("account_id", "is", null);
+    if ((count ?? 0) > 0) await notify([user.id], "payday_split", (t) => ({ title: "Fifti", body: t("Es día de cobro: reparte tu nómina entre tus cuentas."), url: "/inicio" }));
+  }
   return { ok: true, message: x("Ingreso guardado.") };
 }
 

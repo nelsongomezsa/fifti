@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { HandCoins, Home, PiggyBank, Receipt, Repeat, Wallet } from "lucide-react";
+import { ArrowRightLeft, HandCoins, Home, PiggyBank, Receipt, Repeat, Wallet } from "lucide-react";
 import { SheetShell } from "@/components/ui/SheetShell";
 import { ExpenseSheet, type SheetPrefill } from "@/components/expense/ExpenseSheet";
 import { usePendingExpenses } from "@/components/expense/optimistic";
@@ -16,7 +16,7 @@ import { deleteExpense } from "@/server/actions/expenses";
 import { loadSheetContext, type SheetContext } from "@/server/actions/sheet";
 
 // v2: la forma del contexto cambió (reglas por burbuja); un contexto guardado antiguo ya no se usa
-export const CTX_CACHE_KEY = "fifti:sheetCtx:v2";
+export const CTX_CACHE_KEY = "fifti:sheetCtx:v3";
 
 type Toast =
   | { type: "saved"; cid: string; id: string | null; spaceName: string; shareCents: number; currency: string; queued: boolean }
@@ -194,7 +194,7 @@ export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
             <Receipt size={26} aria-hidden /><span><span className="block text-lg font-bold">{x("Gasto")}</span><span className="block text-sm opacity-80">{x("Lo que acabas de pagar")}</span></span>
           </button>
           <div className="mt-3 grid grid-cols-2 gap-3">
-            {([["/fijos/nuevo", Repeat, "Gasto fijo", "Alquiler, Spotify…"], ["/ingreso", Wallet, "Ingreso", "Nómina, un extra…"], ["/plan?vista=ahorro", PiggyBank, "Aportar a una meta", "A tu viaje o colchón"], ["/prestamos#nuevo-prestamo", HandCoins, "Préstamo", "Dejaste o te dejaron"]] as const).map(([href, Icon, title, hint]) => (
+            {([["/fijos/nuevo", Repeat, "Gasto fijo", "Alquiler, Spotify…"], ["/ingreso", Wallet, "Ingreso", "Nómina, un extra…"], ["/plan?vista=ahorro", PiggyBank, "Aportar a una meta", "A tu viaje o colchón"], ["/prestamos#nuevo-prestamo", HandCoins, "Préstamo", "Dejaste o te dejaron"], ["/traspaso", ArrowRightLeft, "Traspaso", "Entre tus cuentas"]] as const).map(([href, Icon, title, hint]) => (
               <Link key={href} href={href} prefetch={false} onClick={() => setChooser(false)} className="flex min-h-28 flex-col justify-between rounded-card border border-border bg-surface p-3">
                 <Icon size={22} aria-hidden className="text-ink-2" />
                 <span><span className="block font-semibold">{x(title)}</span><span className="block text-xs text-ink-3">{x(hint)}</span></span>
