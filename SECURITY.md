@@ -11,6 +11,35 @@ Resumen de las medidas del proyecto y de las excepciones que se han tomado a pro
 - Cabeceras de seguridad y CSP estricta (`next.config.ts`).
 - Dinero en céntimos enteros; porcentajes en puntos básicos.
 
+## Estado de la checklist de 20 puntos
+
+Revisión del 25-11-2026 contra el código y las migraciones.
+
+| # | Punto | Estado | Cómo se ha comprobado |
+|---|---|---|---|
+| 1 | Sin archivos de entorno ni secretos en git | Cumple | gitleaks sobre todo el historial: sin hallazgos; solo se versionan las plantillas de ejemplo; los archivos locales están ignorados |
+| 2 | Sin claves secretas en el frontend | Cumple | `service_role` solo en `src/lib/supabase/admin.ts` (`server-only`); la clave VAPID privada solo en el servidor |
+| 3 | RLS en todas las tablas | Cumple | Las 48 tablas de `public` tienen `enable` + `force row level security` (revisión de las migraciones); 122 tests de RLS contra una base real |
+| 4 | Permisos en el servidor | Cumple | RLS + acciones de servidor; las funciones `security definer` validan pertenencia (tests: vaciar espacio, cuentas, traspasos, ajustes) |
+| 5 | Rate limiting | Cumple | login, registro, recuperar, invitaciones, invitado, reclamar, comentarios, importar CSV, resumen público, fotos y escrituras del plan y las cuentas (`src/lib/security/rate-limit.ts`); falla cerrado |
+| 6 | SQL parametrizado | Cumple | Solo cliente de Supabase y RPC; sin SQL concatenado |
+| 7 | Zod en el servidor | Cumple | Esquemas `.strict()` en las acciones; las de preferencias usan listas blancas y `getFxPreview` valida con `strictObject` |
+| 8 | Sin `dangerouslySetInnerHTML` | Cumple | 0 usos en `src`; regla de ESLint |
+| 9 | Contraseñas en Supabase Auth | Cumple | No se guardan contraseñas propias |
+| 10 | Sesión en cookies `httpOnly` | Cumple | `@supabase/ssr`; el token de Realtime es la excepción E1 (solo `access_token`, en memoria) |
+| 11 | Rutas de admin con rol | No aplica | No hay panel de administración |
+| 12 | CORS con lista blanca | Cumple | Ninguna ruta emite cabeceras CORS (solo mismo origen) |
+| 13 | Email confirmado antes de usar la cuenta | Parcial | `enable_confirmations = true` en `supabase/config.toml` (local y producción). No se ha podido leer el ajuste vivo de la nube: comprobar en Supabase → Authentication → Providers → Email → «Confirm email» |
+| 14 | IDOR | Cumple | UUID + RLS + tests (cuentas, traspasos y espacios ajenos) |
+| 15 | Mass assignment | Cumple | Zod `.strict()` y listas blancas |
+| 16 | Webhooks | No aplica | No hay |
+| 17 | Sin stack traces | Cumple | Mensajes genéricos; el detalle va a los logs del servidor (`rpcMessage`) |
+| 18 | Dependabot, audit, gitleaks, osv | Cumple | `npm audit`: 0 vulnerabilidades; osv-scanner sin incidencias; Dependabot semanal; CI con gitleaks y osv |
+| 19 | HIBP por k-anonymity | Cumple | `src/lib/security/hibp.ts` (5 caracteres del SHA-1) al registrarse y al cambiar la contraseña |
+| 20 | Fotos de tickets | Cumple | Magic bytes, 5 MB, recodificado sin EXIF, bucket privado, URL firmada |
+
+Cabeceras (`next.config.ts`): CSP estricta (origen propio, Turnstile y el proyecto de Supabase), HSTS, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy` y `Permissions-Policy`. Las cabeceras de producción en vivo no se han podido consultar en esta revisión: se leen del código.
+
 ## Excepciones documentadas
 
 ### E1. El navegador recibe el `access_token` para Realtime
