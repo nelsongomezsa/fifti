@@ -2,6 +2,13 @@
 
 Historial de Fifti por fechas. Formato libre, del más reciente al más antiguo.
 
+## 2026-11-26
+
+- **Arranque en frío**: cada función dejaba de pesar 32 MB (28 MB eran de `sharp`, que no usamos) y ahora pesa 3,5 MB; el calentado con pg_cron pide cada 5 min el proxy y las pantallas de la barra; el proxy informa en `Server-Timing` si la instancia era nueva.
+- **Navegación**: pestañas internas y cambio de mes instantáneos (de ~420 ms a ~18 ms), sesión verificada en local sin viaje a Auth, service worker que abre al instante la última copia de las pantallas de la barra.
+- **Movimientos** con ingresos, traspasos y aportaciones, «Tipo» y filtros en una hoja; gastos fijos editables y deslizables; hoja de gasto más clara; Ajustes agrupado; texto mínimo de 13 px.
+- **Despliegue seguro**: `npm run deploy` pasa antes el barrido de todas las pantallas con sesión real.
+
 ## 2026-11-25
 
 - **Cuentas bancarias**: nombre, banco (texto), color, tipo y saldo inicial; saldo calculado, detalle por cuenta, «Ajustar saldo» con ajuste visible, filtro por cuenta en Movimientos y cuenta en gastos, ingresos y gastos fijos. Sin IBAN ni credenciales.
