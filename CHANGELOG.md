@@ -4,6 +4,7 @@ Historial de Fifti por fechas. Formato libre, del más reciente al más antiguo.
 
 ## 2026-11-26
 
+- **Incidente de producción**: durante un rato todas las rutas devolvieron 500. La causa era que la exclusión de `@swc` en `outputFileTracingExcludes` también quitaba `@swc/helpers`, que Next necesita al arrancar cada función. Se restauró el despliegue anterior y se corrigió excluyendo solo `@swc/core*`, `@swc/counter` y `@swc/types`. Para que no se repita: `npm run check:runtime` arranca la app compilada sin los paquetes excluidos (lista en `scripts/trace-excludes.json`) y exige 200 en las pantallas clave; corre en `npm run check`, en el CI y antes de cada despliegue. Además, `npm run smoke` comprueba producción con GET a `/`, `/login`, `/registro`, `/api/ping` y `/inicio`, y se ejecuta al terminar `npm run deploy`.
 - **Arranque en frío**: cada función dejaba de pesar 32 MB (28 MB eran de `sharp`, que no usamos) y ahora pesa 3,5 MB; el calentado con pg_cron pide cada 5 min el proxy y las pantallas de la barra; el proxy informa en `Server-Timing` si la instancia era nueva.
 - **Navegación**: pestañas internas y cambio de mes instantáneos (de ~420 ms a ~18 ms), sesión verificada en local sin viaje a Auth, service worker que abre al instante la última copia de las pantallas de la barra.
 - **Movimientos** con ingresos, traspasos y aportaciones, «Tipo» y filtros en una hoja; gastos fijos editables y deslizables; hoja de gasto más clara; Ajustes agrupado; texto mínimo de 13 px.
