@@ -16,12 +16,13 @@
     "check": "npm run typecheck && npm run lint && npm test && npm run build:ci",
     "prebuild": "node scripts/copy-ocr-assets.mjs",
     "predev": "node scripts/copy-ocr-assets.mjs",
+    "smoke": "node scripts/smoke.mjs",
     "e2e:sheet": "node scripts/e2e/sheet-fits.mjs",
     "e2e:nuevo": "node scripts/e2e/quick-new.mjs",
     "e2e:overflow": "node scripts/e2e/overflow.mjs",
     "e2e:parity": "node scripts/e2e/parity.mjs",
     "predeploy": "npm run check && npx playwright test e2e/routes.spec.ts --project=movil",
-    "deploy": "npm run predeploy && npx vercel deploy --prod --yes"
+    "deploy": "npm run predeploy && npx vercel deploy --prod --yes && npm run smoke"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
