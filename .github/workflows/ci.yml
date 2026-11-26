@@ -23,6 +23,8 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-key-not-a-secret
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      - name: Arrancar sin los paquetes que Vercel deja fuera de las funciones
+        run: npm run check:runtime
 
   secrets:
     runs-on: ubuntu-latest

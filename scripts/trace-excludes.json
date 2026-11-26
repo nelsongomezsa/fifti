@@ -1,0 +1,11 @@
+[
+  "./node_modules/@img/**/*",
+  "./node_modules/sharp/**/*",
+  "./node_modules/@swc/core*/**/*",
+  "./node_modules/@swc/counter/**/*",
+  "./node_modules/@swc/types/**/*",
+  "./node_modules/esbuild/**/*",
+  "./node_modules/@esbuild/**/*",
+  "./node_modules/typescript/**/*",
+  "./node_modules/tesseract.js-core/**/*"
+]
