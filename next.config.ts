@@ -27,8 +27,9 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Cada pantalla es su propia función en Vercel y su tamaño cuenta en el arranque en frío. No usamos next/image, así que sharp
   // (libvips, ~28 MB) y los binarios de compilación se dejan fuera del paquete de cada función.
+  // OJO: @swc/helpers NO se puede excluir; Next lo exige en runtime (sin él, todas las rutas dan 500).
   outputFileTracingExcludes: {
-    "*": ["./node_modules/@img/**/*", "./node_modules/sharp/**/*", "./node_modules/@swc/**/*", "./node_modules/esbuild/**/*", "./node_modules/@esbuild/**/*", "./node_modules/typescript/**/*", "./node_modules/tesseract.js-core/**/*"],
+    "*": ["./node_modules/@img/**/*", "./node_modules/sharp/**/*", "./node_modules/@swc/core*/**/*", "./node_modules/@swc/counter/**/*", "./node_modules/@swc/types/**/*","./node_modules/esbuild/**/*", "./node_modules/@esbuild/**/*", "./node_modules/typescript/**/*", "./node_modules/tesseract.js-core/**/*"],
   },
   reactStrictMode: true,
   // Caché de navegación en el cliente: las pantallas ya vistas (o precargadas) salen al instante y se revalidan por detrás (RefreshOnNav)
