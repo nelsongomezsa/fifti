@@ -123,7 +123,7 @@ Requisitos: Node 24+ y Docker (Supabase local y tests de RLS).
 
 ```bash
 npm install
-cp .env.example <tu archivo local de entorno>   # y rellena las claves
+cp .env.example .env.local                      # y rellena las claves (este archivo no se sube)
 npx supabase start                              # base de datos local con las migraciones
 npm run dev
 ```
