@@ -6,8 +6,16 @@ const AUTH_PAGES = ["/login", "/registro", "/recuperar"];
 
 const matches = (path: string, list: string[]) => list.some((p) => path === p || path.startsWith(`${p}/`));
 
+// Marca de instancia: la primera petición que atiende una función recién arrancada se señala como «fría» en Server-Timing,
+// para ver en las herramientas del navegador cuánto se va en el arranque y cuánto en comprobar la sesión.
+const bootedAt = Date.now();
+let served = 0;
+
 export async function proxy(request: NextRequest) {
+  const t0 = Date.now();
+  const cold = served++ === 0;
   const { response, user } = await updateSession(request);
+  response.headers.set("Server-Timing", `proxy;dur=${Date.now() - t0}, ${cold ? "cold;desc=\"instancia nueva\"" : `warm;desc=\"${Math.round((Date.now() - bootedAt) / 1000)} s de vida\"`}`);
   const path = request.nextUrl.pathname;
 
   const demo = request.cookies.get("fifti_demo")?.value === "1" && !request.cookies.getAll().some((c) => c.name.startsWith("sb-") && c.name.includes("auth-token"));
