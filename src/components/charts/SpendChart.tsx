@@ -19,9 +19,9 @@ export function SpendChart({ data, currency }: { data: SpendPoint[]; currency: s
         {data.map((d, i) => {
           const body = (
             <>
-              <span className="money font-mono text-[10px] leading-none text-ink-2">{d.cents > 0 ? short(d.cents) : ""}</span>
+              <span className="money font-mono text-[13px] leading-none text-ink-2">{d.cents > 0 ? short(d.cents) : ""}</span>
               <span className="flex w-full flex-1 items-end"><span className="block w-full rounded-t-md" style={{ height: `${Math.max(d.cents > 0 ? 4 : 2, Math.round((d.cents / max) * 100))}%`, background: d.current ? "var(--accent)" : "var(--track)" }} /></span>
-              <span className="font-mono text-[11px] leading-none text-ink-3">{d.label}</span>
+              <span className="font-mono text-[13px] leading-none text-ink-3">{d.label}</span>
             </>
           );
           const cls = "flex h-full min-w-0 flex-col items-center gap-1";

@@ -262,15 +262,7 @@ export function ExpenseSheet({
             })}
           </div>
 
-          <form className="mb-2" onSubmit={(e) => { e.preventDefault(); void runPhrase(); }}>
-            <div className="flex gap-2">
-              <input value={phrase} onChange={(e) => setPhrase(e.target.value)} maxLength={200} placeholder={x("Escríbelo en una frase: 23 cena con Leo a medias")} aria-label={x("Escríbelo en una frase")}
-                className="min-h-11 min-w-0 flex-1 rounded-card border border-border bg-surface px-3 text-sm text-ink placeholder:text-ink-3" />
-              <button type="submit" disabled={!phrase.trim() || phraseBusy} className="min-h-11 shrink-0 rounded-full border border-border px-4 text-sm font-semibold disabled:opacity-50">{phraseBusy ? x("Leyendo…") : x("Rellenar")}</button>
-            </div>
-            {ctx.ai && <p className="mt-1 text-xs text-ink-3">{x("La frase se envía a Google para interpretarla")}</p>}
-            {phraseNote && <p role="status" className="mt-1 text-xs text-ink-2">{phraseNote}</p>}
-          </form>
+          {phraseNote && <p role="status" className="mb-2 text-xs text-ink-2">{phraseNote}</p>}
           <div className="mb-2 flex items-center justify-between gap-2">
             <output aria-live="polite" className="min-w-0 truncate font-mono text-4xl font-semibold tabular-nums">
               {amount === "" ? "0" : groupTyped(amount, x.locale)} <span className="text-2xl text-ink-3">{symbol}</span>
@@ -290,10 +282,11 @@ export function ExpenseSheet({
           <div ref={catRow} className="mb-2 flex gap-2 overflow-x-auto [scrollbar-width:none]" role="group" aria-label={x("Categoría")}>
             {space.categories.map((c) => {
               const on = c.id === categoryId;
+              const suggested = on && !catTouched; // sugerida (no elegida por la persona): contorno discontinuo y sin relleno
               return (
-                <button key={c.id} type="button" aria-pressed={on} onClick={() => { setCatTouched(true); setCategoryId(c.id); }} className={chip(on)}
-                  style={on ? { background: accent, borderColor: accent } : undefined}>
-                  {c.name}
+                <button key={c.id} type="button" aria-pressed={on && !suggested} onClick={() => { setCatTouched(true); setCategoryId(c.id); }} className={chip(on && !suggested)}
+                  style={on && !suggested ? { background: accent, borderColor: accent } : suggested ? { borderStyle: "dashed", borderColor: accent, color: accent } : undefined}>
+                  {c.name}{suggested ? ` · ${x("Sugerida")}` : ""}
                 </button>
               );
             })}
@@ -322,9 +315,9 @@ export function ExpenseSheet({
             <p className="mt-2 text-sm text-ink-3">{x("Solo lo ves tú.")}</p>
           )}
 
-          {(space.accounts?.length ?? 0) > 1 && (
-            <label className="mt-2 flex items-center justify-between gap-3 text-sm text-ink-2">{x("Cuenta")}
-              <select value={accountId ?? ""} onChange={(e) => { setAccountId(e.target.value || null); setAccountTouched(true); }} aria-label={x("Cuenta")} className="min-h-11 max-w-[60%] rounded-card border border-border bg-surface px-3 text-ink">
+          {(space.accounts?.length ?? 0) > 0 && (
+            <label className="mt-2 flex min-h-11 items-center justify-between gap-3 rounded-card border border-border bg-surface px-3 text-sm text-ink-2">{x("Sale de")}
+              <select value={accountId ?? ""} onChange={(e) => { setAccountId(e.target.value || null); setAccountTouched(true); }} aria-label={x("Cuenta")} className="min-h-11 max-w-[65%] bg-transparent text-right font-medium text-ink">
                 <option value="">{x("Sin cuenta")}</option>
                 {space.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
@@ -413,10 +406,12 @@ export function ExpenseSheet({
 
         {/* Pie fijo: "Tu parte" y guardar siempre visibles */}
         <div className="border-t border-border bg-surface-2 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2">
-          <p className="flex items-baseline justify-between text-sm text-ink-2" aria-live="polite">
-            <span>{x("Tu parte")}</span>
-            <span className="money font-mono text-lg text-ink">{formatMoney(live.share, space.currency, x.locale)}</span>
-          </p>
+          {space.kind !== "personal" && (
+            <p className="flex items-baseline justify-between text-sm text-ink-2" aria-live="polite">
+              <span>{x("Tu parte")}</span>
+              <span className="money font-mono text-lg text-ink">{formatMoney(live.share, space.currency, x.locale)}</span>
+            </p>
+          )}
           {(error ?? (cents > 0 ? live.error : null)) && (
             <p role="alert" className="text-sm text-over-text">{x(error ?? live.error ?? "")}</p>
           )}

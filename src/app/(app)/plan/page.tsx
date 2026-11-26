@@ -1,3 +1,4 @@
+import { SwipeRow } from "@/components/movements/SwipeRow";
 import { getTx } from "@/i18n/tx";
 import { displayName } from "@/lib/system-names";
 import type { Metadata } from "next";
@@ -65,14 +66,14 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
       <h1 className="text-2xl font-bold">{x("Plan")}</h1>
       <nav aria-label={x("Vista")} className="flex gap-2 overflow-x-auto [scrollbar-width:none]">
         {([["presupuesto", x("Presupuesto")], ["fijos", `${x("Fijos")} · ${myRecurring.length}`], ["ahorro", `${x("Ahorro")} · ${(goals ?? []).length}`]] as const).map(([v, l]) => (
-          <Link key={v} href={`/plan?vista=${v}&mes=${month}`} aria-current={tab === v ? "page" : undefined} className={`flex min-h-11 items-center whitespace-nowrap rounded-full border px-4 text-sm font-medium ${tab === v ? "border-accent bg-surface-2 text-ink" : "border-border text-ink-2"}`}>{l}</Link>
+          <Link prefetch key={v} href={`/plan?vista=${v}&mes=${month}`} aria-current={tab === v ? "page" : undefined} className={`flex min-h-11 items-center whitespace-nowrap rounded-full border px-4 text-sm font-medium ${tab === v ? "border-accent bg-surface-2 text-ink" : "border-border text-ink-2"}`}>{l}</Link>
         ))}
       </nav>
       {tab === "presupuesto" && (
         <div className="flex items-center justify-between">
-          <Link href={`/plan?vista=presupuesto&mes=${addMonths(month, -1)}`} aria-label={x("Mes anterior")} className="grid min-h-11 min-w-11 place-items-center rounded-full border border-border">‹</Link>
+          <Link prefetch href={`/plan?vista=${tab}&mes=${addMonths(month, -1)}`} aria-label={x("Mes anterior")} className="grid min-h-11 min-w-11 place-items-center rounded-full border border-border">‹</Link>
           <span className="font-semibold first-letter:uppercase">{label}{d.plan?.status === "closed" ? ` · ${x("cerrado")}` : ""}</span>
-          <Link href={`/plan?vista=presupuesto&mes=${addMonths(month, 1)}`} aria-label={x("Mes siguiente")} className="grid min-h-11 min-w-11 place-items-center rounded-full border border-border">›</Link>
+          <Link prefetch href={`/plan?vista=${tab}&mes=${addMonths(month, 1)}`} aria-label={x("Mes siguiente")} className="grid min-h-11 min-w-11 place-items-center rounded-full border border-border">›</Link>
         </div>
       )}
 
@@ -240,17 +241,18 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
       ))}
 
       <div id="gastos-fijos" className="flex scroll-mt-4 flex-col gap-3">
-        <h2 className="text-lg font-semibold">{x("Gastos fijos")}</h2>
         {myRecurring.length === 0 ? <p className="text-sm text-ink-3">{x("Aún no hay gastos fijos.")}</p> : (
           <ul className="flex flex-col gap-2">
             {myRecurring.map((r) => (
-              <li key={r.id} className="flex items-center justify-between gap-3 rounded-card border border-border bg-surface px-3 py-3 text-sm">
-                <CategoryIcon systemName={cats?.find((c) => c.id === r.category_id)?.system_key} color={d.funds.find((f) => f.id === cats?.find((c) => c.id === r.category_id)?.fund_id)?.color} />
-                <span className="min-w-0 flex-1">{r.description}<span className="block text-xs text-ink-3">{x(FREQ[r.frequency as keyof typeof FREQ])} {x("· próximo")}{" "}{new Date(`${r.next_run}T00:00:00Z`).toLocaleDateString(x.locale, { day: "numeric", month: "short", timeZone: "UTC" }).replace(".", "")}{r.paid_from === "pot" ? ` · ${x("del bote")}` : ""}</span>{(r.rotation?.length ?? 0) > 1 && <span className="block text-xs text-ink-2">{x("Turnos")}: {r.rotation.map(nm).join(" → ")} · {x("Le toca a")} {nm(rotationPayer(r.rotation, r.rotation_pos, 0) ?? "")}</span>}</span>
-                <span className="flex items-center gap-2">
-                  <span className="money font-mono">{formatMoney(r.amount_cents, "EUR", x.locale)}</span>
-                  <form action={deleteRecurring}><input type="hidden" name="recurringId" value={r.id} /><button aria-label={`Borrar ${r.description}`} className="min-h-11 min-w-11 text-over-text">✕</button></form>
-                </span>
+              <li key={r.id}>
+                <SwipeRow id={r.id} kind="recurring">
+                  <Link prefetch href={`/fijos/nuevo?id=${r.id}`} className="flex min-h-16 items-center justify-between gap-3 rounded-card border border-border bg-surface px-3 py-3 text-sm transition-colors hover:bg-surface-2">
+                    <CategoryIcon systemName={cats?.find((c) => c.id === r.category_id)?.system_key} color={d.funds.find((f) => f.id === cats?.find((c) => c.id === r.category_id)?.fund_id)?.color} />
+                    <span className="min-w-0 flex-1"><span className="block truncate font-medium">{r.description}</span><span className="block truncate text-sm text-ink-3">{x(FREQ[r.frequency as keyof typeof FREQ])} {x("· próximo")}{" "}{new Date(`${r.next_run}T00:00:00Z`).toLocaleDateString(x.locale, { day: "numeric", month: "short", timeZone: "UTC" }).replace(".", "")}{r.paid_from === "pot" ? ` · ${x("del bote")}` : ""}</span></span>
+                    <span className="money shrink-0 font-mono">{formatMoney(r.amount_cents, "EUR", x.locale)}</span>
+                    <span aria-hidden className="text-ink-3">›</span>
+                  </Link>
+                </SwipeRow>
               </li>
             ))}
           </ul>

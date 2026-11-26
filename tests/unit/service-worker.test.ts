@@ -59,11 +59,26 @@ describe("service worker: seguro tras un despliegue nuevo", () => {
     expect(serviceWorkerSource("1.2-ab")).toContain('const VERSION = "1.2-ab";');
   });
 
-  it("navegaciones: la red tiene prioridad aunque haya una copia en caché", async () => {
-    const h = harness("v1", { "fifti-pages-v1": { "https://app.test/plan": html("HTML VIEJO con chunks que ya no existen") } }, () => html("HTML NUEVO"));
-    const res = await h.run("fetch", { request: h.req("/plan", "navigate") });
+  it("navegaciones fuera de la barra: la red tiene prioridad aunque haya una copia en caché", async () => {
+    const h = harness("v1", { "fifti-pages-v1": { "https://app.test/ahorro": html("HTML VIEJO con chunks que ya no existen") } }, () => html("HTML NUEVO"));
+    const res = await h.run("fetch", { request: h.req("/ahorro", "navigate") });
     expect(await res!.text()).toBe("HTML NUEVO");
-    expect(h.fetched).toContain("https://app.test/plan");
+    expect(h.fetched).toContain("https://app.test/ahorro");
+  });
+
+  it("pantallas de la barra: salen al instante de la copia y se actualiza la caché por detrás", async () => {
+    const h = harness("v1", { "fifti-pages-v1": { "https://app.test/inicio": html("copia anterior") } }, () => html("versión nueva"));
+    const res = await h.run("fetch", { request: h.req("/inicio", "navigate") });
+    expect(await res!.text()).toBe("copia anterior");
+    expect(h.fetched).toContain("https://app.test/inicio"); // se pidió la nueva por detrás
+    expect(await h.store.get("fifti-pages-v1")!.get("https://app.test/inicio")!.text()).toBe("versión nueva");
+  });
+
+  it("pantallas de la barra sin copia: va a la red; sin red ni copia, a /offline", async () => {
+    const h = harness("v1", { "fifti-static-v1": { "https://app.test/offline": html("sin conexión") } }, () => html("desde la red"));
+    expect(await (await h.run("fetch", { request: h.req("/plan", "navigate") }))!.text()).toBe("desde la red");
+    const off = harness("v1", { "fifti-static-v1": { "https://app.test/offline": html("sin conexión") } }, () => { throw new Error("sin red"); });
+    expect(await (await off.run("fetch", { request: off.req("/inicio", "navigate") }))!.text()).toBe("sin conexión");
   });
 
   it("navegaciones: solo usa la copia si no hay red", async () => {

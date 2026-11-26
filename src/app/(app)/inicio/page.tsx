@@ -33,7 +33,7 @@ export default async function HomePage() {
   // La serie de 6 meses arranca ya, pero no bloquea las cifras: la gráfica y la variación llegan después (Suspense)
   const seriesP = startSeries(supabase, active.id, active.kind);
   // Resumen, saldo del grupo y presupuesto del día no dependen entre sí: se piden a la vez.
-  const [o, balance, budget, loanRows, { data: recRows }, { data: skipRows }, { data: recent }, accounts, { data: fundAcc }, { data: monthIncomes }, { data: splitDone }] = await Promise.all([
+  const [o, balance, budget, loanRows, { data: recRows }, { data: skipRows }, { data: recent }, accounts, { data: fundAcc }, { data: monthIncomes }, { data: splitDone }, { data: pendingInvites }] = await Promise.all([
     loadOverview(supabase, active.id, active.kind, undefined, undefined, x.locale, true),
     active.kind !== "personal" ? loadSpaceBalance(supabase, active.id) : Promise.resolve(null),
     (async () => {
@@ -55,6 +55,7 @@ export default async function HomePage() {
     supabase.from("funds").select("id, account_id").eq("space_id", active.id),
     supabase.from("incomes").select("account_id, source").eq("space_id", active.id).gte("received_at", monthStart(new Date())),
     supabase.from("account_transfers").select("to_account, amount_cents").eq("source", "payroll_split").gte("transfer_date", monthStart(new Date())),
+    active.kind === "household" ? supabase.from("share_links").select("id").eq("space_id", active.id).eq("kind", "invite").eq("revoked", false).gt("expires_at", new Date().toISOString()).limit(1) : Promise.resolve({ data: [] as { id: string }[] }),
   ]);
   const loans = loanTotals(loanRows);
   const todayIso = new Date().toISOString().slice(0, 10);
@@ -126,9 +127,13 @@ export default async function HomePage() {
           <div className="mt-3 flex items-center justify-between gap-3">
             <p className="text-sm text-ink-2">{x("Llevas")} <OptimisticSpent base={spentOfBudget} spaceId={active.id} kind={active.kind} currency="EUR" inline /> {x("de")} <span className="money font-mono text-ink">{formatMoney(plannedTotal, "EUR", x.locale)}</span> {x("previstos")}</p>
           </div>
-          <div className="mt-1 flex flex-wrap gap-x-4">
-            <Link prefetch href="/inicio/prevision" className="inline-flex min-h-11 items-center text-xs text-ink-3 underline-offset-4 hover:underline">{x("Ver desglose")}</Link>
-            <Link prefetch href="/inicio/ingresos" className="inline-flex min-h-11 items-center text-xs text-ink-3 underline-offset-4 hover:underline">{x("Ingresos")} {formatMoney(o.income, "EUR", x.locale)}</Link>
+          <p className="mt-1 text-sm text-ink-3">
+            {x("Ingresos")} <span className="money font-mono text-ink-2">{formatMoney(o.income, "EUR", x.locale)}</span> = <span className="money font-mono text-ink-2">{formatMoney(plannedTotal, "EUR", x.locale)}</span> {x("de gasto previsto")} + <span className="money font-mono text-ink-2">{formatMoney(savedPlanned, "EUR", x.locale)}</span> {x("de ahorro")}
+            {o.income - plannedTotal - savedPlanned > 0 && <> + <span className="money font-mono text-ink-2">{formatMoney(o.income - plannedTotal - savedPlanned, "EUR", x.locale)}</span> {x("sin asignar")}</>}
+          </p>
+          <div className="flex flex-wrap gap-x-4">
+            <Link prefetch href="/inicio/prevision" className="inline-flex min-h-11 items-center text-sm text-ink-2 underline-offset-4 hover:underline">{x("Ver desglose")}</Link>
+            <Link prefetch href="/inicio/ingresos" className="inline-flex min-h-11 items-center text-sm text-ink-2 underline-offset-4 hover:underline">{x("Ver ingresos")}</Link>
           </div>
           <Suspense fallback={null}><ChangeLine seriesP={seriesP} month={o.month} leftover={o.forecastLeftover} locale={x.locale} vsPrev={t("vsPrev")} label={x("Variación frente al mes anterior")} /></Suspense>
         </div>
@@ -143,7 +148,7 @@ export default async function HomePage() {
         <div className="grid grid-cols-2 gap-3">
           {weekly && (
             <div className={`${cardCls} ${weekly.status === "over" ? "border-over" : weekly.status === "warn" ? "border-warn" : ""}`} role="status">
-              <p className="t-label">{weekly.status === "over" ? x("Te has pasado") : x("Esta semana puedes gastar")}</p>
+              <p className="t-label">{weekly.status === "over" ? x("Te has pasado") : (daysLeft < 7 ? x("Hasta fin de mes puedes gastar") : x("Esta semana puedes gastar"))}</p>
               <p className={`money t-figure mt-1 ${weekly.status === "over" ? "text-over-text" : weekly.status === "warn" ? "text-warn" : ""}`}><AnimatedMoney cents={Math.abs(weekly.leftCents)} /></p>
               <p className="mt-1 text-xs text-ink-3">{weekly.status === "over" ? x("de tu gasto variable") : `≈ ${formatMoney(perDay, "EUR", x.locale)} ${x("al día")}`}</p>
             </div>
@@ -260,7 +265,7 @@ export default async function HomePage() {
 
       {/* 6 · Invitación a la pareja, al final y pequeña */}
       {!user.is_anonymous && active.kind === "personal" && !spaces.some((sp) => sp.kind === "household") && <PartnerInvite />}
-      {active.kind === "household" && balance && balance.members.length === 1 && <PartnerInvite spaceId={active.id} dismissible={false} />}
+      {active.kind === "household" && balance && balance.members.length === 1 && <PartnerInvite spaceId={active.id} dismissible={false} pending={(pendingInvites ?? []).length > 0} />}
     </section>
   );
 }

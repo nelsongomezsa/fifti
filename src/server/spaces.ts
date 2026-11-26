@@ -23,10 +23,17 @@ export const listMySpaces = cache(async (): Promise<SpaceSummary[]> => {
 });
 
 /** Usuario de la petición. `cache` evita repetir la llamada a Auth (layout y página comparten el resultado). */
-const currentUser = cache(async () => {
+export type SessionUser = { id: string; email?: string; is_anonymous: boolean; app_metadata: Record<string, unknown>; user_metadata: Record<string, unknown> };
+const currentUser = cache(async (): Promise<SessionUser | null> => {
   const supabase = await createClient();
-  const { data } = await supabase.auth.getUser();
-  return data.user;
+  // Verificación local del JWT (sin viaje a Auth): suficiente para pintar pantallas; las escrituras revalidan con getUser()
+  const { data } = await supabase.auth.getClaims();
+  const c = data?.claims;
+  if (!c?.sub) return null;
+  return {
+    id: c.sub, email: typeof c.email === "string" ? c.email : undefined, is_anonymous: c.is_anonymous === true,
+    app_metadata: (c.app_metadata ?? {}) as Record<string, unknown>, user_metadata: (c.user_metadata ?? {}) as Record<string, unknown>,
+  };
 });
 
 export async function requireUser() {

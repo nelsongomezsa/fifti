@@ -9,7 +9,7 @@ const ROW = "flex min-h-[52px] w-full items-center justify-between gap-3 px-4 te
 export function SettingsGroup({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <h2 className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wider text-ink-3">{title}</h2>
+      <h2 className="mb-2 px-1 text-[13px] font-semibold uppercase tracking-wider text-ink-3">{title}</h2>
       <div className="divide-y divide-border overflow-hidden rounded-card border border-border bg-surface">{children}</div>
     </section>
   );

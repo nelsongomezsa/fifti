@@ -17,7 +17,7 @@ export function FundTrendChart({ data, funds, currency }: { data: FundPoint[]; f
       <div className="h-52 w-full" role="img" aria-label={`${x("Gasto de los últimos 12 meses por fondo")}: ${totals.map((f) => `${f.name} ${fmt(f.total)}`).join(", ")}`}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 4, right: 0, left: 0, bottom: 0 }} accessibilityLayer={false}>
-            <XAxis dataKey="label" axisLine={false} tickLine={false} interval={0} tick={{ fill: "var(--text-3)", fontSize: 10, fontFamily: "var(--font-plex-mono)" }} />
+            <XAxis dataKey="label" axisLine={false} tickLine={false} interval={0} tick={{ fill: "var(--text-3)", fontSize: 13, fontFamily: "var(--font-plex-mono)" }} />
             <Tooltip
               cursor={{ fill: "transparent" }}
               isAnimationActive={false}

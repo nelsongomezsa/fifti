@@ -44,15 +44,18 @@ test("Deshacer quita el gasto recién guardado", async ({ page }) => {
   await expect(page.getByRole("link", { name: /Para deshacer/ })).toHaveCount(0);
 });
 
-test("escribir una frase rellena la hoja pero no guarda nada", async ({ page }) => {
+test("escribir una frase en el menú del + rellena la hoja pero no guarda nada", async ({ page }) => {
   await login(page, ana);
-  await openSheet(page);
-  await page.getByLabel("Escríbelo en una frase").fill("23 súper");
-  await page.getByRole("button", { name: "Rellenar" }).click();
+  await page.getByRole("button", { name: "Añadir gasto" }).click();
+  const menu = page.getByRole("dialog", { name: "¿Qué quieres apuntar?" });
+  await menu.getByLabel("Frase rápida").fill("23 súper");
+  await menu.getByRole("button", { name: "Rellenar" }).click();
+  await expect(page.getByRole("dialog", { name: "Nuevo gasto" })).toBeVisible();
   await expect(page.getByRole("dialog").locator("output")).toContainText("23");
   await expect(page.getByLabel("Concepto")).toHaveValue(/Súper/i);
+  await expect(page.getByLabel("Escríbelo en una frase")).toHaveCount(0); // la frase vive solo en el menú del +
   await page.goto("/movimientos");
-  await expect(page.getByText("Aún no hay gastos")).toBeVisible(); // no se guardó nada solo
+  await expect(page.getByText("Aún no hay movimientos")).toBeVisible(); // no se guardó nada solo
 });
 
 test("editar un gasto y borrarlo con la confirmación de la app", async ({ page }) => {

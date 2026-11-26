@@ -9,6 +9,7 @@ import { Logo } from "@/components/brand/Logo";
 import { BottomNav } from "@/components/nav/BottomNav";
 import { PendingIndicator } from "@/components/pwa/PendingIndicator";
 import { BubbleSwitcher } from "@/components/nav/BubbleSwitcher";
+import { SwUpdateListener } from "@/components/pwa/SwUpdateListener";
 import { RefreshOnNav } from "@/components/nav/RefreshOnNav";
 import { HideOn } from "@/components/nav/HideOn";
 import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
@@ -63,6 +64,7 @@ export default async function AppLayout({ children, sheet }: { children: React.R
       <main id="main" className="px-4">{children}</main>
       {sheet}
       <RefreshOnNav />
+      <SwUpdateListener />
       {active && <BottomNav activeSpaceId={active.id} />}
       </PendingExpensesProvider>
       </AppLock>

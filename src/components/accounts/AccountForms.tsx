@@ -11,20 +11,21 @@ export type SpaceOpt = { id: string; name: string; kind: "personal" | "household
 export type AccountOpt = { id: string; name: string; color: string; kind: "payroll" | "daily" | "savings" | "shared"; balanceCents: number; mine: boolean };
 export type EditableAccount = { id: string; spaceId: string; name: string; bank: string | null; color: string; kind: AccountOpt["kind"]; openingCents: number; openingDate: string; isDefault: boolean };
 
-const COLORS = ["#EC0000", "#7DD3FC", "#FDBA74", "#A78BFA", "#C8F060", "#34D399", "#F472B6", "#9AA3AF"];
+// Paleta de marca (sin rojo: se asocia a alarma o deuda)
+const COLORS = ["#A78BFA", "#C8F060", "#7DD3FC", "#FF9F43", "#34D399", "#F472B6", "#FDBA74", "#9AA3AF"];
 const KINDS: { id: AccountOpt["kind"]; label: string }[] = [{ id: "payroll", label: "Nómina" }, { id: "daily", label: "Día a día" }, { id: "savings", label: "Ahorro" }, { id: "shared", label: "Común" }];
 const FIELD = "min-h-12 w-full rounded-card border border-border bg-surface px-4 text-base text-ink placeholder:text-ink-3";
 const today = () => new Date().toISOString().slice(0, 10);
 const toInput = (c: number) => (c / 100).toFixed(2).replace(".", ",");
 
 /** Botón + hoja para crear o editar una cuenta. Solo etiquetas y saldo inicial: nada de IBAN ni credenciales. */
-export function AccountEditor({ spaces, account, label, demo, variant = "primary" }: { spaces: SpaceOpt[]; account?: EditableAccount; label: string; demo: boolean; variant?: "primary" | "plain" }) {
+export function AccountEditor({ spaces, account, label, demo, variant = "primary", usedColors = [] }: { usedColors?: string[]; spaces: SpaceOpt[]; account?: EditableAccount; label: string; demo: boolean; variant?: "primary" | "plain" }) {
   const x = useTx();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(account?.name ?? "");
   const [bank, setBank] = useState(account?.bank ?? "");
-  const [color, setColor] = useState(account?.color ?? COLORS[0]!);
+  const [color, setColor] = useState(account?.color ?? COLORS.find((c) => !usedColors.includes(c)) ?? COLORS[0]!);
   const [kind, setKind] = useState<AccountOpt["kind"]>(account?.kind ?? "daily");
   const [spaceId, setSpaceId] = useState(account?.spaceId ?? spaces[0]?.id ?? "");
   const [opening, setOpening] = useState(account ? toInput(account.openingCents) : "");
@@ -86,7 +87,7 @@ export function AccountEditor({ spaces, account, label, demo, variant = "primary
 }
 
 /** Traspaso entre cuentas. No es gasto ni ingreso: solo mueve saldo (a la cuenta común de un hogar cuenta como aportación). */
-export function TransferForm({ accounts, demo, initial }: { accounts: AccountOpt[]; demo: boolean; initial?: { from?: string; to?: string; cents?: number; source?: "manual" | "payroll_split" } }) {
+export function TransferForm({ accounts, spaces = [], usedColors = [], demo, initial }: { usedColors?: string[]; accounts: AccountOpt[]; spaces?: SpaceOpt[]; demo: boolean; initial?: { from?: string; to?: string; cents?: number; source?: "manual" | "payroll_split" } }) {
   const x = useTx();
   const router = useRouter();
   const mine = accounts.filter((a) => a.mine);
@@ -101,7 +102,12 @@ export function TransferForm({ accounts, demo, initial }: { accounts: AccountOpt
   const dest = accounts.find((a) => a.id === to);
   const fmt = (c: number) => formatMoney(c, "EUR", x.locale);
 
-  if (accounts.length < 2) return <p className="rounded-card border border-border bg-surface p-4 text-sm text-ink-2">{x("Necesitas al menos dos cuentas para traspasar. Créalas en Ajustes → Mis cuentas.")}</p>;
+  if (accounts.length < 2) return (
+    <div className="flex flex-col items-start gap-3 rounded-card border border-border bg-surface p-4">
+      <p className="text-sm text-ink-2">{x("Necesitas al menos dos cuentas para traspasar.")}</p>
+      {spaces.length > 0 && <AccountEditor spaces={spaces} label={x("Crear cuenta")} demo={demo} usedColors={usedColors} />}
+    </div>
+  );
   const save = () => {
     if (demo) return setMsg({ ok: false, text: x("Crea una cuenta para guardar") });
     setMsg({ ok: true, text: `${fmt(cents)} ${x("traspasados")}` }); // optimista

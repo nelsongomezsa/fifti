@@ -10,7 +10,7 @@ import { startPartnerInvite } from "@/server/actions/spaces";
 const DISMISS = "fifti:partnerCard";
 
 /** Tarjeta "¿Compartes gastos con tu pareja?": crea el hogar con un toque (o usa el que ya hay) y muestra QR, WhatsApp y copiar enlace. */
-export function PartnerInvite({ spaceId, dismissible = true }: { spaceId?: string; dismissible?: boolean }) {
+export function PartnerInvite({ spaceId, dismissible = true, pending = false }: { spaceId?: string; dismissible?: boolean; /** Ya hay una invitación enviada y nadie ha entrado */ pending?: boolean }) {
   const x = useTx();
   const router = useRouter();
   const [hidden, setHidden] = useState(true);
@@ -39,10 +39,10 @@ export function PartnerInvite({ spaceId, dismissible = true }: { spaceId?: strin
         <>
           <div className="flex items-center gap-3">
             <div className="min-w-0 flex-1">
-              <h2 id="partner-title" className="text-sm font-semibold">{x("¿Compartes gastos con tu pareja?")}</h2>
-              <p className="text-xs text-ink-3">{x("Crea vuestro hogar y mándale la invitación.")}</p>
+              <h2 id="partner-title" className="text-sm font-semibold">{pending ? x("Invitación pendiente") : x("¿Compartes gastos con tu pareja?")}</h2>
+              <p className="text-sm text-ink-3">{pending ? x("Aún no ha entrado nadie. Genera un enlace nuevo para reenviarlo.") : x("Crea vuestro hogar y mándale la invitación.")}</p>
             </div>
-            <button onClick={start} disabled={busy} aria-label={spaceId ? x("Invitar a mi pareja") : x("Crear hogar e invitar")} className="min-h-11 shrink-0 rounded-full bg-lime px-4 text-sm font-semibold text-on-accent disabled:opacity-60">{busy ? x("Un momento…") : x("Invitar")}</button>
+            <button onClick={start} disabled={busy} aria-label={spaceId ? x("Invitar a mi pareja") : x("Crear hogar e invitar")} className="min-h-11 shrink-0 rounded-full bg-lime px-4 text-sm font-semibold text-on-accent disabled:opacity-60">{busy ? x("Un momento…") : pending ? x("Reenviar enlace") : x("Invitar")}</button>
             {dismissible && <button onClick={() => { try { localStorage.setItem(DISMISS, "1"); } catch { /* sin almacenamiento */ } setHidden(true); }} aria-label={x("Ahora no")} className="grid min-h-11 min-w-11 shrink-0 place-items-center text-ink-3">✕</button>}
           </div>
           {error && <p role="alert" className="mt-2 text-sm text-over-text">{error}</p>}

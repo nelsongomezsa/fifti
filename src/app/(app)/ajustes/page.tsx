@@ -3,6 +3,7 @@ import { displayName } from "@/lib/system-names";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ActionForm, inputClass } from "@/components/ui/ActionForm";
+import { PartnerInvite } from "@/components/home/PartnerInvite";
 import { ClearSpace } from "@/components/settings/ClearSpace";
 import { RowLink, RowSheet, SettingsGroup } from "@/components/settings/Rows";
 import { loadLoans, loanTotals } from "@/server/loans";
@@ -33,7 +34,7 @@ export default async function SettingsPage() {
   const theme = jar.get("fifti_theme")?.value ?? "dark";
   const personalId = user.is_anonymous ? undefined : spaces.find((s) => s.kind === "personal")?.id;
   // Todas las consultas de la pantalla salen a la vez: una sola ida y vuelta al servidor
-  const [{ data: pFunds }, { data: prefs }, { data: archived }, { data: prefRow }, { data: aiRow }, { data: favs }, { data: members }, { data: owned }, loanRows] = await Promise.all([
+  const [{ data: pFunds }, { data: prefs }, { data: archived }, { data: prefRow }, { data: aiRow }, { data: favs }, { data: members }, { data: owned }, { data: invites }, loanRows] = await Promise.all([
     personalId ? supabase.from("funds").select("id, name, system_key").eq("space_id", personalId).order("position") : Promise.resolve({ data: [] as { id: string; name: string; system_key: string | null }[] }),
     supabase.from("mirror_prefs").select("space_id, enabled, fund_id"),
     supabase.from("spaces").select("id, name").eq("kind", "group").not("archived_at", "is", null).order("archived_at", { ascending: false }),
@@ -42,9 +43,11 @@ export default async function SettingsPage() {
     supabase.from("favorites").select("id, label, amount_cents").order("label"),
     supabase.from("space_members").select("space_id, user_id"),
     supabase.from("spaces").select("id, created_by").eq("created_by", user.id),
+    supabase.from("share_links").select("space_id").eq("kind", "invite").eq("revoked", false).gt("expires_at", new Date().toISOString()),
     user.is_anonymous ? Promise.resolve(null) : loadLoans(supabase, user.id),
   ]);
   const aiOn = !!aiRow?.ai_phrases;
+  const pendingInvite = new Set((invites ?? []).map((i) => i.space_id));
   const createdByMe = new Set((owned ?? []).map((o) => o.id));
   const peopleOf = (id: string) => (members ?? []).filter((m) => m.space_id === id).length;
   const loans = loanRows ? loanTotals(loanRows) : null;
@@ -98,8 +101,9 @@ export default async function SettingsPage() {
           const people = peopleOf(s.id);
           const label = s.kind === "personal" ? x("Personal") : s.name;
           return (
-            <RowSheet key={s.id} label={label} value={s.kind === "personal" || people <= 1 ? x("Solo tú") : `${people} ${x("personas")}`} title={label}>
+            <RowSheet key={s.id} label={label} value={s.kind === "household" && people <= 1 && pendingInvite.has(s.id) ? x("Invitación pendiente") : s.kind === "personal" || people <= 1 ? x("Solo tú") : `${people} ${x("personas")}`} title={label}>
               <Link href={s.kind === "personal" ? "/plan" : `/espacio/${s.id}`} className="flex min-h-12 items-center justify-between rounded-card border border-border bg-surface px-4">{x("Abrir")} {label}<span aria-hidden className="text-ink-3">›</span></Link>
+              {s.kind === "household" && people <= 1 && <PartnerInvite spaceId={s.id} dismissible={false} pending={pendingInvite.has(s.id)} />}
               <ClearSpace spaceId={s.id} name={label} canClear={demo || createdByMe.has(s.id)} shared={s.kind !== "personal" && people > 1} demo={demo} />
             </RowSheet>
           );
@@ -107,10 +111,10 @@ export default async function SettingsPage() {
         {(archived ?? []).map((a) => <RowLink key={a.id} href={`/espacio/${a.id}/cerrar`} label={a.name} value={x("Archivado")} />)}
         {!user.is_anonymous && <RowLink href="/nueva" label={x("Crear o unirse a un espacio")} />}
         {!user.is_anonymous && spaces.some((s) => s.kind !== "personal") && (
-          <RowSheet label={x("Reflejo en tu plan personal")}>
+          <RowSheet label={x("Tu parte de los espacios en tu plan")}>
       {!user.is_anonymous && spaces.some((s) => s.kind !== "personal") && (
         <>
-          <p className="text-sm text-ink-3">{x("Tu parte de cada gasto de grupo entra sola en tu plan personal. Solo la ves tú.")}</p>
+          <p className="text-sm text-ink-3">{x("Tu parte de cada gasto de grupo entra sola en tu plan personal. Solo la ves tú.")} {x("Aquí eliges, para cada espacio, si su parte cuenta en tu plan y en qué partida.")}</p>
           {spaces.filter((s) => s.kind !== "personal").map((s) => {
             const pr = prefs?.find((p) => p.space_id === s.id);
             return (
@@ -130,17 +134,23 @@ export default async function SettingsPage() {
         )}
       </SettingsGroup>
 
-      <SettingsGroup title={x("Herramientas")}>
+      <SettingsGroup title={x("Dinero")}>
         {!user.is_anonymous && <RowLink href="/cuentas" label={x("Mis cuentas")} />}
-        <RowLink href="/compra" label={x("Lista de la compra")} />
         <RowLink href="/prestamos" label={x("Préstamos")} value={loans && loans.owedToMe > 0 ? `${x("Te deben")} ${formatMoney(loans.owedToMe, "EUR", x.locale)}` : undefined} />
+        <RowLink href="/balance" label={x("Balance y saldar deudas")} />
+        <RowLink href="/csv" label={x("Importar del banco (CSV)")} />
+      </SettingsGroup>
+
+      <SettingsGroup title={x("Informes")}>
         <RowLink href="/tendencias" label={x("Tendencias")} />
         <RowLink href="/resumen-mensual" label={x("Resumen del mes")} value="PDF" />
-        <RowLink href="/csv" label={x("Importar del banco (CSV)")} />
+        <RowLink href="/tu-ano" label={x("Tu año en Fifti")} />
+      </SettingsGroup>
+
+      <SettingsGroup title={x("Utilidades")}>
+        <RowLink href="/compra" label={x("Lista de la compra")} />
         <RowLink href="/reglas" label={x("Reglas de categoría")} />
         <RowLink href="/atajo" label={x("Atajo de Siri")} />
-        <RowLink href="/balance" label={x("Balance y saldar deudas")} />
-        <RowLink href="/tu-ano" label={x("Tu año en Fifti")} />
         <RowSheet label={x("Favoritos")} value={String((favs ?? []).length)}>
 
       <p className="text-sm text-ink-3">{x("Pulsación larga en el botón + para usarlos.")}</p>

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { useTx } from "@/i18n/tx-client";
@@ -32,7 +33,12 @@ export function ContributeForm({ homes, demo }: { homes: Home[]; demo: boolean }
     });
   };
 
-  if (homes.length === 0) return <p className="rounded-card border border-border bg-surface p-4 text-sm text-ink-2">{x("Aún no tienes un hogar. Créalo desde Inicio y vuelve aquí.")}</p>;
+  if (homes.length === 0) return (
+    <div className="flex flex-col items-start gap-3 rounded-card border border-border bg-surface p-4">
+      <p className="text-sm text-ink-2">{x("Aún no tienes un hogar.")}</p>
+      <Link href="/nueva" className="inline-flex min-h-11 items-center rounded-full bg-accent px-5 text-sm font-semibold text-on-accent">{x("Crear un hogar")}</Link>
+    </div>
+  );
   return (
     <form className="flex flex-col gap-5" onSubmit={(e) => { e.preventDefault(); save(); }}>
       {homes.length > 1 && (

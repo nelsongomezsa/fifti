@@ -22,7 +22,7 @@ export default async function AccountsPage() {
       <div className="flex items-center gap-1">
         <Link href="/ajustes" aria-label={x("Volver")} className="grid min-h-11 min-w-11 place-items-center text-xl text-ink-2">‹</Link>
         <h1 className="flex-1 text-2xl font-bold">{x("Mis cuentas")}</h1>
-        <AccountEditor spaces={spaces} label={x("Nueva cuenta")} demo={demo} />
+        <AccountEditor spaces={spaces} label={x("Nueva cuenta")} demo={demo} usedColors={accounts.map((a) => a.color)} />
       </div>
       <p className="text-sm text-ink-3">{x("Fifti no se conecta a tu banco: el saldo sale de lo que apuntas e importas.")}</p>
       {accounts.length === 0 ? (

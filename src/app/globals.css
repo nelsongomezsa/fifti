@@ -71,6 +71,9 @@
 [data-bubble="group"] { --accent: var(--tangerine); }
 
 @theme inline {
+  /* Ningún texto por debajo de 13 px: text-xs pasa de 12 a 13 px */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.125rem;
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);

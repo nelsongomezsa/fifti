@@ -37,7 +37,7 @@ function Item({ href, label, icon, active }: { href: string; label: string; icon
       href={href}
       prefetch
       aria-current={active ? "page" : undefined}
-      className={`flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-medium ${
+      className={`flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 px-1 text-[13px] font-medium ${
         active ? "text-ink" : "text-ink-3"
       }`}
     >

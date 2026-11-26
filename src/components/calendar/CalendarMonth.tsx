@@ -63,11 +63,11 @@ export function CalendarMonth({ label, offset, days, events: serverEvents, today
               <button type="button" onClick={() => setSel(on ? null : day)} aria-pressed={on}
                 aria-label={list.length ? `${day}: ${list.map((e) => `${e.label} ${fmt(e.cents)}${e.skipped ? ` (${x("saltado")})` : ""}`).join(", ")}` : String(day)}
                 className={`flex min-h-14 w-full flex-col items-center justify-start gap-0.5 rounded-card border px-0.5 py-1 transition-colors ${on ? "border-lilac bg-surface-2" : list.length ? "border-border bg-surface" : "border-transparent"} ${isToday ? "ring-2 ring-lilac" : ""}`}>
-                <span className={`font-mono text-[11px] leading-none ${isToday ? "font-bold text-ink" : "text-ink-3"}`}>{day}</span>
+                <span className={`font-mono text-[13px] leading-none ${isToday ? "font-bold text-ink" : "text-ink-3"}`}>{day}</span>
                 {live.length > 0 && (
                   <>
                     <span aria-hidden className="flex items-center gap-0.5">{live.slice(0, 3).map((e, k) => <span key={k} className="size-1.5 rounded-full" style={{ background: e.color ?? "var(--accent)" }} />)}</span>
-                    <span className="money font-mono text-[9px] leading-none text-ink-2">{compact(live.reduce((a, e) => a + e.cents, 0))}</span>
+                    <span className="money font-mono text-[13px] leading-none text-ink-2">{compact(live.reduce((a, e) => a + e.cents, 0))}</span>
                   </>
                 )}
               </button>

@@ -21,7 +21,10 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  // getUser() valida el token contra Supabase Auth (getSession() solo lee la cookie).
-  const { data } = await supabase.auth.getUser();
-  return { response, user: data.user };
+  // getClaims() verifica la firma del JWT en local (con las claves públicas de Supabase, en caché) y refresca la sesión si caducó:
+  // no hace ninguna ida y vuelta a Supabase Auth en cada navegación. Si el proyecto firmara con clave simétrica, cae a getUser().
+  // Las acciones que cambian datos siguen comprobando al usuario contra Auth (getUser) en el servidor.
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims;
+  return { response, user: claims?.sub ? { id: claims.sub } : null };
 }

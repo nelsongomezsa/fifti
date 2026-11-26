@@ -207,7 +207,7 @@ export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
             ))}
           </div>
           <form className="mt-4 flex gap-2" onSubmit={(e) => { e.preventDefault(); const t = phraseText.trim(); if (!t) return; setChooser(false); setPhraseText(""); openSheet({ phrase: t }); }}>
-            <input value={phraseText} onChange={(e) => setPhraseText(e.target.value)} maxLength={200} aria-label={x("Frase rápida")} placeholder={x("O escríbelo: «12 cena con Leo a medias»")}
+            <input value={phraseText} onChange={(e) => setPhraseText(e.target.value)} maxLength={200} aria-label={x("Frase rápida")} placeholder={x("O escríbelo: «12 cena con Leo»")}
               className="min-h-12 min-w-0 flex-1 rounded-card border border-border bg-surface px-4 text-sm text-ink placeholder:text-ink-3" />
             <button type="submit" disabled={!phraseText.trim()} className="min-h-12 shrink-0 rounded-full border border-border px-4 text-sm font-semibold disabled:opacity-50">{x("Rellenar")}</button>
           </form>

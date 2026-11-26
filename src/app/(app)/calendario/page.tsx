@@ -30,8 +30,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         <Link href="/fijos/nuevo" className="inline-flex min-h-11 items-center whitespace-nowrap rounded-full bg-accent px-4 text-sm font-semibold text-on-accent">+ {x("Gasto fijo")}</Link>
       </div>
       <nav aria-label={x("Vista")} className="flex gap-2">
-        <Link href="/calendario" aria-current={!proximos ? "page" : undefined} className={`flex min-h-11 items-center rounded-full border px-4 text-sm font-medium ${!proximos ? "border-accent bg-surface-2" : "border-border text-ink-2"}`}>{x("Mes")}</Link>
-        <Link href="/calendario?vista=proximos" aria-current={proximos ? "page" : undefined} className={`flex min-h-11 items-center rounded-full border px-4 text-sm font-medium ${proximos ? "border-accent bg-surface-2" : "border-border text-ink-2"}`}>{x("Próximos 30 días")}</Link>
+        <Link prefetch href="/calendario" aria-current={!proximos ? "page" : undefined} className={`flex min-h-11 items-center rounded-full border px-4 text-sm font-medium ${!proximos ? "border-accent bg-surface-2" : "border-border text-ink-2"}`}>{x("Mes")}</Link>
+        <Link prefetch href="/calendario?vista=proximos" aria-current={proximos ? "page" : undefined} className={`flex min-h-11 items-center rounded-full border px-4 text-sm font-medium ${proximos ? "border-accent bg-surface-2" : "border-border text-ink-2"}`}>{x("Próximos 30 días")}</Link>
       </nav>
     </>
   );
@@ -109,9 +109,9 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     <section className="flex flex-col gap-4 pt-2">
       {header}
       <div className="flex items-center justify-between">
-        <Link href={`/calendario?mes=${addMonths(month, -1)}`} aria-label={x("Mes anterior")} className="grid min-h-11 min-w-11 place-items-center rounded-full border border-border">‹</Link>
+        <Link prefetch href={`/calendario?mes=${addMonths(month, -1)}`} aria-label={x("Mes anterior")} className="grid min-h-11 min-w-11 place-items-center rounded-full border border-border">‹</Link>
         <span className="font-semibold first-letter:uppercase">{label}</span>
-        <Link href={`/calendario?mes=${addMonths(month, 1)}`} aria-label={x("Mes siguiente")} className="grid min-h-11 min-w-11 place-items-center rounded-full border border-border">›</Link>
+        <Link prefetch href={`/calendario?mes=${addMonths(month, 1)}`} aria-label={x("Mes siguiente")} className="grid min-h-11 min-w-11 place-items-center rounded-full border border-border">›</Link>
       </div>
       {(rec ?? []).length === 0 && events.length === 0 && (
         <EmptyState title={x("Aún no hay gastos fijos")} text={x("Apunta alquiler, luz o suscripciones una vez y verás aquí cuándo toca pagar cada uno, con aviso antes de que lleguen.")} actionLabel={x("Añadir gasto fijo")} href="/fijos/nuevo" />

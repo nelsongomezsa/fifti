@@ -19,7 +19,9 @@
     "e2e:sheet": "node scripts/e2e/sheet-fits.mjs",
     "e2e:nuevo": "node scripts/e2e/quick-new.mjs",
     "e2e:overflow": "node scripts/e2e/overflow.mjs",
-    "e2e:parity": "node scripts/e2e/parity.mjs"
+    "e2e:parity": "node scripts/e2e/parity.mjs",
+    "predeploy": "npm run check && npx playwright test e2e/routes.spec.ts --project=movil",
+    "deploy": "npm run predeploy && npx vercel deploy --prod --yes"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

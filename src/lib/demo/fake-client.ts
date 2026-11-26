@@ -208,6 +208,7 @@ export function createDemoClient(db: Db) {
     rpc: (name: string, args: Record<string, unknown> = {}) => Promise.resolve(READ_RPC.has(name) ? { data: rpc(db, name, args), error: null } : { data: null, error: DEMO_ERROR }),
     auth: {
       getUser: async () => ({ data: { user }, error: null }),
+      getClaims: async () => ({ data: { claims: { sub: user.id, email: user.email, is_anonymous: false, app_metadata: user.app_metadata, user_metadata: user.user_metadata } }, error: null }),
       getSession: async () => ({ data: { session: null }, error: null }),
       signOut: async () => ({ error: null }),
       signInWithPassword: async () => ({ data: null, error: DEMO_ERROR }),

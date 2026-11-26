@@ -3,7 +3,8 @@
  * los bytes de /sw.js: el navegador instala el nuevo, y al activarse borra todas las cachés de versiones anteriores.
  *
  * Reglas (verificadas en tests/unit/service-worker.test.ts):
- * - Navegaciones (HTML): SIEMPRE a la red primero (network-first). La caché solo se usa si no hay red.
+ * - Navegaciones (HTML): a la red primero (network-first); la caché solo se usa si no hay red.
+ *   Excepción: las pantallas de la barra (/inicio, /movimientos, /calendario, /plan) salen al instante de la caché y se revalidan por detrás.
  * - Solo se cachean con política cache-first los assets con hash de /_next/static (y solo respuestas 200 que no sean HTML).
  * - Nada más se cachea: ni iconos sin hash, ni peticiones /api, ni POST (server actions), ni otros orígenes.
  * - Nunca se guardan páginas con tokens en la URL ni de autenticación.
@@ -15,6 +16,8 @@ const VERSION = ${JSON.stringify(version)};
 const STATIC = "fifti-static-" + VERSION;
 const PAGES = "fifti-pages-" + VERSION;
 const PRECACHE = ["/offline"];
+// Pantallas de la barra: al abrir la app se sirve al instante la última copia guardada (stale-while-revalidate) y se pide la nueva por detrás
+const SHELL = ["/inicio", "/movimientos", "/calendario", "/plan"];
 const NEVER_CACHE = ["/auth/", "/unirse/", "/reclamar/", "/resumen/", "/login", "/registro", "/recuperar", "/restablecer", "/api/"];
 
 self.addEventListener("install", (event) => {
@@ -55,9 +58,29 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // HTML: red primero; la caché solo como respaldo sin conexión.
   if (req.mode === "navigate") {
     const cacheable = !NEVER_CACHE.some((p) => url.pathname.startsWith(p));
+    // Pantallas de la barra: copia guardada al instante + revalidación por detrás; al llegar la nueva se avisa a la página para que se refresque
+    if (cacheable && SHELL.includes(url.pathname)) {
+      const update = fetch(req)
+        .then((res) => {
+          if (res.ok && !res.redirected) { const copy = res.clone(); caches.open(PAGES).then((c) => c.put(req, copy)); }
+          return res;
+        });
+      event.respondWith(
+        caches.match(req).then((hit) => {
+          if (hit) {
+            event.waitUntil(update.then(async () => {
+              try { const c = event.resultingClientId && (await self.clients.get(event.resultingClientId)); if (c) c.postMessage({ type: "fifti-updated", path: url.pathname }); } catch { /* sin cliente */ }
+            }).catch(() => undefined));
+            return hit;
+          }
+          return update.catch(async () => (await caches.match("/offline")) || Response.error());
+        }),
+      );
+      return;
+    }
+    // Resto del HTML: red primero; la caché solo como respaldo sin conexión.
     event.respondWith(
       fetch(req)
         .then((res) => {

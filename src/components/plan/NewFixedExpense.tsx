@@ -8,7 +8,7 @@ import { nextOccurrence, type NewFrequency } from "@/lib/calendar";
 import { formatMoney, parseToCents } from "@/lib/money";
 import { suggestCategory } from "@/lib/nl/parse";
 import { matchRule, type CategoryRule } from "@/lib/rules/match";
-import { saveRecurring } from "@/server/actions/plan";
+import { deleteRecurring, saveRecurring } from "@/server/actions/plan";
 
 const FREQS: { id: NewFrequency; label: string; every: string }[] = [
   { id: "monthly", label: "Mensual", every: "Cada mes" }, { id: "weekly", label: "Semanal", every: "Cada semana" },
@@ -29,6 +29,7 @@ export function NewFixedExpense({ spaceId, categories, rules, notify, initial, a
   const [month, setMonth] = useState(new Date().getUTCMonth() + 1);
   const [category, setCategory] = useState(initial?.category ?? "");
   const [touched, setTouched] = useState(!!initial);
+  const [confirmDel, setConfirmDel] = useState(false);
   const [accountId, setAccountId] = useState(() => accounts.find((a) => a.isDefault)?.id ?? "");
   const [state, formAction, pending] = useActionState(saveRecurring, {});
 
@@ -122,6 +123,21 @@ export function NewFixedExpense({ spaceId, categories, rules, notify, initial, a
       </div>
 
       {pending && <p role="status" className="text-sm text-ink-2">✓ {x("Gasto fijo guardado.")}</p>}
+      {initial && (
+        <div className="rounded-card border border-over p-4">
+          {!confirmDel ? (
+            <button type="button" onClick={() => setConfirmDel(true)} className="min-h-12 w-full rounded-full border border-over font-semibold text-over-text">{x("Borrar gasto fijo")}</button>
+          ) : (
+            <div role="alertdialog" aria-label={x("¿Borrar este gasto fijo?")} className="flex flex-col gap-3">
+              <p className="text-sm text-ink-2">{x("¿Borrar este gasto fijo?")} {x("Dejará de apuntarse cada mes. Los gastos ya apuntados se conservan.")}</p>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setConfirmDel(false)} className="min-h-12 flex-1 rounded-full border border-border font-semibold">{x("Cancelar")}</button>
+                <button type="button" onClick={() => { const fd = new FormData(); fd.set("recurringId", initial.id); router.replace("/plan?vista=fijos"); void deleteRecurring(fd).then(() => router.refresh()); }} className="min-h-12 flex-1 rounded-full bg-over font-semibold text-on-accent">{x("Borrar")}</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       {state.error && !pending && <p role="alert" className="text-sm text-over-text">{state.error}</p>}
       <button type="submit" disabled={!valid || pending || !!state.ok} className="min-h-14 rounded-full bg-accent px-6 text-base font-semibold text-on-accent disabled:cursor-not-allowed disabled:opacity-50">{initial ? x("Guardar cambios") : x("Guardar gasto fijo")}</button>
     </form>
