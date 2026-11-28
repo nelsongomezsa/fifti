@@ -14,7 +14,7 @@ const OPEN = 112; // ancho del botón que se descubre a cada lado
  * Deslizar solo descubre; hace falta tocar el botón. Con eventos de puntero sirve para el dedo y para el ratón, y
  * `touch-pan-y` deja el desplazamiento vertical al navegador.
  */
-export function AccountSwipeRow({ id, name, demo, children }: { id: string; name: string; demo: boolean; children: React.ReactNode }) {
+export function AccountSwipeRow({ id, name, shared, demo, children }: { id: string; name: string; shared: boolean; demo: boolean; children: React.ReactNode }) {
   const x = useTx();
   const router = useRouter();
   const [dx, setDx] = useState(0);
@@ -85,7 +85,7 @@ export function AccountSwipeRow({ id, name, demo, children }: { id: string; name
         </div>
       </div>
       {error && <p role="alert" className="mt-1 text-sm text-over-text">{error}</p>}
-      {confirming && <DeleteAccountDialog id={id} name={name} demo={demo} onClose={() => setConfirming(false)} />}
+      {confirming && <DeleteAccountDialog id={id} name={name} shared={shared} demo={demo} onClose={() => setConfirming(false)} />}
     </>
   );
 }

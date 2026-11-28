@@ -12,6 +12,7 @@ import { rpcMessage } from "@/server/rpc-error";
 import { currencySchema } from "@/lib/validation/spaces";
 import { warmContribution, warmMovement } from "@/server/currency-warm";
 import { warmRates } from "@/server/fx";
+import { deleteImpact, type DeleteImpact, type TransferRow } from "@/lib/account-delete";
 
 export type AccountResult = { ok: boolean; error?: string; id?: string };
 
@@ -67,6 +68,27 @@ export async function archiveAccount(input: unknown): Promise<AccountResult> {
   if (error) return { ok: false, error: x(rpcMessage(error)) };
   done();
   return { ok: true };
+}
+
+/** Qué saldos cambiarían al borrar la cuenta. Solo lee, con la sesión de la persona (RLS). */
+export async function previewAccountDeletion(input: unknown): Promise<{ ok: false } | ({ ok: true } & DeleteImpact)> {
+  const p = idSchema.safeParse(input);
+  const { supabase, user, limited } = await session();
+  if (!p.success || !user || limited) return { ok: false };
+  const id = p.data.id;
+  const { data: account } = await supabase.from("accounts").select("id").eq("id", id).eq("owner_user_id", user.id).maybeSingle();
+  if (!account) return { ok: false };
+  const transfers: TransferRow[] = [];
+  for (let from = 0; from < 20_000; from += 1000) {
+    const { data, error } = await supabase.from("account_transfers").select("user_id, from_account, to_account, amount_cents, to_amount_cents, transfer_date")
+      .or(`from_account.eq.${id},to_account.eq.${id}`).order("id").range(from, from + 999);
+    if (error) return { ok: false };
+    transfers.push(...data.map((r) => ({ userId: r.user_id, from: r.from_account, to: r.to_account, amountCents: r.amount_cents, toAmountCents: r.to_amount_cents, date: r.transfer_date })));
+    if (data.length < 1000) break;
+  }
+  const ids = [...new Set(transfers.map((t) => (t.from === id ? t.to : t.from)))];
+  const { data: others } = ids.length ? await supabase.from("accounts").select("id, name, currency, opening_date").in("id", ids) : { data: [] };
+  return { ok: true, ...deleteImpact(id, user.id, transfers, (others ?? []).map((a) => ({ id: a.id, name: a.name, currency: a.currency, openingDate: a.opening_date }))) };
 }
 
 /** Borra una cuenta (solo la persona dueña; lo comprueba la base) y vuelve a Mis cuentas. Si falla, no se mueve. */

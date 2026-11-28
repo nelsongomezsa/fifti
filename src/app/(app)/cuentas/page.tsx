@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AccountEditor } from "@/components/accounts/AccountForms";
 import { AccountSwipeRow } from "@/components/accounts/AccountSwipeRow";
+import { ArchivedAccounts } from "@/components/accounts/ArchivedAccounts";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { getTx } from "@/i18n/tx";
 import { formatMoney } from "@/lib/money";
@@ -14,7 +15,9 @@ export const metadata: Metadata = { title: "Mis cuentas" };
 
 export default async function AccountsPage() {
   const [x, user, spaces, supabase] = await Promise.all([getTx(), requireUser(), listMySpaces(), createClient()]);
-  const accounts = await loadAccounts(supabase, user.id);
+  const all = await loadAccounts(supabase, user.id, true);
+  const accounts = all.filter((a) => !a.archived);
+  const archived = all.filter((a) => a.archived && a.mine);
   const demo = user.app_metadata?.demo === true;
   // El total va en la moneda del espacio activo; las cuentas en otra moneda se convierten con el cambio de hoy
   const currency = (await getActiveSpace(spaces))?.currency ?? "EUR";
@@ -50,12 +53,13 @@ export default async function AccountsPage() {
                 </Link>
               );
               // Solo las tuyas se pueden archivar o borrar; las comunes de otra persona no se deslizan
-              return <li key={a.id}>{a.mine ? <AccountSwipeRow id={a.id} name={a.name} demo={demo}>{row}</AccountSwipeRow> : row}</li>;
+              return <li key={a.id}>{a.mine ? <AccountSwipeRow id={a.id} name={a.name} shared={a.kind === "shared"} demo={demo}>{row}</AccountSwipeRow> : row}</li>;
             })}
           </ul>
           <Link href="/traspaso" className="flex min-h-12 items-center justify-center rounded-full border border-border font-semibold">{x("Hacer un traspaso")}</Link>
         </>
       )}
+      {archived.length > 0 && <ArchivedAccounts demo={demo} accounts={archived.map((a) => ({ id: a.id, name: a.name, color: a.color, currency: a.currency, balanceCents: a.balanceCents, shared: a.kind === "shared" }))} />}
     </section>
   );
 }

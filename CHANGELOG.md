@@ -4,6 +4,8 @@ Historial de Fifti por fechas. Formato libre, del más reciente al más antiguo.
 
 ## 2026-11-28
 
+- **Cuentas, lo que faltaba**: apartado «Archivadas» (ver, recuperar y borrar); la confirmación de borrado dice qué saldos cambiarán; vaciar un hogar ya no toca los traspasos propios ni los ajustes de otros miembros, y el aviso a los demás dice si se borraron cuentas. Requiere la migración `20261128000030_clear_space_others.sql`.
+- Al abrir un gasto desde Movimientos, los filtros de la lista reescribían la URL del detalle; al borrarlo, a veces se perdía el aviso.
 - **Borrar cuentas**: en Mis cuentas las filas se deslizan (Borrar a la izquierda, Archivar a la derecha) y el detalle tiene «Borrar cuenta», siempre con confirmación. Se van sus traspasos y ajustes; los gastos, ingresos, gastos fijos y partidas se quedan sin cuenta. «Vaciar este espacio» puede borrar también tus cuentas de ese espacio (marcado por defecto). Requiere la migración `20261128000029_delete_accounts.sql`.
 - **Escribir seguido en las hojas**: tras la primera letra el foco saltaba al panel, porque el efecto que lo ponía dependía de `onClose`, una función nueva en cada render. Ahora el foco se pone solo al abrir (`useSheetFocus`) y el bloqueo del scroll no se reinicia. `e2e/typing.spec.ts` teclea letra a letra en seis hojas.
 - **Fotos que dejan de usarse**: al cambiar o quitar la foto (botón nuevo «Quitar foto»), borrar el gasto, vaciar el espacio o borrar la cuenta, se eliminan del bucket, comprobando antes el permiso. Editar un gasto privado ya no pierde su foto, y al pasarlo a privado la ruta deja de estar en la fila que ven los demás.

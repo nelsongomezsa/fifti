@@ -9,6 +9,7 @@ import { allow } from "@/lib/security/user-limit";
 import { createClient } from "@/lib/supabase/server";
 import { rpcMessage } from "@/server/rpc-error";
 import { notify } from "@/server/push";
+import { clearedBody } from "@/lib/account-delete";
 import { removeSpaceReceipts } from "@/server/receipts";
 import { warmContribution } from "@/server/currency-warm";
 
@@ -34,8 +35,8 @@ export async function clearSpace(input: unknown): Promise<SimpleResult> {
   if (error) return { ok: false, error: x(rpcMessage(error)) };
   // La base ya ha comprobado que es quien creó el espacio y ha borrado sus gastos: fuera también las fotos
   await removeSpaceReceipts(p.data.spaceId);
-  const r = res as { name: string; others: string[] } | null;
-  if (r?.others?.length) await notify(r.others, "space_cleared", (t) => ({ title: r.name, body: t("Se han borrado los datos de este espacio."), url: "/inicio" }));
+  const r = res as { name: string; others: string[]; accounts?: number } | null;
+  if (r?.others?.length) await notify(r.others, "space_cleared", (t) => ({ title: r.name, body: t(clearedBody(r.accounts ?? 0)), url: "/inicio" }));
   revalidatePath("/", "layout");
   return { ok: true };
 }

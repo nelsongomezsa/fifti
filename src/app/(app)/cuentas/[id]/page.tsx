@@ -69,7 +69,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
           })}
         </ul>
       )}
-      {acc.mine && <div className="mt-4"><DeleteAccountButton id={acc.id} name={acc.name} demo={demo} /></div>}
+      {acc.mine && <div className="mt-4"><DeleteAccountButton id={acc.id} name={acc.name} shared={acc.kind === "shared"} demo={demo} /></div>}
     </section>
   );
 }

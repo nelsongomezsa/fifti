@@ -107,6 +107,39 @@ describe.skipIf(!rlsConfigured)("borrar cuentas bancarias y vaciar un espacio co
     expect(await one("accounts", leos)).toBeDefined();
   });
 
+  it("vaciar un hogar no toca los traspasos propios ni los ajustes de otras personas", async () => {
+    const { space, anas, leos } = await home();
+    const leos2 = await account(leo, space, "Ahorro de Leo");
+    const common = await account(ana, space, "Común", { kind: "shared" });
+    const move = (u: U, from: string, to: string, amount: number) => u.client.rpc("create_transfer", { p_from: from, p_to: to, p_amount: amount, p_date: DATE, p_note: null, p_source: "manual" });
+    ok(await move(leo, leos, leos2, 1000));
+    ok(await move(leo, leos, common, 200));
+    ok(await move(ana, anas, common, 300));
+    ok(await leo.client.rpc("adjust_account_balance", { p_account: leos2, p_target: 55555, p_note: null }));
+    ok(await ana.client.rpc("adjust_account_balance", { p_account: anas, p_target: 44444, p_note: null }));
+    const balance = async (u: U, id: string) => Number(((await u.client.rpc("account_balances")).data as { account_id: string; balance_cents: number }[]).find((a) => a.account_id === id)!.balance_cents);
+    const before = await balance(leo, leos2);
+
+    for (const withAccounts of [false, true]) {
+      const result = ok(await ana.client.rpc("clear_space", { p_space: space, p_delete_accounts: withAccounts })) as { accounts: number };
+      expect(result.accounts).toBe(withAccounts ? 2 : 0); // la de Ana y la común (que también es suya)
+      expect(await rows("account_transfers", "to_account", leos2)).toHaveLength(1); // entre cuentas de Leo
+      expect(await rows("account_adjustments", "account_id", leos2)).toHaveLength(1);
+      expect(await balance(leo, leos2)).toBe(before);
+      expect(await rows("account_adjustments", "account_id", anas)).toEqual([]);
+      expect(await rows("account_transfers", "from_account", anas)).toEqual([]);
+      expect(await rows("account_transfers", "to_account", common)).toEqual([]);
+    }
+  });
+
+  it("una cuenta archivada se puede recuperar y solo por su dueño", async () => {
+    const { anas } = await home();
+    ok(await ana.client.rpc("archive_account", { p_id: anas, p_archived: true }));
+    expect((await leo.client.rpc("archive_account", { p_id: anas, p_archived: false })).error).not.toBeNull();
+    ok(await ana.client.rpc("archive_account", { p_id: anas, p_archived: false }));
+    expect(await one("accounts", anas)).toMatchObject({ archived_at: null });
+  });
+
   it("vaciar con la casilla borra mis cuentas del espacio y ninguna más", async () => {
     const { space, member, anas, leos } = await home();
     const archived = await account(ana, space, "Antigua");
