@@ -4,9 +4,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getTx } from "@/i18n/tx";
 import { MAX_RECEIPT_BYTES, sniffImageType } from "@/lib/security/image";
-import { RULES } from "@/lib/security/rate-limit";
+import { RULES, type RateRule } from "@/lib/security/rate-limit";
 import { allow } from "@/lib/security/user-limit";
 import { createClient } from "@/lib/supabase/server";
+import { receiptsOf, removeUnusedReceipts } from "@/server/receipts";
 import { rpcMessage } from "@/server/rpc-error";
 
 /**
@@ -15,7 +16,8 @@ import { rpcMessage } from "@/server/rpc-error";
  */
 export const runtime = "nodejs";
 
-const fields = z.strictObject({ expenseId: z.uuid(), file: z.instanceof(File) });
+const uploadFields = z.strictObject({ expenseId: z.uuid(), file: z.instanceof(File) });
+const removeFields = z.strictObject({ expenseId: z.uuid() });
 const reply = (status: number, body: object) => NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
 
 async function recode(bytes: Uint8Array | null): Promise<Buffer> {
@@ -41,7 +43,7 @@ export async function GET() {
   }
 }
 
-/** Un formulario de otra web no puede subir en nombre de nadie (las server actions lo comprueban solas; aquí a mano). */
+/** Un formulario de otra web no puede actuar en nombre de nadie (las server actions lo comprueban solas; aquí a mano). */
 function sameOrigin(request: NextRequest): boolean {
   const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
   try {
@@ -51,37 +53,53 @@ function sameOrigin(request: NextRequest): boolean {
   }
 }
 
+async function context() {
+  const x = await getTx();
+  return { fail: (status: number, message: string) => reply(status, { ok: false, error: x(message) }) };
+}
+
+/** Sesión y límite de uso. Devuelve la respuesta de rechazo o la persona. */
+async function session(rule: RateRule, fail: (status: number, message: string) => NextResponse) {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  const user = data.user;
+  if (!user) return { refused: fail(401, "Sesión caducada.") } as const;
+  if (user.app_metadata?.demo === true) return { refused: fail(403, "Crea una cuenta para guardar") } as const;
+  if (!(await allow(rule, user.id))) return { refused: fail(429, "Demasiadas fotos. Espera un rato.") } as const;
+  return { supabase, user } as const;
+}
+
+/** Quién puede poner o quitar la foto: la misma regla que en la base (attach_receipt la vuelve a aplicar). */
+async function editableExpense(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, expenseId: string): Promise<{ status: number; message: string } | { spaceId: string }> {
+  const { data: expense } = await supabase.from("expenses").select("space_id, is_private, created_by_member").eq("id", expenseId).maybeSingle();
+  if (!expense) return { status: 404, message: "Gasto no encontrado." } as const;
+  const { data: me } = await supabase.from("space_members").select("id, role").eq("space_id", expense.space_id).eq("user_id", userId).maybeSingle();
+  if (!me || ((me.role === "guest" || expense.is_private) && expense.created_by_member !== me.id)) return { status: 403, message: "No autorizado." } as const;
+  return { spaceId: expense.space_id as string };
+}
+
 /**
  * Sube la foto del ticket de un gasto: misma procedencia, sesión, permiso sobre el gasto, límite de uso, máximo 4 MB,
  * tipo REAL por sus primeros bytes, recodificada a WebP sin metadatos, nombre aleatorio y bucket privado
- * (solo se ve con una URL firmada de pocos minutos).
+ * (solo se ve con una URL firmada de pocos minutos). Si había otra foto, se borra del bucket.
  */
 export async function POST(request: NextRequest) {
-  const x = await getTx();
-  const fail = (status: number, message: string) => reply(status, { ok: false, error: x(message) });
+  const { fail } = await context();
   if (!sameOrigin(request)) return fail(403, "No autorizado.");
   const length = Number(request.headers.get("content-length"));
   // Margen de 64 KB para las cabeceras del multipart; se corta antes de leer el cuerpo
   if (!length || length > MAX_RECEIPT_BYTES + 65_536) return fail(413, "La foto debe pesar menos de 4 MB.");
-
-  const supabase = await createClient();
-  const { data: auth } = await supabase.auth.getUser();
-  const user = auth.user;
-  if (!user) return fail(401, "Sesión caducada.");
-  if (user.app_metadata?.demo === true) return fail(403, "Crea una cuenta para guardar");
-  if (!(await allow(RULES.upload, user.id))) return fail(429, "Demasiadas fotos. Espera un rato.");
+  const s = await session(RULES.upload, fail);
+  if ("refused" in s) return s.refused;
 
   const form = await request.formData().catch(() => null);
-  const parsed = fields.safeParse(form ? Object.fromEntries(form) : null);
+  const parsed = uploadFields.safeParse(form ? Object.fromEntries(form) : null);
   if (!parsed.success) return fail(400, "Datos no válidos");
   const { expenseId, file } = parsed.data;
   if (file.size === 0 || file.size > MAX_RECEIPT_BYTES) return fail(413, "La foto debe pesar menos de 4 MB.");
 
-  // Permiso antes de procesar nada: la misma regla que en la base (attach_receipt la vuelve a aplicar)
-  const { data: expense } = await supabase.from("expenses").select("space_id, is_private, created_by_member").eq("id", expenseId).maybeSingle();
-  if (!expense) return fail(404, "Gasto no encontrado.");
-  const { data: me } = await supabase.from("space_members").select("id, role").eq("space_id", expense.space_id).eq("user_id", user.id).maybeSingle();
-  if (!me || ((me.role === "guest" || expense.is_private) && expense.created_by_member !== me.id)) return fail(403, "No autorizado.");
+  const expense = await editableExpense(s.supabase, s.user.id, expenseId); // antes de procesar nada
+  if ("status" in expense) return fail(expense.status, expense.message);
 
   const bytes = new Uint8Array(await file.arrayBuffer());
   if (!sniffImageType(bytes)) return fail(415, "Solo se admiten fotos JPG, PNG o WebP.");
@@ -94,14 +112,37 @@ export async function POST(request: NextRequest) {
     return fail(422, "No se ha podido procesar la foto.");
   }
 
-  const path = `${expense.space_id}/${randomUUID()}.webp`;
-  const { error: uploadError } = await supabase.storage.from("receipts").upload(path, clean, { contentType: "image/webp", upsert: false });
+  const previous = await receiptsOf(expenseId);
+  const path = `${expense.spaceId}/${randomUUID()}.webp`;
+  const { error: uploadError } = await s.supabase.storage.from("receipts").upload(path, clean, { contentType: "image/webp", upsert: false });
   if (uploadError) return fail(500, "No se ha podido guardar la foto.");
-  const { error } = await supabase.rpc("attach_receipt", { p_expense: expenseId, p_path: path });
+  const { error } = await s.supabase.rpc("attach_receipt", { p_expense: expenseId, p_path: path });
   if (error) {
-    await supabase.storage.from("receipts").remove([path]);
+    await s.supabase.storage.from("receipts").remove([path]);
     return fail(500, rpcMessage(error));
   }
+  await removeUnusedReceipts(previous);
+  revalidatePath(`/movimientos/${expenseId}`);
+  return reply(200, { ok: true });
+}
+
+/** Quita la foto de un gasto y la borra del bucket. */
+export async function DELETE(request: NextRequest) {
+  const { fail } = await context();
+  if (!sameOrigin(request)) return fail(403, "No autorizado.");
+  const s = await session(RULES.deletes, fail);
+  if ("refused" in s) return s.refused;
+  const parsed = removeFields.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return fail(400, "Datos no válidos");
+  const { expenseId } = parsed.data;
+  const expense = await editableExpense(s.supabase, s.user.id, expenseId);
+  if ("status" in expense) return fail(expense.status, expense.message);
+
+  const previous = await receiptsOf(expenseId);
+  // Una ruta nula pasa la comprobación de formato de attach_receipt y deja el gasto sin foto, con sus mismos permisos
+  const { error } = await s.supabase.rpc("attach_receipt", { p_expense: expenseId, p_path: null });
+  if (error) return fail(500, rpcMessage(error));
+  await removeUnusedReceipts(previous);
   revalidatePath(`/movimientos/${expenseId}`);
   return reply(200, { ok: true });
 }

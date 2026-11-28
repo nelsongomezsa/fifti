@@ -23,6 +23,17 @@ async function shrink(file: File): Promise<File> {
   }
 }
 
+/** Quita la foto de un gasto (el servidor la borra también del almacenamiento). */
+export async function removeReceipt(expenseId: string, x: (text: string) => string): Promise<ReceiptResult> {
+  try {
+    const response = await fetch("/api/ticket", { method: "DELETE", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expenseId }) });
+    const result = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+    return result?.ok ? { ok: true } : { ok: false, error: result?.error ?? x("No se ha podido completar.") };
+  } catch {
+    return { ok: false, error: x("No se ha podido completar.") };
+  }
+}
+
 /** Sube la foto a /api/ticket. `x` traduce los avisos que se generan en el dispositivo; los del servidor ya vienen traducidos. */
 export async function uploadReceipt(expenseId: string, file: File, x: (text: string) => string): Promise<ReceiptResult> {
   const photo = await shrink(file);

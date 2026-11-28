@@ -11,6 +11,7 @@ import { allow } from "@/lib/security/user-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { LOCALE_COOKIE } from "@/i18n/request";
+import { removeReceiptsOfDeletedSpaces } from "@/server/receipts";
 import { rpcMessage } from "@/server/rpc-error";
 import type { FormState } from "./auth";
 
@@ -65,8 +66,11 @@ export async function deleteAccount(_prev: FormState, fd: FormData): Promise<For
   if (captcha.missing) return { error: x(CAPTCHA_ERROR) };
   const { error: authErr } = await supabase.auth.signInWithPassword({ email: user.email, password, options: { captchaToken: captcha.token } });
   if (authErr) return { error: x("Contraseña incorrecta.") };
+  // Espacios propios antes de borrar: los que desaparezcan con la cuenta no dejan sus fotos atrás
+  const { data: owned } = await supabase.from("space_members").select("space_id").eq("user_id", user.id).eq("role", "owner");
   const { error } = await supabase.rpc("prepare_account_deletion");
   if (error) return { error: x(rpcMessage(error)) };
+  await removeReceiptsOfDeletedSpaces((owned ?? []).map((m) => m.space_id as string));
   const { error: delErr } = await createAdminClient().auth.admin.deleteUser(user.id);
   if (delErr) {
     console.error("[deleteAccount]", delErr.message);

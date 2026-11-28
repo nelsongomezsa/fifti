@@ -17,6 +17,7 @@ import { uuidSchema } from "@/lib/validation/spaces";
 import { rpcMessage } from "@/server/rpc-error";
 import type { FormState } from "./auth";
 import { resolveFx } from "@/server/fx";
+import { receiptsOf, removeUnusedReceipts } from "@/server/receipts";
 import { warmMovement } from "@/server/currency-warm";
 import { notify } from "@/server/push";
 
@@ -67,8 +68,16 @@ export async function saveExpense(input: unknown): Promise<SaveResult> {
       payers = buildPayers(baseCents, list.length > 1 ? scaleToBase(list as { memberId: string; amountCents: number }[], v.amountCents, baseCents) : list);
     }
 
-    const prev = v.id ? (await supabase.from("expenses").select("category_id").eq("id", v.id).maybeSingle()).data : null;
+    const prev = v.id ? (await supabase.from("expenses").select("category_id, is_private").eq("id", v.id).maybeSingle()).data : null;
     await warmMovement(supabase, { spaceId: v.spaceId, userId: user.id, day: v.spentAt, currency: v.currency, accountId: v.accountId, movementId: v.id });
+    // Con gastos privados la base rehace el detalle sin la foto, y al pasar a privado la dejaría a la vista en la fila
+    // pública: se retira antes de guardar y se vuelve a poner donde toque, haya ido bien o no.
+    let photo: string | null = null;
+    if (v.id && prev && (prev.is_private || (v.isPrivate && !personal))) {
+      const current = (await receiptsOf(v.id))?.paths ?? [];
+      photo = (prev.is_private ? current.at(-1) : current[0]) ?? null;
+      if (photo && (await supabase.rpc("attach_receipt", { p_expense: v.id, p_path: null })).error) photo = null;
+    }
     const { data, error } = await supabase.rpc("save_expense", {
       p: {
         id: v.id ?? null, client_id: v.clientId, space_id: v.spaceId, description: v.description, category_id: v.categoryId ?? null,
@@ -78,6 +87,11 @@ export async function saveExpense(input: unknown): Promise<SaveResult> {
         splits: splits.map((s) => ({ member_id: s.memberId, share_bp: s.shareBp, amount_cents: s.amountCents })),
       },
     });
+    if (photo) {
+      const back = await supabase.rpc("attach_receipt", { p_expense: v.id, p_path: photo });
+      // Si no se puede reponer no se borra el fichero: queda registrado para recuperarlo
+      if (back.error) console.error("[receipts] no se pudo reponer la foto de un gasto editado", back.error.code);
+    }
     if (error) return { ok: false, error: x(rpcMessage(error)) };
     if (v.accountId !== undefined) {
       const acc = await supabase.rpc("set_movement_account", { p_kind: "expense", p_id: data as string, p_account: v.accountId });
@@ -137,8 +151,11 @@ async function removeExpense(id: string): Promise<{ ok: true } | { ok: false; er
   const { supabase, user } = await ctx();
   if (!user) return { ok: false, error: x("Sesión caducada.") };
   if (!(await allow(RULES.deletes, user.id))) return { ok: false, error: x("Demasiados intentos. Espera un rato.") };
+  // La foto se anota antes (el borrado se lleva la ruta) y solo se elimina si la base ha dejado borrar el gasto
+  const receipts = await receiptsOf(id);
   const { error } = await supabase.rpc("delete_expense", { p_id: id });
   if (error) return { ok: false, error: x(rpcMessage(error)) };
+  await removeUnusedReceipts(receipts);
   return { ok: true };
 }
 

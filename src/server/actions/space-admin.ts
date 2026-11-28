@@ -9,6 +9,7 @@ import { allow } from "@/lib/security/user-limit";
 import { createClient } from "@/lib/supabase/server";
 import { rpcMessage } from "@/server/rpc-error";
 import { notify } from "@/server/push";
+import { removeSpaceReceipts } from "@/server/receipts";
 import { warmContribution } from "@/server/currency-warm";
 
 export type SimpleResult = { ok: boolean; error?: string };
@@ -31,6 +32,8 @@ export async function clearSpace(input: unknown): Promise<SimpleResult> {
   if (!sp || p.data.confirmName.toLowerCase() !== String(shown).trim().toLowerCase()) return { ok: false, error: x("El nombre no coincide.") };
   const { data: res, error } = await supabase.rpc("clear_space", { p_space: p.data.spaceId });
   if (error) return { ok: false, error: x(rpcMessage(error)) };
+  // La base ya ha comprobado que es quien creó el espacio y ha borrado sus gastos: fuera también las fotos
+  await removeSpaceReceipts(p.data.spaceId);
   const r = res as { name: string; others: string[] } | null;
   if (r?.others?.length) await notify(r.others, "space_cleared", (t) => ({ title: r.name, body: t("Se han borrado los datos de este espacio."), url: "/inicio" }));
   revalidatePath("/", "layout");
