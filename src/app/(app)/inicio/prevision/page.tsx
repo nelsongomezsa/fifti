@@ -19,7 +19,7 @@ export default async function ForecastPage() {
   const b = o.outlook;
   const plannedFixed = o.funds.filter((f) => f.kind === "fixed").reduce((a2, f) => a2 + f.planned, 0);
   const spentFixed = o.funds.filter((f) => f.kind === "fixed").reduce((a2, f) => a2 + f.spent, 0);
-  const fmt = (c: number) => formatMoney(c, "EUR", x.locale);
+  const fmt = (c: number) => formatMoney(c, active.currency, x.locale);
 
   // Cobros fijos programados que aún faltan este mes (hoy incluido)
   const pending = (rec ?? [])

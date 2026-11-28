@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 export type SpaceKind = "personal" | "household" | "group";
-export type SpaceSummary = { id: string; name: string; kind: SpaceKind };
+export type SpaceSummary = { id: string; name: string; kind: SpaceKind; currency: string };
 
 export const BUBBLE_COOKIE = "fifti_bubble";
 
@@ -14,12 +14,14 @@ export const listMySpaces = cache(async (): Promise<SpaceSummary[]> => {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("spaces")
-    .select("id, name, kind")
+    .select("id, name, kind, base_currency")
     .is("archived_at", null)
     .order("created_at", { ascending: true });
   if (error) throw new Error("No se pudieron cargar las burbujas");
   const order: Record<SpaceKind, number> = { personal: 0, household: 1, group: 2 };
-  return (data as SpaceSummary[]).sort((a, b) => order[a.kind] - order[b.kind]);
+  return (data as { id: string; name: string; kind: SpaceKind; base_currency: string }[])
+    .map(({ base_currency, ...s }) => ({ ...s, currency: base_currency }))
+    .sort((a, b) => order[a.kind] - order[b.kind]);
 });
 
 /** Usuario de la petición. `cache` evita repetir la llamada a Auth (layout y página comparten el resultado). */

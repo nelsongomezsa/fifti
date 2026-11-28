@@ -30,7 +30,7 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
 
   let q = supabase
     .from("expenses")
-    .select((`id, description, spent_at, amount_cents, currency, category_id, is_private, created_by_member, expense_splits(member_id, amount_cents), expense_tags(tags(name))${sp.pago && uuid.test(sp.pago) ? ", expense_payers!inner(member_id)" : ""}${sp.fondo && uuid.test(sp.fondo) ? ", categories!inner(fund_id)" : ""}`) as "id, description, spent_at, amount_cents, currency, category_id, is_private, created_by_member, expense_splits(member_id, amount_cents), expense_tags(tags(name))")
+    .select((`id, description, spent_at, amount_cents, amount_base_cents, currency, category_id, is_private, created_by_member, expense_splits(member_id, amount_cents), expense_tags(tags(name))${sp.pago && uuid.test(sp.pago) ? ", expense_payers!inner(member_id)" : ""}${sp.fondo && uuid.test(sp.fondo) ? ", categories!inner(fund_id)" : ""}`) as "id, description, spent_at, amount_cents, amount_base_cents, currency, category_id, is_private, created_by_member, expense_splits(member_id, amount_cents), expense_tags(tags(name))")
     .eq("space_id", active.id).gte("spent_at", month).lt("spent_at", next)
     .order("spent_at", { ascending: false }).order("created_at", { ascending: false }).limit(200);
   if (sp.cat && uuid.test(sp.cat)) q = q.eq("category_id", sp.cat);
@@ -76,15 +76,17 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
   });
   const catName = new Map((cats ?? []).map((c) => [c.id, displayName(x, c.name, c.system_key)]));
   const entradas = incomes.reduce((a, i) => a + i.amount_cents, 0) + contribs.reduce((a, c) => a + c.paid_cents, 0);
-  const salidas = rows.reduce((a, e) => a + e.amount_cents, 0);
+  // Los totales se suman en la moneda del espacio; cada fila muestra además el importe tal y como se apuntó
+  const salidas = rows.reduce((a, e) => a + e.amount_base_cents, 0);
+  const cur = active.currency;
   const catInfo = new Map((cats ?? []).map((c) => [c.id, { sysName: c.system_key as string | null, color: (fundColors ?? []).find((f) => f.id === c.fund_id)?.color ?? "#9AA3AF" }]));
   const todayIso = new Date().toISOString().slice(0, 10), yesterdayIso = new Date(Date.parse(`${todayIso}T00:00:00Z`) - 86400000).toISOString().slice(0, 10);
   const dayLabel = (iso: string) => (iso === todayIso ? x("Hoy") : iso === yesterdayIso ? x("Ayer") : new Date(`${iso}T00:00:00Z`).toLocaleDateString(x.locale, { weekday: "long", day: "numeric", month: "short", timeZone: "UTC" }));
-  type Other = { id: string; kind: "income" | "transfer" | "contribution"; date: string; cents: number; title: string; sub: string; href?: string };
+  type Other = { id: string; kind: "income" | "transfer" | "contribution"; date: string; cents: number; currency: string; title: string; sub: string; href?: string };
   const others: Other[] = [
-    ...incomes.map((i) => ({ id: `i${i.id}`, kind: "income" as const, date: i.received_at as string, cents: i.amount_cents, title: i.source, sub: [x("Ingreso"), accById.get(i.account_id ?? "")?.name].filter(Boolean).join(" · "), href: "/inicio/ingresos" })),
-    ...contribs.map((c) => ({ id: `c${c.id}`, kind: "contribution" as const, date: (c.paid_at ?? month) as string, cents: c.paid_cents, title: `${x("Aportación de")} ${memberName.get(c.member_id) ?? "—"}`, sub: x("Aportación al hogar") })),
-    ...transfers.map((t) => ({ id: `t${t.id}`, kind: "transfer" as const, date: t.transfer_date as string, cents: t.amount_cents, title: `${accById.get(t.from_account)?.name ?? "—"} → ${accById.get(t.to_account)?.name ?? "—"}`, sub: [x("Traspaso"), t.note].filter(Boolean).join(" · "), href: `/cuentas/${t.from_account}` })),
+    ...incomes.map((i) => ({ id: `i${i.id}`, kind: "income" as const, date: i.received_at as string, cents: i.amount_cents, currency: cur, title: i.source, sub: [x("Ingreso"), accById.get(i.account_id ?? "")?.name].filter(Boolean).join(" · "), href: "/inicio/ingresos" })),
+    ...contribs.map((c) => ({ id: `c${c.id}`, kind: "contribution" as const, date: (c.paid_at ?? month) as string, cents: c.paid_cents, currency: cur, title:`${x("Aportación de")} ${memberName.get(c.member_id) ?? "—"}`, sub: x("Aportación al hogar") })),
+    ...transfers.map((t) => ({ id: `t${t.id}`, kind: "transfer" as const, date: t.transfer_date as string, cents: t.amount_cents, currency: accById.get(t.from_account)?.currency ?? cur, title:`${accById.get(t.from_account)?.name ?? "—"} → ${accById.get(t.to_account)?.name ?? "—"}`, sub: [x("Traspaso"), t.note].filter(Boolean).join(" · "), href: `/cuentas/${t.from_account}` })),
   ];
   const dayKeys = [...new Set([...rows.map((e) => e.spent_at as string), ...others.map((o) => o.date)])].sort((a, b) => b.localeCompare(a));
   const total = rows.length + others.length;
@@ -110,8 +112,8 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
         members={active.kind !== "personal" ? (members ?? []).map((m) => ({ id: m.id, name: m.display_name })) : null} />
 
       <p className="grid grid-cols-2 gap-2 text-sm" aria-label={x("Resumen del mes")}>
-        <span className="rounded-card border border-border bg-surface px-3 py-2"><span className="block text-ink-3">{x("Entradas")}</span><span className="money font-mono text-base text-lime">+{formatMoney(entradas, "EUR", x.locale)}</span></span>
-        <span className="rounded-card border border-border bg-surface px-3 py-2"><span className="block text-ink-3">{x("Salidas")}</span><span className="money font-mono text-base">−{formatMoney(salidas, "EUR", x.locale)}</span></span>
+        <span className="rounded-card border border-border bg-surface px-3 py-2"><span className="block text-ink-3">{x("Entradas")}</span><span className="money font-mono text-base text-lime">+{formatMoney(entradas, cur, x.locale)}</span></span>
+        <span className="rounded-card border border-border bg-surface px-3 py-2"><span className="block text-ink-3">{x("Salidas")}</span><span className="money font-mono text-base">−{formatMoney(salidas, cur, x.locale)}</span></span>
       </p>
 
       <PendingExpenseRows spaceId={active.id} month={month} />
@@ -120,7 +122,7 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
           {mirrors!.map((mr) => (
             <li key={mr.id} className="flex min-h-14 items-center justify-between gap-3 rounded-card border border-dashed border-border px-4 py-3">
               <span><span className="block font-medium">{x("Tu parte de")}{" "}{mr.label}</span><span className="text-sm text-ink-3">{mr.spent_at} {x("· reflejo de grupo")}</span></span>
-              <span className="money font-mono">−{formatMoney(mr.amount_cents, "EUR", x.locale)}</span>
+              <span className="money font-mono">−{formatMoney(mr.amount_cents, cur, x.locale)}</span>
             </li>
           ))}
         </ul>
@@ -136,10 +138,10 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
           {dayKeys.map((day) => {
             const list = rows.filter((e) => e.spent_at === day);
             const rest = others.filter((o) => o.date === day);
-            const net = rest.reduce((a, o) => a + (o.kind === "transfer" ? 0 : o.cents), 0) - list.reduce((a, e) => a + e.amount_cents, 0);
+            const net = rest.reduce((a, o) => a + (o.kind === "transfer" ? 0 : o.cents), 0) - list.reduce((a, e) => a + e.amount_base_cents, 0);
             return (
               <section key={day} aria-label={dayLabel(day)}>
-                <h2 className="mb-2 flex items-baseline justify-between px-1 text-sm text-ink-3"><span className="first-letter:uppercase">{dayLabel(day)}</span><span className="money font-mono">{net > 0 ? "+" : net < 0 ? "−" : ""}{formatMoney(Math.abs(net), "EUR", x.locale)}</span></h2>
+                <h2 className="mb-2 flex items-baseline justify-between px-1 text-sm text-ink-3"><span className="first-letter:uppercase">{dayLabel(day)}</span><span className="money font-mono">{net > 0 ? "+" : net < 0 ? "−" : ""}{formatMoney(Math.abs(net), cur, x.locale)}</span></h2>
                 <ul className="flex flex-col gap-2">
                   {rest.map((o) => {
                     const body = (
@@ -148,7 +150,7 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
                           {o.kind === "transfer" ? <ArrowRightLeft size={20} /> : o.kind === "contribution" ? <Users size={20} /> : <Wallet size={20} />}
                         </span>
                         <span className="min-w-0 flex-1"><span className="block truncate font-medium">{o.title}</span><span className="block truncate text-sm text-ink-3">{o.sub}</span></span>
-                        <span className={`money shrink-0 font-mono ${o.kind === "transfer" ? "text-ink-2" : "text-lime"}`}>{o.kind === "transfer" ? "⇄ " : "+"}{formatMoney(o.cents, "EUR", x.locale)}</span>
+                        <span className={`money shrink-0 font-mono ${o.kind === "transfer" ? "text-ink-2" : "text-lime"}`}>{o.kind === "transfer" ? "⇄ " : "+"}{formatMoney(o.cents, o.currency, x.locale)}</span>
                       </>
                     );
                     const cls = "flex min-h-16 items-center gap-3 rounded-card border border-border bg-surface px-3 py-3";
@@ -169,7 +171,8 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
                           </span>
                           <span className="text-right">
                             <span className="money block font-mono">−{formatMoney(e.amount_cents, e.currency, x.locale)}</span>
-                            {active.kind !== "personal" && mine !== undefined && <span className="money block font-mono text-sm text-ink-3">{x("tu parte")}{" "}{formatMoney(mine, e.currency, x.locale)}</span>}
+                            {e.currency !== cur && <span className="money block font-mono text-sm text-ink-3">≈ {formatMoney(e.amount_base_cents, cur, x.locale)}</span>}
+                            {active.kind !== "personal" && mine !== undefined &&<span className="money block font-mono text-sm text-ink-3">{x("tu parte")}{" "}{formatMoney(mine, cur, x.locale)}</span>}
                           </span>
                           <span aria-hidden className="text-ink-3">›</span>
                         </Link>

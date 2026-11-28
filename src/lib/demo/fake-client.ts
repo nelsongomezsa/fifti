@@ -189,11 +189,12 @@ function rpc(db: Db, name: string, a: Record<string, unknown>) {
     case "monthly_breakdown": { const r = (db.expenses ?? []).filter((e) => e.space_id === a.p_space && String(e.spent_at) >= from); return [...sumBy(r, (e) => `${monthOf(e.spent_at)}|${e.category_id ?? ""}`, (e) => Number(e.amount_base_cents))].map(([k, total_cents]) => { const [month, cat] = String(k).split("|"); return { month, category_id: cat || null, total_cents }; }).sort((x, y) => String(x.month).localeCompare(String(y.month))); }
     case "monthly_mirror_by_fund": { const r = (db.personal_mirror ?? []).filter((e) => e.enabled && String(e.spent_at) >= from); return [...sumBy(r, (e) => `${monthOf(e.spent_at)}|${e.fund_id ?? ""}`, (e) => Number(e.amount_cents))].map(([k, total_cents]) => { const [month, fund] = String(k).split("|"); return { month, fund_id: fund || null, total_cents }; }); }
     case "account_balances": {
-      const sum = (t: string, k: string, dk: string, v: string, id: unknown, from: string, sign = 1) => (db[t] ?? []).filter((r) => r[k] === id && String(r[dk]) >= from).reduce((s, r) => s + sign * Number(r[v]), 0);
+      // `own` es la columna con el importe en la moneda de la cuenta; si no está, vale `v`
+      const sum = (t: string, k: string, dk: string, v: string, id: unknown, from: string, own?: string) => (db[t] ?? []).filter((r) => r[k] === id && String(r[dk]) >= from).reduce((s, r) => s + Number((own ? r[own] : undefined) ?? r[v]), 0);
       return (db.accounts ?? []).map((ac) => {
         const f = String(ac.opening_date);
-        return { account_id: ac.id, balance_cents: Number(ac.opening_cents) + sum("incomes", "account_id", "received_at", "amount_cents", ac.id, f) - sum("expenses", "account_id", "spent_at", "amount_base_cents", ac.id, f)
-          + sum("account_transfers", "to_account", "transfer_date", "amount_cents", ac.id, f) - sum("account_transfers", "from_account", "transfer_date", "amount_cents", ac.id, f) + sum("account_adjustments", "account_id", "adjust_date", "amount_cents", ac.id, f) };
+        return { account_id: ac.id, balance_cents: Number(ac.opening_cents) + sum("incomes", "account_id", "received_at", "amount_cents", ac.id, f, "account_cents") - sum("expenses", "account_id", "spent_at", "amount_base_cents", ac.id, f, "account_cents")
+          + sum("account_transfers", "to_account", "transfer_date", "amount_cents", ac.id, f, "to_amount_cents") - sum("account_transfers", "from_account", "transfer_date", "amount_cents", ac.id, f) + sum("account_adjustments", "account_id", "adjust_date", "amount_cents", ac.id, f) };
       });
     }
     default: void list; return undefined;

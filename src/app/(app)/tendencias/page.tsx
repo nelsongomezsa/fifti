@@ -34,7 +34,7 @@ export default async function TrendsPage() {
     ((mirror ?? []) as { month: string; fund_id: string | null; total_cents: number }[]).map((r) => ({ month: r.month, fundId: r.fund_id, cents: Number(r.total_cents) })),
     month, fundOf,
   );
-  const fmt = (c: number) => formatMoney(c, "EUR", x.locale);
+  const fmt = (c: number) => formatMoney(c, active.currency, x.locale);
   const catName = (id: string | null) => { const c = cats?.find((k) => k.id === id); return c ? displayName(x, c.name, c.system_key) : x("Sin categoría"); };
   const series = t.fundIds.map((id) => {
     const f = funds?.find((k) => k.id === id);
@@ -87,7 +87,7 @@ export default async function TrendsPage() {
           {moverList(x("Categorías que más suben"), t.up, 1)}
           {moverList(x("Categorías que más bajan"), t.down, -1)}
           <h2 className="text-lg font-semibold">{x("12 meses por fondo")}</h2>
-          <div className="rounded-card border border-border bg-surface p-4"><FundTrendChart data={data} funds={series} currency="EUR" /></div>
+          <div className="rounded-card border border-border bg-surface p-4"><FundTrendChart data={data} funds={series} currency={active.currency} /></div>
         </>
       )}
     </section>

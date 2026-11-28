@@ -6,7 +6,8 @@ import { getTx } from "@/i18n/tx";
 import { formatMoney } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 import { loadAccounts } from "@/server/accounts";
-import { listMySpaces, requireUser } from "@/server/spaces";
+import { sumIn } from "@/server/fx";
+import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
 
 export const metadata: Metadata = { title: "Mis cuentas" };
 
@@ -14,7 +15,9 @@ export default async function AccountsPage() {
   const [x, user, spaces, supabase] = await Promise.all([getTx(), requireUser(), listMySpaces(), createClient()]);
   const accounts = await loadAccounts(supabase, user.id);
   const demo = user.app_metadata?.demo === true;
-  const total = accounts.filter((a) => a.mine).reduce((s, a) => s + a.balanceCents, 0);
+  // El total va en la moneda del espacio activo; las cuentas en otra moneda se convierten con el cambio de hoy
+  const currency = (await getActiveSpace(spaces))?.currency ?? "EUR";
+  const total = await sumIn(currency, accounts.filter((a) => a.mine).map((a) => ({ cents: a.balanceCents, currency: a.currency })));
   const spaceName = (id: string) => { const s = spaces.find((q) => q.id === id); return s?.kind === "personal" ? x("Personal") : s?.name ?? ""; };
   const kindLabel = { payroll: x("Nómina"), daily: x("Día a día"), savings: x("Ahorro"), shared: x("Común") } as const;
   return (
@@ -31,7 +34,9 @@ export default async function AccountsPage() {
         <>
           <div className="rounded-card border border-border bg-surface p-4">
             <p className="t-label">{x("Total en tus cuentas")}</p>
-            <p className="money t-figure mt-1">{formatMoney(total, "EUR", x.locale)}</p>
+            <p className="money t-figure mt-1">{total.approximate ? "≈ " : ""}{formatMoney(total.total, currency, x.locale)}</p>
+            {total.approximate && <p className="text-xs text-ink-3">{x("Total aproximado, con el cambio de hoy.")}</p>}
+            {total.missing && <p className="text-xs text-ink-3">{x("Falta alguna cuenta: no hay tipo de cambio.")}</p>}
           </div>
           <ul className="flex flex-col gap-2">
             {accounts.map((a) => (
@@ -40,7 +45,7 @@ export default async function AccountsPage() {
                   <span aria-hidden className="size-3 shrink-0 rounded-full" style={{ background: a.color }} />
                   <span className="min-w-0 flex-1"><span className="block truncate font-medium">{a.name}{a.isDefault ? ` · ${x("por defecto")}` : ""}</span>
                     <span className="block truncate text-xs text-ink-3">{[a.bank, kindLabel[a.kind], spaceName(a.spaceId)].filter(Boolean).join(" · ")}</span></span>
-                  <span className="money shrink-0 font-mono">{formatMoney(a.balanceCents, "EUR", x.locale)}</span>
+                  <span className="money shrink-0 font-mono">{formatMoney(a.balanceCents, a.currency, x.locale)}</span>
                 </Link>
               </li>
             ))}

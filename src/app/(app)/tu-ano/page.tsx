@@ -20,7 +20,7 @@ export default async function YearPage() {
   const from = `${year}-01-01`;
   const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, "0")}-01`);
 
-  const { data: personal } = await supabase.from("spaces").select("id").eq("kind", "personal").maybeSingle();
+  const { data: personal } = await supabase.from("spaces").select("id, base_currency").eq("kind", "personal").maybeSingle();
   if (!personal) return null;
   const [{ data: spend }, { data: inc }, { data: mir }, { data: exp }, { data: mirrors }, { data: funds }, { data: cats }, { data: mem }, { data: groups }, { data: yearExpenses }, { data: allSpaces }] = await Promise.all([
     supabase.rpc("monthly_spend", { p_space: personal.id, p_from: from }),
@@ -66,7 +66,7 @@ export default async function YearPage() {
     <section className="flex flex-col gap-4 pt-2">
       <Link href="/ajustes" className="text-sm text-ink-2">{x("‹ Ajustes")}</Link>
       <h1 className="text-2xl font-bold">{x("Tu año")}{" "}{year} {x("en Fifti")}</h1>
-      <p className="text-sm text-ink-3">{x("Total gastado:")}{" "}<span className="money font-mono text-ink">{formatMoney(totalSpent, "EUR", x.locale)}</span> {x("(solo lo ves tú). La imagen para compartir no incluye importes.")}</p>
+      <p className="text-sm text-ink-3">{x("Total gastado:")}{" "}<span className="money font-mono text-ink">{formatMoney(totalSpent, personal.base_currency, x.locale)}</span> {x("(solo lo ves tú). La imagen para compartir no incluye importes.")}</p>
       <ul className="grid gap-3">
         {cards.map((c) => (
           <li key={c.title} className="rounded-card border border-border bg-surface p-4">

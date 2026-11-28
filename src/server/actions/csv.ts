@@ -59,7 +59,10 @@ export async function previewCsv(fd: FormData): Promise<BankPreview> {
     supabase.from("category_rules").select("id, match_text, match_type, category_id, priority").eq("space_id", spaceId.data),
   ]);
   if (!space) return fail("No autorizado.");
-  const parsed = parseBankCsv(await file.text(), { mapping, currency: space.base_currency });
+  // Un extracto va en la moneda de la cuenta; sin cuenta, en la del espacio
+  const account = z.uuid().safeParse(fd.get("accountId"));
+  const statementCurrency = (account.success ? (await supabase.from("accounts").select("currency").eq("id", account.data).eq("space_id", spaceId.data).maybeSingle()).data?.currency : null) ?? space.base_currency;
+  const parsed = parseBankCsv(await file.text(), { mapping, currency: statementCurrency });
   const categories = (cats ?? []).map((c) => ({ id: c.id, name: displayName(x, c.name, c.system_key) }));
   if (parsed.fatal) return { ...fail(parsed.fatal), fatal: x(parsed.fatal) };
   const ruleList = (rules ?? []).map((r) => ({ id: r.id, matchText: r.match_text, matchType: r.match_type as RuleType, categoryId: r.category_id, priority: r.priority }));
@@ -118,6 +121,7 @@ export async function confirmImport(input: unknown): Promise<{ ok: boolean; impo
   if (!space || !members?.some((m) => m.user_id === auth.user!.id)) return { ok: false, imported: 0, failed: 0, error: x("No autorizado.") };
   const valid = new Set((cats ?? []).map((c) => c.id));
   if (rows.some((r) => r.categoryId && !valid.has(r.categoryId))) return { ok: false, imported: 0, failed: 0, error: x("Datos no válidos") };
+  const statementCurrency = (accountId ? (await supabase.from("accounts").select("currency").eq("id", accountId).eq("space_id", spaceId).maybeSingle()).data?.currency : null) ?? space.base_currency;
 
   let imported = 0, failed = 0;
   const nth = new Map<string, number>();
@@ -126,7 +130,7 @@ export async function confirmImport(input: unknown): Promise<{ ok: boolean; impo
     const n = nth.get(k) ?? 0; nth.set(k, n + 1);
     const res = await saveExpense({
       clientId: rowClientId(spaceId, k, n), spaceId, description: r.description, categoryId: r.categoryId, spentAt: r.date, amountCents: r.amountCents,
-      currency: space.base_currency, paidFrom: "member", splitMode: "default", participants: members.map((m) => m.id), payers: [], isPrivate: false, tags: [], ...(accountId !== undefined ? { accountId } : {}),
+      currency: statementCurrency, paidFrom: "member", splitMode: "default", participants: members.map((m) => m.id), payers: [], isPrivate: false, tags: [], ...(accountId !== undefined ? { accountId } : {}),
     });
     if (res.ok) imported++; else failed++;
   }

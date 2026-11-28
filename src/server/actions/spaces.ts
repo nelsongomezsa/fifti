@@ -196,7 +196,9 @@ export async function startPartnerInvite(input: unknown): Promise<{ ok: true; sp
 
   let spaceId = parsed.data.spaceId;
   if (!spaceId) {
-    const { data, error } = await supabase.rpc("create_space", { p_name: x("Nuestro hogar"), p_kind: "household", p_currency: "EUR", p_emoji: null, p_template: null, p_starts: null, p_ends: null });
+    // El hogar nace en la moneda de tu Personal
+    const { data: mine } = await supabase.from("spaces").select("base_currency").eq("kind", "personal").eq("created_by", user.id).maybeSingle();
+    const { data, error } = await supabase.rpc("create_space", { p_name: x("Nuestro hogar"), p_kind: "household", p_currency: mine?.base_currency ?? "EUR", p_emoji: null, p_template: null, p_starts: null, p_ends: null });
     if (error) return { ok: false, error: x(rpcMessage(error)) };
     spaceId = data as string;
   }

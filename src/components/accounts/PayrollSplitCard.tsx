@@ -9,7 +9,7 @@ import { createTransfer } from "@/server/actions/accounts";
 export type SplitItem = { toId: string; toName: string; color: string; cents: number };
 
 /** «Reparte tu nómina»: traspasos sugeridos con el reparto del plan. Marcarlos crea el traspaso en Fifti; el dinero lo mueve la persona en su banco. */
-export function PayrollSplitCard({ fromId, fromName, items, demo }: { fromId: string; fromName: string; items: SplitItem[]; demo: boolean }) {
+export function PayrollSplitCard({ fromId, fromName, items, demo, currency }: { fromId: string; fromName: string; items: SplitItem[]; demo: boolean; currency: string }) {
   const x = useTx();
   const router = useRouter();
   const [done, setDone] = useState<Set<string>>(new Set());
@@ -17,7 +17,7 @@ export function PayrollSplitCard({ fromId, fromName, items, demo }: { fromId: st
   const [, start] = useTransition();
   const left = items.filter((i) => !done.has(i.toId));
   if (left.length === 0) return null;
-  const fmt = (c: number) => formatMoney(c, "EUR", x.locale);
+  const fmt = (c: number) => formatMoney(c, currency, x.locale);
   const mark = (i: SplitItem) => {
     setErr(null);
     if (demo) return setErr(x("Crea una cuenta para guardar"));

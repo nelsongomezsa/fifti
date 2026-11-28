@@ -16,7 +16,9 @@ import { PasswordForm } from "@/components/ui/PasswordForm";
 import { PushSettings } from "@/components/pwa/PushSettings";
 import { vapidPublicKey } from "@/lib/vapid";
 import { savePrefs } from "@/server/actions/push";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { ChangeCurrency } from "@/components/money/ChangeCurrency";
+import { currencyForLanguages, currencyLabel } from "@/lib/fx";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Turnstile } from "@/components/ui/Turnstile";
 import { turnstileSiteKey } from "@/lib/turnstile-public";
@@ -40,8 +42,8 @@ export default async function SettingsPage() {
     supabase.from("spaces").select("id, name").eq("kind", "group").not("archived_at", "is", null).order("archived_at", { ascending: false }),
     user.is_anonymous ? Promise.resolve({ data: null }) : supabase.from("notification_prefs").select("*").maybeSingle(),
     user.is_anonymous ? Promise.resolve({ data: null }) : supabase.from("profiles").select("ai_phrases").maybeSingle(),
-    supabase.from("favorites").select("id, label, amount_cents").order("label"),
-    supabase.from("space_members").select("space_id, user_id"),
+    supabase.from("favorites").select("id, label, amount_cents, space_id").order("label"),
+    supabase.from("space_members").select("space_id, user_id, role"),
     supabase.from("spaces").select("id, created_by").eq("created_by", user.id),
     supabase.from("share_links").select("space_id").eq("kind", "invite").eq("revoked", false).gt("expires_at", new Date().toISOString()),
     user.is_anonymous ? Promise.resolve(null) : loadLoans(supabase, user.id),
@@ -50,7 +52,12 @@ export default async function SettingsPage() {
   const pendingInvite = new Set((invites ?? []).map((i) => i.space_id));
   const createdByMe = new Set((owned ?? []).map((o) => o.id));
   const peopleOf = (id: string) => (members ?? []).filter((m) => m.space_id === id).length;
-  const loans = loanRows ? loanTotals(loanRows) : null;
+  const isOwner = (id: string) => (members ?? []).some((m) => m.space_id === id && m.user_id === user.id && m.role === "owner");
+  const homeCurrency = spaces.find((s) => s.kind === "personal")?.currency ?? "EUR";
+  const loans = loanRows ? await loanTotals(loanRows, homeCurrency) : null;
+  const personalSpace = spaces.find((s) => s.kind === "personal");
+  // Moneda que se propone según la región del navegador, si aún estás en euros
+  const suggested = currencyForLanguages((await headers()).get("accept-language"));
   const name = (user.user_metadata?.display_name as string | undefined) ?? user.email ?? "";
   const initial = (name.trim()[0] ?? "A").toUpperCase();
   const themeLabel = theme === "light" ? t("themeLight") : theme === "system" ? t("themeSystem") : t("themeDark");
@@ -104,6 +111,8 @@ export default async function SettingsPage() {
             <RowSheet key={s.id} label={label} value={s.kind === "household" && people <= 1 && pendingInvite.has(s.id) ? x("Invitación pendiente") : s.kind === "personal" || people <= 1 ? x("Solo tú") : `${people} ${x("personas")}`} title={label}>
               <Link href={s.kind === "personal" ? "/plan" : `/espacio/${s.id}`} className="flex min-h-12 items-center justify-between rounded-card border border-border bg-surface px-4">{x("Abrir")} {label}<span aria-hidden className="text-ink-3">›</span></Link>
               {s.kind === "household" && people <= 1 && <PartnerInvite spaceId={s.id} dismissible={false} pending={pendingInvite.has(s.id)} />}
+              {s.id === personalSpace?.id && s.currency === "EUR" && suggested !== "EUR" && <p className="text-sm text-ink-2">{x("Por la región de tu navegador, quizá prefieras")} {currencyLabel(suggested, x.locale)}.</p>}
+              {!user.is_anonymous && <ChangeCurrency spaceId={s.id} current={s.currency} canChange={demo || isOwner(s.id)} demo={demo} />}
               <ClearSpace spaceId={s.id} name={label} canClear={demo || createdByMe.has(s.id)} shared={s.kind !== "personal" && people > 1} demo={demo} />
             </RowSheet>
           );
@@ -136,7 +145,7 @@ export default async function SettingsPage() {
 
       <SettingsGroup title={x("Dinero")}>
         {!user.is_anonymous && <RowLink href="/cuentas" label={x("Mis cuentas")} />}
-        <RowLink href="/prestamos" label={x("Préstamos")} value={loans && loans.owedToMe > 0 ? `${x("Te deben")} ${formatMoney(loans.owedToMe, "EUR", x.locale)}` : undefined} />
+        <RowLink href="/prestamos" label={x("Préstamos")} value={loans && loans.owedToMe > 0 ? `${x("Te deben")} ${formatMoney(loans.owedToMe, homeCurrency, x.locale)}` : undefined} />
         <RowLink href="/balance" label={x("Balance y saldar deudas")} />
         <RowLink href="/csv" label={x("Importar del banco (CSV)")} />
       </SettingsGroup>
@@ -157,7 +166,7 @@ export default async function SettingsPage() {
       <ul className="flex flex-col gap-2">
         {favs?.map((f) => (
           <li key={f.id} className="flex items-center justify-between rounded-card border border-border bg-surface px-4 py-2 text-sm">
-            <span>{f.label} <span className="money font-mono text-ink-3">{formatMoney(f.amount_cents, "EUR", x.locale)}</span></span>
+            <span>{f.label} <span className="money font-mono text-ink-3">{formatMoney(f.amount_cents, spaces.find((s) => s.id === f.space_id)?.currency ?? "EUR", x.locale)}</span></span>
             <form action={deleteFavorite}><input type="hidden" name="favoriteId" value={f.id} /><button aria-label={`Borrar ${f.label}`} className="min-h-11 min-w-11 text-over-text">✕</button></form>
           </li>
         ))}

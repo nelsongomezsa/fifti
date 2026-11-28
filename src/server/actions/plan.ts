@@ -11,6 +11,7 @@ import { parsePercentToBp, uuidSchema } from "@/lib/validation/spaces";
 import { RULES } from "@/lib/security/rate-limit";
 import { allow } from "@/lib/security/user-limit";
 import { rpcMessage } from "@/server/rpc-error";
+import { warmContribution } from "@/server/currency-warm";
 import type { FormState } from "./auth";
 
 const month = z.string().refine(isMonthStart, "Mes no válido");
@@ -197,6 +198,8 @@ export async function markContributionPaid(_prev: FormState, fd: FormData): Prom
   if (!id.success || paid === null) return { error: x("Datos no válidos") };
   const { supabase, user } = await ctx();
   if (!user) return { error: x("Sesión caducada.") };
+  const { data: row } = await supabase.from("contributions").select("space_id").eq("id", id.data).maybeSingle();
+  if (row) await warmContribution(supabase, row.space_id);
   const { error } = await supabase.rpc("mark_contribution_paid", { p_id: id.data, p_paid: paid });
   if (error) return { error: x(rpcMessage(error)) };
   revalidatePath("/plan");

@@ -45,9 +45,10 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
       supabase.from("audit_log").select("id, action, at, actor").eq("row_id", id).eq("table_name", "expenses").order("at", { ascending: false }).limit(20),
       supabase.from("expense_tags").select("tags(name)").eq("expense_id", id),
       e.category_id ? supabase.from("categories").select("name, system_key, funds(name, color, system_key)").eq("id", e.category_id).maybeSingle() : Promise.resolve({ data: null }),
-      supabase.from("spaces").select("kind").eq("id", e.space_id).maybeSingle(),
+      supabase.from("spaces").select("kind, base_currency").eq("id", e.space_id).maybeSingle(),
     ]);
-  const me = members?.find((m) => m.user_id === user.id);
+  const cur: string = sp?.base_currency ?? e.currency;
+  const me =members?.find((m) => m.user_id === user.id);
   const name = (mid: string) => members?.find((m) => m.id === mid)?.display_name ?? "—";
   const personal = sp?.kind === "personal";
   const canEdit = me && (me.role !== "guest" || me.id === e.created_by_member);
@@ -75,7 +76,7 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
         <p className="mt-1 text-sm text-ink-3">
           {new Date(`${e.spent_at}T00:00:00Z`).toLocaleDateString(x.locale, { dateStyle: "long", timeZone: "UTC" })}
           {(priv?.category_id ? null : cat?.name) ? ` · ${cat ? displayName(x, cat.name, cat.system_key) : ""}` : ""}
-          {e.currency !== "EUR" || e.fx_rate !== 1 ? ` · ${x("cambio")} ${e.fx_rate}` : ""}
+          {e.currency !== cur ? ` · ≈ ${formatMoney(e.amount_base_cents, cur, x.locale)} · ${x("cambio")} ${e.fx_rate}` : ""}
         </p>
         {e.is_private && <p className="mt-1 text-sm text-ink-2">{x("Gasto privado: los demás ven solo importe y reparto.")}</p>}
         {tags.length > 0 && <p className="mt-2 flex flex-wrap gap-2">{tags.map((t) => <span key={t} className="rounded-full border border-border px-3 py-1 text-xs text-ink-2">#{t}</span>)}</p>}
@@ -84,12 +85,12 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
       {canEdit && (
         <div className="flex gap-3">
           <EditExpenseButton spaceId={e.space_id} prefill={{
-            spaceId: e.space_id, amountCents: e.amount_cents, categoryId: e.category_id ?? priv?.category_id ?? null, description: title,
+            spaceId: e.space_id, amountCents: e.amount_cents, currency: e.currency, categoryId: e.category_id ?? priv?.category_id ?? null, description: title,
             participants: splits?.map((s) => s.member_id), payerId: payers?.[0]?.member_id, tags: tags.join(" "),
-            edit: { id, clientId: e.client_id, spentAt: e.spent_at, paidFrom: e.paid_from as "member" | "pot", splitMode: e.split_mode as "default" | "equal" | "custom", isPrivate: e.is_private },
+            edit:{ id, clientId: e.client_id, spentAt: e.spent_at, paidFrom: e.paid_from as "member" | "pot", splitMode: e.split_mode as "default" | "equal" | "custom", isPrivate: e.is_private },
           }} />
           <EditExpenseButton spaceId={e.space_id} label={x("Duplicar")} prefill={{
-            spaceId: e.space_id, amountCents: e.amount_cents, categoryId: e.category_id ?? priv?.category_id ?? null, description: title,
+            spaceId: e.space_id, amountCents: e.amount_cents, currency: e.currency, categoryId: e.category_id ?? priv?.category_id ?? null, description: title,
             participants: splits?.map((s) => s.member_id), payerId: payers?.[0]?.member_id, tags: tags.join(" "),
           }} />
           <DeleteExpenseButton expenseId={id} />
@@ -100,13 +101,13 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
       <div className="rounded-card border border-border bg-surface p-4">
         <h2 className="mb-2 font-semibold">{e.paid_from === "pot" ? x("Pagado desde el bote") : x("Pagó")}</h2>
         {e.paid_from === "member" && payers?.map((p) => (
-          <p key={p.member_id} className="flex justify-between text-sm"><span>{name(p.member_id)}</span><span className="money font-mono">{formatMoney(p.amount_cents, "EUR", x.locale)}</span></p>
+          <p key={p.member_id} className="flex justify-between text-sm"><span>{name(p.member_id)}</span><span className="money font-mono">{formatMoney(p.amount_cents, cur, x.locale)}</span></p>
         ))}
         <h2 className="mb-2 mt-4 font-semibold">{x("Reparto")}</h2>
         {splits?.map((s) => (
           <p key={s.member_id} className="flex justify-between text-sm text-ink-2">
             <span>{name(s.member_id)} <span className="text-ink-3">{(s.share_bp / 100).toFixed(2).replace(".", ",")} %</span></span>
-            <span className="money font-mono text-ink">{formatMoney(s.amount_cents, "EUR", x.locale)}</span>
+            <span className="money font-mono text-ink">{formatMoney(s.amount_cents, cur, x.locale)}</span>
           </p>
         ))}
       </div>

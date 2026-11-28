@@ -9,6 +9,7 @@ import { allow } from "@/lib/security/user-limit";
 import { createClient } from "@/lib/supabase/server";
 import { rpcMessage } from "@/server/rpc-error";
 import { notify } from "@/server/push";
+import { warmContribution } from "@/server/currency-warm";
 
 export type SimpleResult = { ok: boolean; error?: string };
 
@@ -45,6 +46,7 @@ export async function contributeHousehold(input: unknown): Promise<SimpleResult>
   const { data } = await supabase.auth.getUser();
   if (!data.user) return { ok: false, error: x("Sesión caducada.") };
   if (!(await allow(RULES.planWrites, data.user.id))) return { ok: false, error: x("Demasiados intentos. Espera un rato.") };
+  await warmContribution(supabase, p.data.spaceId);
   const { error } = await supabase.rpc("contribute_household", { p_space: p.data.spaceId, p_amount: p.data.amountCents });
   if (error) return { ok: false, error: x(rpcMessage(error)) };
   revalidatePath("/", "layout");

@@ -42,7 +42,7 @@ export default async function FundDetailPage({ params }: { params: Promise<{ id:
   const a = plan.allocations[id];
   const row = summarizeFund(id, (a?.planned ?? 0) + (a?.carry ?? 0), plan.spentByFund[id] ?? 0);
   const name = displayName(x, fund.name, fund.system_key);
-  const fmt = (c: number) => formatMoney(c, "EUR", x.locale);
+  const fmt = (c: number) => formatMoney(c, active.currency, x.locale);
   const lines: Line[] = [
     ...(exp ?? []).map((e) => ({ id: e.id, date: e.spent_at as string, label: e.description || x("Sin concepto"), cents: e.amount_base_cents as number, categoryId: e.category_id as string | null })),
     ...(mir ?? []).map((m) => ({ id: m.source_expense_id as string, date: m.spent_at as string, label: (m.label as string) || x("Gasto compartido"), cents: m.amount_cents as number, categoryId: null, from: x("De una burbuja compartida") })),

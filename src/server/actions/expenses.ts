@@ -17,6 +17,7 @@ import { uuidSchema } from "@/lib/validation/spaces";
 import { rpcMessage } from "@/server/rpc-error";
 import type { FormState } from "./auth";
 import { resolveFx } from "@/server/fx";
+import { warmMovement } from "@/server/currency-warm";
 import { notify } from "@/server/push";
 
 /** Propuesta de regla tras corregir dos veces la misma categoría para un concepto. */
@@ -67,6 +68,7 @@ export async function saveExpense(input: unknown): Promise<SaveResult> {
     }
 
     const prev = v.id ? (await supabase.from("expenses").select("category_id").eq("id", v.id).maybeSingle()).data : null;
+    await warmMovement(supabase, { spaceId: v.spaceId, userId: user.id, day: v.spentAt, currency: v.currency, accountId: v.accountId, movementId: v.id });
     const { data, error } = await supabase.rpc("save_expense", {
       p: {
         id: v.id ?? null, client_id: v.clientId, space_id: v.spaceId, description: v.description, category_id: v.categoryId ?? null,
@@ -198,6 +200,7 @@ export async function saveIncome(_prev: FormState, fd: FormData): Promise<FormSt
   const { supabase, user } = await ctx();
   if (!user) return { error: x("Sesión caducada.") };
   const v = parsed.data;
+  await warmMovement(supabase, { spaceId: v.spaceId, userId: user.id, day: v.receivedAt, accountId: v.accountId, movementId: v.id, table: "incomes" });
   const { data: incomeId, error } = await supabase.rpc("save_income", {
     p: { id: v.id ?? null, space_id: v.spaceId, member_id: v.memberId, amount_cents: v.amountCents, source: v.source, received_at: v.receivedAt, is_recurring: v.isRecurring },
   });

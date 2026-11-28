@@ -19,7 +19,7 @@ export default async function ContributePage() {
   const myIds = new Set((mine ?? []).map((m) => m.id));
   const data = homes.map((h) => {
     const c = (rows ?? []).find((r) => r.space_id === h.id && myIds.has(r.member_id));
-    return { id: h.id, name: h.name, expectedCents: c?.expected_cents ?? 0, paidCents: c?.paid_cents ?? 0 };
+    return { id: h.id, name: h.name, expectedCents: c?.expected_cents ?? 0, paidCents: c?.paid_cents ?? 0, currency: h.currency };
   });
   return (
     <section className="flex flex-col gap-5 pt-2">

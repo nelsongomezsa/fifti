@@ -16,8 +16,8 @@ import type { ExpenseInput } from "@/lib/validation/expense";
 import { deleteExpense } from "@/server/actions/expenses";
 import { loadSheetContext, type SheetContext } from "@/server/actions/sheet";
 
-// v2: la forma del contexto cambió (reglas por burbuja); un contexto guardado antiguo ya no se usa
-export const CTX_CACHE_KEY = "fifti:sheetCtx:v3";
+// La forma del contexto cambió (moneda de cada cuenta); un contexto guardado antiguo ya no se usa
+export const CTX_CACHE_KEY = "fifti:sheetCtx:v4";
 
 type Toast =
   | { type: "saved"; cid: string; id: string | null; spaceName: string; shareCents: number; currency: string; queued: boolean }
@@ -133,7 +133,7 @@ export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
     if (cancelled.current.has(cid)) { cancelled.current.delete(cid); return; } // «Deshacer» ya se ocupó de él
     if (!res.ok) {
       pending.remove([cid]);
-      showToast({ type: "error", message: res.error, retry: { spaceId: input.spaceId, amountCents: input.amountCents, categoryId: input.categoryId ?? null, description: input.description } });
+      showToast({ type: "error", message: res.error, retry: { spaceId: input.spaceId, amountCents: input.amountCents, currency: input.currency, categoryId: input.categoryId ?? null, description: input.description } });
       return;
     }
     const queued = res.id === "pending";
@@ -230,7 +230,7 @@ export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
                   <li key={f.id}>
                     <button type="button" className="min-h-11 rounded-full border border-border px-4 text-sm"
                       onClick={() => openSheet({ spaceId: f.spaceId, amountCents: f.amountCents, categoryId: f.categoryId, description: f.label })}>
-                      {f.label} <span className="font-mono text-ink-3">{formatMoney(f.amountCents, "EUR", x.locale)}</span>
+                      {f.label} <span className="font-mono text-ink-3">{formatMoney(f.amountCents, ctx.spaces.find((s) => s.id === f.spaceId)?.currency ?? "EUR", x.locale)}</span>
                     </button>
                   </li>
                 ))}

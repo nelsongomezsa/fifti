@@ -19,6 +19,8 @@ import { PayrollSplitCard } from "@/components/accounts/PayrollSplitCard";
 import { payrollSource, payrollSplit } from "@/lib/payroll-split";
 import { loadAccounts } from "@/server/accounts";
 import { loadLoans, loanTotals } from "@/server/loans";
+import { ViewInCurrency } from "@/components/money/ViewInCurrency";
+import { sumIn } from "@/server/fx";
 import { loadOverview, startSeries } from "@/server/overview";
 import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
 
@@ -29,6 +31,7 @@ export default async function HomePage() {
   const active = await getActiveSpace(spaces);
   if (!active) return null;
   const supabase = await createClient();
+  const cur = active.currency;
 
   // La serie de 6 meses arranca ya, pero no bloquea las cifras: la gráfica y la variación llegan después (Suspense)
   const seriesP = startSeries(supabase, active.id, active.kind);
@@ -57,7 +60,7 @@ export default async function HomePage() {
     supabase.from("account_transfers").select("to_account, amount_cents").eq("source", "payroll_split").gte("transfer_date", monthStart(new Date())),
     active.kind === "household" ? supabase.from("share_links").select("id").eq("space_id", active.id).eq("kind", "invite").eq("revoked", false).gt("expires_at", new Date().toISOString()).limit(1) : Promise.resolve({ data: [] as { id: string }[] }),
   ]);
-  const loans = loanTotals(loanRows);
+  const loans = await loanTotals(loanRows, cur);
   const todayIso = new Date().toISOString().slice(0, 10);
   const upcoming = upcomingCharges((recRows ?? []).map((r) => ({ id: r.id, description: r.description, amountCents: r.amount_cents, frequency: r.frequency, day: r.day, nextRun: r.next_run, spaceId: active.id })), [], todayIso, 30, new Set((skipRows ?? []).map((k) => `${k.recurring_id}|${k.skip_on}`))).slice(0, 3);
   const whenLabel = (iso: string) => { const d = Math.round((Date.parse(`${iso}T00:00:00Z`) - Date.parse(`${todayIso}T00:00:00Z`)) / 86400000); return d === 0 ? x("Hoy") : d === 1 ? x("Mañana") : new Date(`${iso}T00:00:00Z`).toLocaleDateString(x.locale, { day: "numeric", month: "short", timeZone: "UTC" }); };
@@ -79,9 +82,12 @@ export default async function HomePage() {
   const payIncome = (monthIncomes ?? [])[0];
   const fromId = payIncome ? payrollSource(payIncome.account_id, accounts) : null;
   const acctOfFund = new Map((fundAcc ?? []).map((f) => [f.id, f.account_id as string | null]));
-  const splitItems = (active.kind !== "group" && fromId ? payrollSplit(o.funds.map((f) => ({ plannedCents: f.planned, accountId: acctOfFund.get(f.fundId) ?? null })), fromId, (splitDone ?? []).map((d) => ({ toAccount: d.to_account, amountCents: d.amount_cents }))) : [])
+  // El reparto de la nómina se sugiere solo entre cuentas en la moneda del plan (entre monedas hay que decir cuánto llega)
+  const splitItems = (active.kind !== "group" && fromId && accById.get(fromId)?.currency === cur ?payrollSplit(o.funds.map((f) => ({ plannedCents: f.planned, accountId: acctOfFund.get(f.fundId) ?? null })), fromId, (splitDone ?? []).map((d) => ({ toAccount: d.to_account, amountCents: d.amount_cents }))) : [])
+    .filter((s) => accById.get(s.toAccountId)?.currency === cur)
     .map((s) => ({ toId: s.toAccountId, toName: accById.get(s.toAccountId)?.name ?? "—", color: accById.get(s.toAccountId)?.color ?? "#9AA3AF", cents: s.amountCents }));
   const mineAccounts = accounts.filter((a) => a.mine);
+  const accountsTotal = await sumIn(cur, mineAccounts.map((a) => ({ cents: a.balanceCents, currency: a.currency })));
   const weekly = o.plan.configured && active.kind !== "group" ? weeklyBudget(o.funds, new Date().toISOString().slice(0, 10)) : null;
   const today = new Date();
   const showSummary = today.getUTCDate() <= 3 && o.month === monthStart(today);
@@ -112,36 +118,40 @@ export default async function HomePage() {
       {!o.plan.configured || isGroup ? (
         <div className={cardCls}>
           <p className="t-label">{x("Gastado este mes")}</p>
-          <p className="money t-display mt-1">{formatMoney(o.spent, "EUR", x.locale)}</p>
+          <p className="money t-display mt-1">{formatMoney(o.spent, cur, x.locale)}</p>
           {!o.plan.configured && <div className="mt-4"><SetupPlanCard /></div>}
         </div>
       ) : (
         <div className={`${cardCls} p-5`}>
           <Link href="/plan" aria-label={`${x("Te sobrará a final de mes")}. ${x("Ver plan")}`} className="block">
             <p className="flex items-center justify-between text-sm text-ink-3"><span>{x("Te sobrará a final de mes")}</span><span aria-hidden>›</span></p>
-            <AnimatedMoney cents={o.forecastLeftover} className={`money t-display mt-1 block ${o.forecastLeftover < 0 ? "text-over-text" : ""}`} />
+            <AnimatedMoney currency={cur} cents={o.forecastLeftover}className={`money t-display mt-1 block ${o.forecastLeftover < 0 ? "text-over-text" : ""}`} />
             <span className="mt-4 block h-2.5 w-full overflow-hidden rounded-full bg-track" role="img" aria-label={`${usedPct} % ${x("gastado de lo previsto")}`}>
               <span className="block h-full rounded-full" style={{ width: `${usedPct}%`, background: usedPct >= 100 ? "var(--over)" : "var(--accent)" }} />
             </span>
           </Link>
           <div className="mt-3 flex items-center justify-between gap-3">
-            <p className="text-sm text-ink-2">{x("Llevas")} <OptimisticSpent base={spentOfBudget} spaceId={active.id} kind={active.kind} currency="EUR" inline /> {x("de")} <span className="money font-mono text-ink">{formatMoney(plannedTotal, "EUR", x.locale)}</span> {x("previstos")}</p>
+            <p className="text-sm text-ink-2">{x("Llevas")} <OptimisticSpent base={spentOfBudget} spaceId={active.id} kind={active.kind} currency={cur} inline /> {x("de")} <span className="money font-mono text-ink">{formatMoney(plannedTotal, cur, x.locale)}</span> {x("previstos")}</p>
           </div>
           <p className="mt-1 text-sm text-ink-3">
-            {x("Ingresos")} <span className="money font-mono text-ink-2">{formatMoney(o.income, "EUR", x.locale)}</span> = <span className="money font-mono text-ink-2">{formatMoney(plannedTotal, "EUR", x.locale)}</span> {x("de gasto previsto")} + <span className="money font-mono text-ink-2">{formatMoney(savedPlanned, "EUR", x.locale)}</span> {x("de ahorro")}
-            {o.income - plannedTotal - savedPlanned > 0 && <> + <span className="money font-mono text-ink-2">{formatMoney(o.income - plannedTotal - savedPlanned, "EUR", x.locale)}</span> {x("sin asignar")}</>}
+            {x("Ingresos")} <span className="money font-mono text-ink-2">{formatMoney(o.income, cur, x.locale)}</span> = <span className="money font-mono text-ink-2">{formatMoney(plannedTotal, cur, x.locale)}</span> {x("de gasto previsto")} + <span className="money font-mono text-ink-2">{formatMoney(savedPlanned, cur, x.locale)}</span> {x("de ahorro")}
+            {o.income - plannedTotal - savedPlanned > 0 && <> + <span className="money font-mono text-ink-2">{formatMoney(o.income - plannedTotal - savedPlanned, cur, x.locale)}</span> {x("sin asignar")}</>}
           </p>
           <div className="flex flex-wrap gap-x-4">
             <Link prefetch href="/inicio/prevision" className="inline-flex min-h-11 items-center text-sm text-ink-2 underline-offset-4 hover:underline">{x("Ver desglose")}</Link>
             <Link prefetch href="/inicio/ingresos" className="inline-flex min-h-11 items-center text-sm text-ink-2 underline-offset-4 hover:underline">{x("Ver ingresos")}</Link>
           </div>
-          <Suspense fallback={null}><ChangeLine seriesP={seriesP} month={o.month} leftover={o.forecastLeftover} locale={x.locale} vsPrev={t("vsPrev")} label={x("Variación frente al mes anterior")} /></Suspense>
+          <Suspense fallback={null}><ChangeLine currency={cur} seriesP={seriesP}month={o.month} leftover={o.forecastLeftover} locale={x.locale} vsPrev={t("vsPrev")} label={x("Variación frente al mes anterior")} /></Suspense>
         </div>
       )}
 
-      {fromId && splitItems.length > 0 && <PayrollSplitCard fromId={fromId} fromName={accById.get(fromId)?.name ?? ""} items={splitItems} demo={user.app_metadata?.demo === true} />}
+      <ViewInCurrency user={user} base={cur} figures={!o.plan.configured || isGroup
+        ? [{ label: x("Gastado este mes"), cents: o.spent }]
+        : [{ label: x("Te sobrará a final de mes"), cents: o.forecastLeftover }, { label: x("Ingresos"), cents: o.income }, { label: x("Gastado este mes"), cents: o.spent }]} />
 
-      {budgetLeft !== null && <p className={`${cardCls} text-sm text-ink-2`}>{t("budgetLeft", { amount: formatMoney(budgetLeft, "EUR", locale) })}</p>}
+      {fromId && splitItems.length > 0 && <PayrollSplitCard currency={cur} fromId={fromId} fromName={accById.get(fromId)?.name ?? ""} items={splitItems} demo={user.app_metadata?.demo === true} />}
+
+      {budgetLeft !== null && <p className={`${cardCls} text-sm text-ink-2`}>{t("budgetLeft", { amount: formatMoney(budgetLeft, cur, locale) })}</p>}
 
       {/* 2 · Esta semana y ahorro */}
       {o.plan.configured && !isGroup && (
@@ -149,13 +159,13 @@ export default async function HomePage() {
           {weekly && (
             <div className={`${cardCls} ${weekly.status === "over" ? "border-over" : weekly.status === "warn" ? "border-warn" : ""}`} role="status">
               <p className="t-label">{weekly.status === "over" ? x("Te has pasado") : (daysLeft < 7 ? x("Hasta fin de mes puedes gastar") : x("Esta semana puedes gastar"))}</p>
-              <p className={`money t-figure mt-1 ${weekly.status === "over" ? "text-over-text" : weekly.status === "warn" ? "text-warn" : ""}`}><AnimatedMoney cents={Math.abs(weekly.leftCents)} /></p>
-              <p className="mt-1 text-xs text-ink-3">{weekly.status === "over" ? x("de tu gasto variable") : `≈ ${formatMoney(perDay, "EUR", x.locale)} ${x("al día")}`}</p>
+              <p className={`money t-figure mt-1 ${weekly.status === "over" ? "text-over-text" : weekly.status === "warn" ? "text-warn" : ""}`}><AnimatedMoney currency={cur} cents={Math.abs(weekly.leftCents)} /></p>
+              <p className="mt-1 text-xs text-ink-3">{weekly.status === "over" ? x("de tu gasto variable") : `≈ ${formatMoney(perDay, cur, x.locale)} ${x("al día")}`}</p>
             </div>
           )}
           <Link prefetch href="/inicio/ahorro" className={`${cardCls} block transition-colors hover:bg-surface-2`}>
             <p className="t-label flex justify-between"><span>{x("Ahorro este mes")}</span><span aria-hidden>›</span></p>
-            <p className="money t-figure mt-1"><AnimatedMoney cents={savedPlanned} /></p>
+            <p className="money t-figure mt-1"><AnimatedMoney currency={cur} cents={savedPlanned} /></p>
             <p className="mt-1 text-xs text-ink-3">{pctText(o.plannedSavingsBp)} {x("de tus ingresos")}</p>
           </Link>
         </div>
@@ -165,14 +175,16 @@ export default async function HomePage() {
       {mineAccounts.length > 0 && (
         <div className={cardCls}>
           <div className="flex items-center justify-between"><h2 className="font-semibold">{x("Tus cuentas")}</h2>{more("/cuentas", x("Ver cuentas"))}</div>
-          <p className="money t-figure mt-1">{formatMoney(mineAccounts.reduce((s, a) => s + a.balanceCents, 0), "EUR", x.locale)}</p>
+          <p className="money t-figure mt-1">{accountsTotal.approximate ? "≈ " : ""}{formatMoney(accountsTotal.total, cur, x.locale)}</p>
+          {accountsTotal.approximate && <p className="text-xs text-ink-3">{x("Total aproximado, con el cambio de hoy.")}</p>}
+          {accountsTotal.missing && <p className="text-xs text-ink-3">{x("Falta alguna cuenta: no hay tipo de cambio.")}</p>}
           <ul className="mt-1 divide-y divide-border">
             {mineAccounts.map((a) => (
               <li key={a.id}>
                 <Link prefetch href={`/cuentas/${a.id}`} className="flex min-h-12 items-center gap-3 text-sm">
                   <span aria-hidden className="size-2.5 shrink-0 rounded-full" style={{ background: a.color }} />
                   <span className="min-w-0 flex-1 truncate">{a.name}</span>
-                  <span className="money shrink-0 font-mono">{formatMoney(a.balanceCents, "EUR", x.locale)}</span>
+                  <span className="money shrink-0 font-mono">{formatMoney(a.balanceCents, a.currency, x.locale)}</span>
                 </Link>
               </li>
             ))}
@@ -192,7 +204,7 @@ export default async function HomePage() {
                 <li key={i} className="flex items-center gap-3 text-sm">
                   <CategoryIcon systemName={cat?.system_key} color={cat?.funds?.color} size={36} />
                   <span className="min-w-0 flex-1"><span className="block truncate font-medium">{c.label}</span><span className="block text-xs text-ink-3">{whenLabel(c.date) === d ? d : `${whenLabel(c.date)} · ${d}`}</span></span>
-                  <span className="money shrink-0 font-mono">{formatMoney(c.cents, "EUR", x.locale)}</span>
+                  <span className="money shrink-0 font-mono">{formatMoney(c.cents, cur, x.locale)}</span>
                 </li>
               );
             })}
@@ -209,7 +221,7 @@ export default async function HomePage() {
               <li key={f.fundId}>
                 <Link prefetch href={`/inicio/fondo/${f.fundId}`} className="block py-3">
                   <span className="flex items-center justify-between gap-3 text-sm"><span className="flex items-center gap-2 font-medium"><span aria-hidden className="size-2.5 rounded-full" style={{ background: f.color }} />{f.name}</span>
-                    <span className="money font-mono text-ink-2">{formatMoney(f.spent, "EUR", x.locale)} {x("de")} {formatMoney(f.planned, "EUR", x.locale)}</span></span>
+                    <span className="money font-mono text-ink-2">{formatMoney(f.spent, cur, x.locale)} {x("de")} {formatMoney(f.planned, cur, x.locale)}</span></span>
                   <span className="mt-2 block h-2 w-full overflow-hidden rounded-full bg-track"><span className="block h-full rounded-full" style={{ width: `${Math.min(100, f.usedBp / 100)}%`, background: f.color }} /></span>
                   {f.status !== "ok" && <span className="sr-only">{f.status === "over" ? x("te has pasado") : x("vas por el 80 %")}</span>}
                 </Link>
@@ -225,7 +237,7 @@ export default async function HomePage() {
           <span className="min-w-0">
             <span className="t-label block">{x("Balance")}</span>
             <span className="block truncate font-medium">
-              {!transfer ? x("Todo saldado") : transferMine === "owed" ? <>{transfer.from} {x("te debe")} <span className="money font-mono">{formatMoney(transfer.amountCents, "EUR", x.locale)}</span></> : transferMine === "owe" ? <>{x("Debes")} <span className="money font-mono">{formatMoney(transfer.amountCents, "EUR", x.locale)}</span> {x("a")} {transfer.to}</> : <>{transfer.from} → {transfer.to} <span className="money font-mono">{formatMoney(transfer.amountCents, "EUR", x.locale)}</span></>}
+              {!transfer ? x("Todo saldado") : transferMine === "owed" ? <>{transfer.from} {x("te debe")} <span className="money font-mono">{formatMoney(transfer.amountCents, cur, x.locale)}</span></> : transferMine === "owe" ? <>{x("Debes")} <span className="money font-mono">{formatMoney(transfer.amountCents, cur, x.locale)}</span> {x("a")} {transfer.to}</> : <>{transfer.from} → {transfer.to} <span className="money font-mono">{formatMoney(transfer.amountCents, cur, x.locale)}</span></>}
             </span>
           </span>
           <span className="flex shrink-0 items-center gap-2 text-sm text-ink-2">{x("Ver balance")}<span aria-hidden>›</span></span>
@@ -234,7 +246,7 @@ export default async function HomePage() {
 
       {active.kind === "personal" && (loans.owedToMe > 0 || loans.iOwe > 0) && (
         <Link href="/prestamos" className="flex min-h-12 items-center justify-between rounded-card border border-border bg-surface px-4 text-sm">
-          <span className="money font-mono">{x("Te deben")} {formatMoney(loans.owedToMe, "EUR", x.locale)} · {x("Debes")} {formatMoney(loans.iOwe, "EUR", x.locale)}</span>
+          <span className="money font-mono">{x("Te deben")} {formatMoney(loans.owedToMe, cur, x.locale)} · {x("Debes")} {formatMoney(loans.iOwe, cur, x.locale)}</span>
           <span aria-hidden className="text-ink-3">›</span>
         </Link>
       )}
@@ -261,7 +273,7 @@ export default async function HomePage() {
       </div>
 
       {/* Gráfica de 6 meses */}
-      <Suspense fallback={<div className="h-56 animate-pulse rounded-card border border-border bg-surface" />}><ChartCard seriesP={seriesP} month={o.month} leftover={o.leftover} locale={x.locale} title={t("chartTitle")} /></Suspense>
+      <Suspense fallback={<div className="h-56 animate-pulse rounded-card border border-border bg-surface" />}><ChartCard currency={cur} seriesP={seriesP}month={o.month} leftover={o.leftover} locale={x.locale} title={t("chartTitle")} /></Suspense>
 
       {/* 6 · Invitación a la pareja, al final y pequeña */}
       {!user.is_anonymous && active.kind === "personal" && !spaces.some((sp) => sp.kind === "household") && <PartnerInvite />}

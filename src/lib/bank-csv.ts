@@ -34,7 +34,7 @@ function detectFormat(hs: string[]): BankFormat {
   if (has("movimiento") && has("mas datos")) return "caixabank";
   if (has("movimiento") && has("disponible")) return "bbva";
   if (has("fecha operacion") && has("fecha valor") && has("concepto")) return "santander";
-  if (has("categoria") && has("fecha") && has("concepto") && has("importe") && hs.length <= 5) return "fifti";
+  if (has("categoria") && has("fecha") && has("concepto") && has("importe") && hs.length <= 7) return "fifti";
   return "generic";
 }
 
@@ -85,7 +85,7 @@ export function parseBankCsv(text: string, opts: { mapping?: Mapping; currency?:
   const m = opts.mapping;
   const di = m?.date ?? find(hs, DATE_PRI), ci = m?.description ?? find(hs, DESC_PRI), ai = m?.amount ?? find(hs, AMT_PRI);
   const gi = hs.indexOf("categoria") >= 0 ? hs.indexOf("categoria") : hs.indexOf("category");
-  const cur = hs.indexOf("currency") >= 0 ? hs.indexOf("currency") : hs.indexOf("divisa");
+  const cur = ["currency", "divisa", "moneda"].map((h) => hs.indexOf(h)).find((i) => i >= 0) ?? -1;
   const st = hs.indexOf("state");
   const bi = ["saldo", "balance", "saldo eur", "saldo contable", "disponible"].map((h) => hs.indexOf(h)).find((i) => i >= 0) ?? -1;
   const format = m ? "generic" : detectFormat(hs);

@@ -4,10 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { useTx } from "@/i18n/tx-client";
-import { formatMoney, parseToCents } from "@/lib/money";
+import { currencySymbol, formatMoney, parseToCents } from "@/lib/money";
 import { contributeHousehold } from "@/server/actions/space-admin";
 
-type Home = { id: string; name: string; expectedCents: number; paidCents: number };
+type Home = { id: string; name: string; expectedCents: number; paidCents: number; currency: string };
 
 /** Aportar al hogar: elegir hogar e importe (o tu parte del plan) y guardar. Aparece al instante y se confirma por detrás. */
 export function ContributeForm({ homes, demo }: { homes: Home[]; demo: boolean }) {
@@ -20,7 +20,8 @@ export function ContributeForm({ homes, demo }: { homes: Home[]; demo: boolean }
   const home = homes.find((h) => h.id === homeId);
   const cents = parseToCents(amount) ?? 0;
   const remaining = home ? Math.max(0, home.expectedCents - home.paidCents) : 0;
-  const fmt = (c: number) => formatMoney(c, "EUR", x.locale);
+  const currency = home?.currency ?? "EUR";
+  const fmt = (c: number) => formatMoney(c, currency, x.locale);
 
   const save = () => {
     if (cents <= 0 || !home) return;
@@ -48,7 +49,7 @@ export function ContributeForm({ homes, demo }: { homes: Home[]; demo: boolean }
       )}
       <div className="flex items-baseline gap-2 rounded-card border border-border bg-surface px-4 py-3 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent">
         <input inputMode="decimal" value={amount} onChange={(e) => { setAmount(e.target.value); setState({ kind: "idle" }); }} placeholder="0,00" aria-label={x("Importe")} autoFocus className="t-display w-full min-w-0 border-0 bg-transparent p-0 text-ink !outline-none placeholder:text-ink-3" />
-        <span className="t-figure text-ink-3">€</span>
+        <span className="t-figure text-ink-3">{currencySymbol(currency, x.locale)}</span>
       </div>
       {home && home.expectedCents > 0 && (
         <button type="button" onClick={() => setAmount((remaining / 100).toFixed(2).replace(".", ","))} disabled={remaining === 0} className="min-h-11 self-start rounded-full border border-border px-4 text-sm font-medium disabled:opacity-50">

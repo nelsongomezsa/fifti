@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 const KIND = { simple: "Meta", big_event: "Meta grande", challenge: "Reto" } as const;
 
 /** Metas de ahorro: es la pestaña Ahorro del Plan. */
-export async function SavingsTab({ active }: { active: { id: string; kind: "personal" | "household" | "group" } }) {
+export async function SavingsTab({ active }: { active: { id: string; kind: "personal" | "household" | "group"; currency: string } }) {
   const x = await getTx();
   if (active.kind === "group") {
     return <section className="pt-2"><p className="mt-3 rounded-card border border-border bg-surface p-4 text-ink-2">{x("El ahorro está en tu burbuja personal y en el hogar. Cambia de burbuja arriba.")}</p></section>;
@@ -34,7 +34,7 @@ export async function SavingsTab({ active }: { active: { id: string; kind: "pers
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-track" role="progressbar" aria-valuenow={Math.round(p.pctBp / 100)} aria-valuemin={0} aria-valuemax={100} aria-label={`Progreso de ${g.name}`}>
                   <div className="h-full rounded-full" style={{ width: `${p.pctBp / 100}%`, background: p.pctBp >= 10000 ? "var(--lime)" : "var(--lilac)" }} />
                 </div>
-                <p className="money mt-2 flex justify-between font-mono text-xs text-ink-2"><span>{formatMoney(p.contributed, "EUR", x.locale)} {x("de")}{" "}{formatMoney(g.target_cents, "EUR", x.locale)}</span><span>{Math.round(p.pctBp / 100)} %</span></p>
+                <p className="money mt-2 flex justify-between font-mono text-xs text-ink-2"><span>{formatMoney(p.contributed, active.currency, x.locale)} {x("de")}{" "}{formatMoney(g.target_cents, active.currency, x.locale)}</span><span>{Math.round(p.pctBp / 100)} %</span></p>
               </Link>
             </li>
           );

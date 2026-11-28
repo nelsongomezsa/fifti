@@ -5,7 +5,7 @@ import { unstable_rethrow, useRouter } from "next/navigation";
 import { startTransition, useActionState, useEffect, useState } from "react";
 import { useTx } from "@/i18n/tx-client";
 import { nextOccurrence, type NewFrequency } from "@/lib/calendar";
-import { formatMoney, parseToCents } from "@/lib/money";
+import { currencySymbol, formatMoney, parseToCents } from "@/lib/money";
 import { suggestCategory } from "@/lib/nl/parse";
 import { matchRule, type CategoryRule } from "@/lib/rules/match";
 import { deleteRecurringAndGo, saveRecurring } from "@/server/actions/plan";
@@ -18,7 +18,7 @@ const WEEKDAYS = ["L", "M", "X", "J", "V", "S", "D"];
 const FIELD = "min-h-12 w-full rounded-card border border-border bg-surface px-4 text-base text-ink placeholder:text-ink-3";
 
 /** Nuevo gasto fijo: importe grande, concepto con categoría sugerida, frecuencia, día de cobro tocando un número y próximo cobro calculado. */
-export function NewFixedExpense({ spaceId, categories, rules, notify, initial, accounts = [] }: { accounts?: { id: string; name: string; isDefault: boolean }[]; spaceId: string; categories: { id: string; name: string }[]; rules: CategoryRule[]; notify: { on: boolean; days: number }; initial?: { id: string; description: string; cents: number; freq: NewFrequency; day: number; category: string } }) {
+export function NewFixedExpense({ spaceId, currency, categories, rules, notify, initial, accounts = [] }: { currency: string; accounts?:{ id: string; name: string; isDefault: boolean }[]; spaceId: string; categories: { id: string; name: string }[]; rules: CategoryRule[]; notify: { on: boolean; days: number }; initial?: { id: string; description: string; cents: number; freq: NewFrequency; day: number; category: string } }) {
   const x = useTx();
   const router = useRouter();
   const today = new Date().toISOString().slice(0, 10);
@@ -80,9 +80,9 @@ export function NewFixedExpense({ spaceId, categories, rules, notify, initial, a
         <div className="mt-1 flex items-baseline gap-2 rounded-card border border-border bg-surface px-4 py-3 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent">
           <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0,00" aria-label={x("Importe")} autoFocus
             className="t-display w-full min-w-0 border-0 bg-transparent p-0 text-ink !outline-none placeholder:text-ink-3" />
-          <span className="t-figure text-ink-3">€</span>
+          <span className="t-figure text-ink-3">{currencySymbol(currency, x.locale)}</span>
         </div>
-        {cents > 0 && <p className="money text-xs text-ink-3">{formatMoney(cents, "EUR", x.locale)}</p>}
+        {cents > 0 && <p className="money text-xs text-ink-3">{formatMoney(cents, currency, x.locale)}</p>}
       </div>
 
       <div className="flex flex-col gap-2">

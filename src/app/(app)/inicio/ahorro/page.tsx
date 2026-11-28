@@ -18,7 +18,7 @@ export default async function SavingsDetailPage() {
   const plannedSaved = overview.funds.filter((f) => f.kind === "savings").reduce((a, f) => a + f.planned, 0);
   const pct = (bp: number) => `${bp < 0 ? "−" : ""}${(Math.abs(bp) / 100).toLocaleString(x.locale, { maximumFractionDigits: 0 })} %`;
   const monthLabel = (value: string) => new Date(`${value}T00:00:00Z`).toLocaleDateString(x.locale, { month: "long", year: "numeric", timeZone: "UTC" });
-  const amount = (cents: number) => formatMoney(cents, "EUR", x.locale);
+  const amount = (cents: number) => formatMoney(cents, active.currency, x.locale);
 
   return (
     <section className="flex flex-col gap-5 pt-2">

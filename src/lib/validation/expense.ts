@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { currencySchema } from "./spaces";
 import { MAX_AMOUNT_CENTS } from "@/lib/money";
 
 const cents = z.number().int().min(1, "El importe debe ser mayor que 0").max(MAX_AMOUNT_CENTS, "Importe demasiado alto");
@@ -14,7 +15,7 @@ export const expenseInputSchema = z
     categoryId: z.uuid().nullable().optional(),
     spentAt: isoDate,
     amountCents: cents,
-    currency: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/),
+    currency: currencySchema,
     paidFrom: z.enum(["member", "pot"]).default("member"),
     splitMode: z.enum(["default", "equal", "custom"]).default("default"),
     participants: z.array(z.uuid()).min(1).max(50),

@@ -12,7 +12,7 @@ const shortDay = (iso: string, locale: string) => new Date(`${iso}T00:00:00Z`).t
 const FORMAT_NAME: Record<string, string> = { santander: "Santander", bbva: "BBVA", caixabank: "CaixaBank", ing: "ING", revolut: "Revolut", n26: "N26", fifti: "Fifti", generic: "CSV" };
 
 /** Importar un extracto: vista previa con filas elegibles, categoría editable por fila, duplicados marcados y mapeo de columnas si hace falta. */
-export function CsvImport({ spaceId, currency = "EUR", accounts = [] }: { spaceId: string; currency?: string; accounts?: { id: string; name: string; isDefault: boolean; balanceCents: number }[] }) {
+export function CsvImport({ spaceId, currency: spaceCurrency, accounts = [] }: { spaceId: string; currency: string; accounts?: { id: string; name: string; isDefault: boolean; balanceCents: number; currency: string }[] }) {
   const x = useTx();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<BankPreview | null>(null);
@@ -20,6 +20,7 @@ export function CsvImport({ spaceId, currency = "EUR", accounts = [] }: { spaceI
   const [cats, setCats] = useState<Record<number, string>>({});
   const [map, setMap] = useState({ date: 0, description: 1, amount: 2, positiveIsExpense: false });
   const [accountId, setAccountId] = useState(() => accounts.find((a) => a.isDefault)?.id ?? "");
+  const currency = accounts.find((a) => a.id === accountId)?.currency ?? spaceCurrency;
   const [adjusted, setAdjusted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<string | null>(null);
@@ -30,6 +31,7 @@ export function CsvImport({ spaceId, currency = "EUR", accounts = [] }: { spaceI
     setBusy(true); setResult(null);
     const fd = new FormData();
     fd.set("file", file); fd.set("spaceId", spaceId);
+    if (accountId) fd.set("accountId", accountId);
     if (mapping) fd.set("mapping", JSON.stringify(mapping));
     const p = await previewCsv(fd);
     setPreview(p);

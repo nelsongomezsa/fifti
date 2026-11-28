@@ -28,7 +28,8 @@ export default async function BalancePage({ searchParams }: { searchParams: Prom
     );
   }
   const supabase = await createClient();
-  const b = await loadSpaceBalance(supabase, active.id);
+  const cur = active.currency;
+  const b =await loadSpaceBalance(supabase, active.id);
   const me = b.members.find((m) => m.user_id === user.id);
   const name = (id: string) => b.members.find((m) => m.id === id)?.display_name ?? "—";
   const next = whoPaysNext(b.balances);
@@ -45,7 +46,9 @@ export default async function BalancePage({ searchParams }: { searchParams: Prom
   const { data: others } = sharedSpaceIds.length ? await supabase.from("space_members").select("user_id, display_name, space_id").in("space_id", sharedSpaceIds).not("user_id", "is", null).neq("user_id", user.id) : { data: [] };
   for (const o of others ?? []) if (o.user_id) sharedUsers.set(o.user_id, o.display_name);
   const { data: lineMembers } = lines?.length ? await supabase.from("space_members").select("id, display_name").in("id", lines.flatMap((l) => [l.from_member, l.to_member])) : { data: [] };
-  const { data: lineSpaces } = lines?.length ? await supabase.from("spaces").select("id, name").in("id", lines.map((l) => l.space_id)) : { data: [] };
+  const { data: lineSpaces } = lines?.length ? await supabase.from("spaces").select("id, name, base_currency").in("id", lines.map((l) => l.space_id)) : { data: [] };
+  // Cada compensación va en la moneda de sus espacios (todos la comparten)
+  const spaceCurrency = (id: string | undefined) => (lineSpaces?.find((s) => s.id === id) as { base_currency?: string } | undefined)?.base_currency ?? cur;
 
   return (
     <section className="flex flex-col gap-5 pt-2">
@@ -57,7 +60,7 @@ export default async function BalancePage({ searchParams }: { searchParams: Prom
           return (
             <li key={m.id} className="flex items-center justify-between rounded-card border border-border bg-surface px-4 py-3">
               <span>{m.display_name}{m.id === me?.id ? " (tú)" : ""}</span>
-              <span className={`money font-mono ${v < 0 ? "text-over-text" : ""}`}>{v > 0 ? "+" : ""}{formatMoney(v, "EUR", x.locale)}</span>
+              <span className={`money font-mono ${v < 0 ? "text-over-text" : ""}`}>{v > 0 ? "+" : ""}{formatMoney(v, cur, x.locale)}</span>
             </li>
           );
         })}
@@ -79,7 +82,7 @@ export default async function BalancePage({ searchParams }: { searchParams: Prom
               <li key={`${t.from}-${t.to}`} className="rounded-card border border-border bg-surface p-4">
                 <p className="flex items-center justify-between">
                   <span>{name(t.from)} → {name(t.to)}</span>
-                  <span className="money font-mono text-lg">{formatMoney(t.amountCents, "EUR", x.locale)}</span>
+                  <span className="money font-mono text-lg">{formatMoney(t.amountCents, cur, x.locale)}</span>
                 </p>
                 {(me?.id === t.from || me?.id === t.to || me?.role === "owner") && (
                   <details className="mt-3">
@@ -111,7 +114,7 @@ export default async function BalancePage({ searchParams }: { searchParams: Prom
           {zero.length === 0 ? <p className="text-ink-2">{x("Ese mes ya está a cero.")}</p> : (
             <ul className="flex flex-col gap-2">{zero.map((t) => (
               <li key={`${t.from}-${t.to}`} className="flex justify-between rounded-card border border-border bg-surface px-4 py-3">
-                <span>{name(t.from)} → {name(t.to)}</span><span className="money font-mono">{formatMoney(t.amountCents, "EUR", x.locale)}</span>
+                <span>{name(t.from)} → {name(t.to)}</span><span className="money font-mono">{formatMoney(t.amountCents, cur, x.locale)}</span>
               </li>))}</ul>
           )}
         </div>
@@ -125,10 +128,10 @@ export default async function BalancePage({ searchParams }: { searchParams: Prom
           const other = sharedUsers.get(iAmA ? o.user_b : o.user_a) ?? "otra persona";
           return (
             <div key={o.id} className="rounded-card border border-border bg-surface p-4 text-sm">
-              <p className="font-semibold">{x("Compensación con")}{" "}{other}: <span className="money font-mono">{formatMoney(o.amount_cents, "EUR", x.locale)}</span></p>
+              <p className="font-semibold">{x("Compensación con")}{" "}{other}: <span className="money font-mono">{formatMoney(o.amount_cents, spaceCurrency(lines?.find((l) => l.offset_id === o.id)?.space_id), x.locale)}</span></p>
               <ul className="mt-2 text-ink-2">
                 {lines?.filter((l) => l.offset_id === o.id).map((l, i) => (
-                  <li key={i}>{lineSpaces?.find((s) => s.id === l.space_id)?.name}: {lineMembers?.find((m) => m.id === l.from_member)?.display_name} → {lineMembers?.find((m) => m.id === l.to_member)?.display_name} {formatMoney(l.amount_cents, "EUR", x.locale)}</li>
+                  <li key={i}>{lineSpaces?.find((s) => s.id === l.space_id)?.name}: {lineMembers?.find((m) => m.id === l.from_member)?.display_name} → {lineMembers?.find((m) => m.id === l.to_member)?.display_name} {formatMoney(l.amount_cents, spaceCurrency(l.space_id), x.locale)}</li>
                 ))}
               </ul>
               <div className="mt-3 flex gap-2">
@@ -154,7 +157,7 @@ export default async function BalancePage({ searchParams }: { searchParams: Prom
           <p key={s.id} className="flex items-center justify-between rounded-card border border-border bg-surface px-4 py-2 text-sm">
             <span>{name(s.from_member)} → {name(s.to_member)} <span className="text-xs text-ink-3">{s.method === "offset" ? "compensación" : s.method} · {s.settled_at}</span></span>
             <span className="flex items-center gap-2">
-              <span className="money font-mono">{formatMoney(s.amount_cents, "EUR", x.locale)}</span>
+              <span className="money font-mono">{formatMoney(s.amount_cents, cur, x.locale)}</span>
               {!s.offset_id && (s.created_by === user.id || me?.role === "owner") && (
                 <form action={deleteSettlement}><input type="hidden" name="settlementId" value={s.id} /><button aria-label={x("Borrar pago")} className="min-h-11 min-w-11 text-over-text">✕</button></form>
               )}

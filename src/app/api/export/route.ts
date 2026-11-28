@@ -17,19 +17,21 @@ export async function GET(request: NextRequest) {
   if (!auth.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   if (!(await allow(RULES.importCsv, auth.user.id))) return NextResponse.json({ error: "Demasiadas peticiones" }, { status: 429 });
 
-  const { data: space } = await supabase.from("spaces").select("name").eq("id", spaceId.data).maybeSingle();
+  const { data: space } = await supabase.from("spaces").select("name, base_currency").eq("id", spaceId.data).maybeSingle();
   if (!space) return NextResponse.json({ error: "No encontrado" }, { status: 404 }); // RLS: no eres miembro
   const [{ data: ex }, { data: cats }, { data: priv }] = await Promise.all([
-    supabase.from("expenses").select("id, spent_at, description, amount_cents, currency, category_id, is_private").eq("space_id", spaceId.data).order("spent_at").limit(5000),
+    supabase.from("expenses").select("id, spent_at, description, amount_cents, amount_base_cents, currency, category_id, is_private").eq("space_id", spaceId.data).order("spent_at").limit(5000),
     supabase.from("categories").select("id, name, system_key").eq("space_id", spaceId.data),
     supabase.from("expense_private_details").select("expense_id, description"),
   ]);
   const x = await getTx();
   const cat = new Map((cats ?? []).map((c) => [c.id, displayName(x, c.name, c.system_key)]));
   const mine = new Map((priv ?? []).map((p) => [p.expense_id, p.description]));
-  const rows: (string | number)[][] = [["fecha", "concepto", "importe", "moneda", "categoria"]];
+  // "importe" es lo apuntado en su moneda; las dos últimas columnas, lo mismo en la moneda del espacio
+  const rows: (string | number)[][] = [["fecha", "concepto", "importe", "moneda", "categoria", "importe_espacio", "moneda_espacio"]];
   for (const e of ex ?? []) {
-    rows.push([e.spent_at, e.is_private ? (mine.get(e.id) ?? "Gasto privado") : e.description, formatAmount(e.amount_cents, x.locale), e.currency, e.category_id ? (cat.get(e.category_id) ?? "") : ""]);
+    rows.push([e.spent_at, e.is_private ? (mine.get(e.id) ?? "Gasto privado") : e.description, formatAmount(e.amount_cents, x.locale, e.currency), e.currency, e.category_id ? (cat.get(e.category_id) ?? "") : "",
+      formatAmount(e.amount_base_cents, x.locale, space.base_currency), space.base_currency]);
   }
   return new NextResponse(toCsv(rows), {
     headers: {

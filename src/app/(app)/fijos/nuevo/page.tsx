@@ -28,6 +28,7 @@ export default async function NewFixedPage({ searchParams }: { searchParams: Pro
       <h1 className="text-2xl font-bold">{editing ? x("Editar gasto fijo") : x("Nuevo gasto fijo")}</h1>
       <NewFixedExpense
         spaceId={active.id}
+        currency={active.currency}
         accounts={(await loadAccounts(supabase, user.id)).filter((a) => a.spaceId === active.id).map((a) => ({ id: a.id, name: a.name, isDefault: a.mine && a.isDefault }))}
         categories={(cats ?? []).map((c) => ({ id: c.id, name: displayName(x, c.name, c.system_key) }))}
         rules={(rules ?? []).map((r) => ({ id: r.id, matchText: r.match_text, matchType: r.match_type as "contains" | "starts_with" | "exact", categoryId: r.category_id, priority: r.priority }))}

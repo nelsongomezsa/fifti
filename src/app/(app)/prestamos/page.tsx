@@ -8,7 +8,7 @@ import { formatMoney } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 import { createLoan, deleteLoan, repayLoan } from "@/server/actions/loans";
 import { loadLoans, loanTotals } from "@/server/loans";
-import { requireUser } from "@/server/spaces";
+import { listMySpaces, requireUser } from "@/server/spaces";
 
 export const metadata: Metadata = { title: "Préstamos" };
 
@@ -23,8 +23,10 @@ export default async function LoansPage() {
     supabase.from("space_members").select("user_id, display_name").not("user_id", "is", null).neq("user_id", user.id),
   ]);
   const people = [...new Map((mem ?? []).map((m) => [m.user_id as string, m.display_name])).entries()];
-  const t = loanTotals(rows);
-  const fmt = (c: number) => formatMoney(c, "EUR", x.locale);
+  // Cada préstamo va en su moneda; los totales, en la de tu espacio Personal con el cambio de hoy
+  const home = (await listMySpaces()).find((s) => s.kind === "personal")?.currency ?? "EUR";
+  const t = await loanTotals(rows, home);
+  const fmt = (c: number, currency = home) => formatMoney(c, currency, x.locale);
   const today = new Date().toISOString().slice(0, 10);
   const open = rows.filter((r) => r.remainingCents > 0), closed = rows.filter((r) => r.remainingCents === 0);
 
@@ -36,10 +38,10 @@ export default async function LoansPage() {
             <span className="text-xs text-ink-3">{new Date(`${r.loanDate}T00:00:00Z`).toLocaleDateString(x.locale, { day: "numeric", month: "short", timeZone: "UTC" })}
               {r.remindOn && r.remainingCents > 0 && r.remindOn <= today && <span className="ml-2 text-warn">{x("Toca recordarlo")}</span>}
               {!r.mine && <span className="ml-2">{x("Compartido contigo")}</span>}</span></span>
-          <span className="money shrink-0 font-mono">{r.remainingCents > 0 ? fmt(r.remainingCents) : x("Devuelto")}</span>
+          <span className="money shrink-0 font-mono">{r.remainingCents > 0 ? fmt(r.remainingCents, r.currency) : x("Devuelto")}</span>
         </summary>
         <div className="mt-2 flex flex-col gap-3 text-sm">
-          <p className="text-ink-2">{x("Total prestado")}: <span className="money font-mono">{fmt(r.amountCents)}</span>{r.note ? ` · ${r.note}` : ""}</p>
+          <p className="text-ink-2">{x("Total prestado")}: <span className="money font-mono">{fmt(r.amountCents, r.currency)}</span>{r.note ? ` · ${r.note}` : ""}</p>
           {r.mine && r.remainingCents > 0 && (
             <ActionForm action={repayLoan} optimistic submit={x("Apuntar devolución")} tone="plain" className="flex flex-col gap-2">
               <input type="hidden" name="loanId" value={r.id} />

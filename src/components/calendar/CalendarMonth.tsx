@@ -17,7 +17,7 @@ export type CalEvent = {
 const addDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 
 /** Mes en cuadrícula: cada día con su número, el punto del color de la partida y el importe corto; el día elegido (borde lila) enseña sus cobros con Editar y Saltar este mes. */
-export function CalendarMonth({ label, offset, days, events: serverEvents, todayDay, advanceDays }: { label: string; offset: number; days: number; events: CalEvent[]; todayDay: number | null; advanceDays: number }) {
+export function CalendarMonth({ label, currency, offset, days, events: serverEvents, todayDay, advanceDays }: { currency: string; label: string;offset: number; days: number; events: CalEvent[]; todayDay: number | null; advanceDays: number }) {
   const x = useTx();
   const router = useRouter();
   const [, start] = useTransition();
@@ -30,7 +30,7 @@ export function CalendarMonth({ label, offset, days, events: serverEvents, today
   const firstDay = [...byDay.keys()].sort((a, b) => a - b)[0] ?? null;
   const [sel, setSel] = useState<number | null>(todayDay ?? firstDay);
   const [error, setError] = useState<string | null>(null);
-  const fmt = (c: number) => formatMoney(c, "EUR", x.locale);
+  const fmt = (c: number) => formatMoney(c, currency, x.locale);
   const compact = (c: number) => (c % 100 === 0 ? String(c / 100) : (c / 100).toFixed(2).replace(".", ","));
   const icon = (e: CalEvent, size: number) => (e.kind === "meta" ? <Flag size={size} strokeWidth={2.2} /> : createElement(categoryIcon(e.sysName), { size, strokeWidth: 2.2 }));
   const active = events.filter((e) => !e.skipped);

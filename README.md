@@ -34,6 +34,7 @@ Capturas reales de la demo (datos ficticios: Ana, Leo, «Viaje Lisboa»), a 390 
 - **Grupos** (una cena, un viaje): se comparten por enlace o QR, los **invitados entran sin cuenta** y al cerrar el plan sale quién paga a quién (con cambio de moneda, gastos privados y pagador rotativo).
 
 **Dinero**
+- **Varias monedas**: cada espacio elige la suya (y se puede cambiar sin perder el importe original de los gastos), cuentas en monedas distintas con traspasos entre ellas y «Ver en otra moneda». Cómo se convierte cada cosa: [docs/monedas.md](docs/monedas.md).
 - **Presupuesto y partidas por %**: Fijos, Día a día, Ocio y Ahorro (y las que añadas), con barra, ritmo diario, aviso al 80 % y cierre de mes. Previsión «Te sobrará a final de mes» única en Inicio y Plan.
 - **Gastos fijos** mensuales, semanales, trimestrales y anuales, con **calendario**, «saltar este mes» y aviso previo (1, 3 o 7 días) sin importes en la notificación.
 - **Cuentas bancarias** con saldo (inicial + ingresos − gastos ± traspasos), detalle por cuenta y «Ajustar saldo» que deja un ajuste visible.

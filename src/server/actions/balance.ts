@@ -12,6 +12,7 @@ import { allow } from "@/lib/security/user-limit";
 import { uuidSchema } from "@/lib/validation/spaces";
 import { loadSpaceBalance } from "@/server/balance";
 import { notify } from "@/server/push";
+import { getActiveSpace, listMySpaces } from "@/server/spaces";
 import { rpcMessage } from "@/server/rpc-error";
 import type { FormState } from "./auth";
 
@@ -62,11 +63,14 @@ async function pairDebts(otherUserId: string) {
   const { data: mine } = await supabase.from("space_members").select("space_id, id").eq("user_id", user.id);
   const { data: theirs } = await supabase.from("space_members").select("space_id, id").eq("user_id", otherUserId);
   const shared = (mine ?? []).filter((m) => (theirs ?? []).some((t) => t.space_id === m.space_id));
-  const { data: spaces } = await supabase.from("spaces").select("id, name, kind").in("id", shared.map((s) => s.space_id)).neq("kind", "personal");
+  const { data: all } = await supabase.from("spaces").select("id, name, kind, base_currency").in("id", shared.map((s) => s.space_id)).neq("kind", "personal");
+  // Solo se compensan deudas en la misma moneda: la del espacio que se está mirando
+  const currency = (await getActiveSpace(await listMySpaces()))?.currency;
+  const spaces = (all ?? []).filter((s) => s.base_currency === currency);
   const memberMap = new Map<string, string>();
   const debts: PairDebt[] = [];
   const names = new Map<string, string>();
-  for (const sp of spaces ?? []) {
+  for (const sp of spaces) {
     names.set(sp.id, sp.name);
     const b = await loadSpaceBalance(supabase, sp.id);
     const uidOf = (mid: string) => b.members.find((m) => m.id === mid)?.user_id ?? null;

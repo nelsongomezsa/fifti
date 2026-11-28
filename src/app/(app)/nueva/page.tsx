@@ -3,7 +3,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ActionForm, inputClass } from "@/components/ui/ActionForm";
 import { createSpace } from "@/server/actions/spaces";
-import { requireUser } from "@/server/spaces";
+import { CurrencySelect } from "@/components/money/CurrencySelect";
+import { listMySpaces, requireUser } from "@/server/spaces";
 
 export const metadata: Metadata = { title: "Nuevo espacio" };
 
@@ -15,6 +16,8 @@ export default async function NewSpacePage() {
   const x = await getTx();
   const user = await requireUser();
   if (user.is_anonymous) redirect("/inicio");
+  // Se propone la moneda de tu Personal
+  const home = (await listMySpaces()).find((s) => s.kind === "personal")?.currency ?? "EUR";
   return (
     <section className="flex flex-col gap-5 pt-2">
       <h1 className="text-2xl font-bold">{x("Nueva burbuja")}</h1>
@@ -36,7 +39,7 @@ export default async function NewSpacePage() {
           </select>
         </label>
         <label className="flex flex-col gap-1.5 text-sm text-ink-2">
-          {x("Moneda")}<input name="currency" defaultValue="EUR" maxLength={3} className={inputClass} />
+          {x("Moneda")}<CurrencySelect name="currency" defaultValue={home} className={inputClass} />
         </label>
         <div className="grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-1.5 text-sm text-ink-2">{x("Desde (opcional)")}<input type="date" name="startsOn" className={inputClass} /></label>

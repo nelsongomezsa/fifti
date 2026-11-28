@@ -19,9 +19,9 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
   const [x, user, spaces, supabase] = await Promise.all([getTx(), requireUser(), listMySpaces(), createClient()]);
   const [accounts, { data: exp }, { data: inc }, { data: trIn }, { data: trOut }, { data: adj }] = await Promise.all([
     loadAccounts(supabase, user.id, true),
-    supabase.from("expenses").select("id, description, spent_at, amount_base_cents").eq("account_id", id).order("spent_at", { ascending: false }).limit(60),
-    supabase.from("incomes").select("id, source, received_at, amount_cents").eq("account_id", id).order("received_at", { ascending: false }).limit(60),
-    supabase.from("account_transfers").select("id, transfer_date, amount_cents, note, from_account").eq("to_account", id).order("transfer_date", { ascending: false }).limit(60),
+    supabase.from("expenses").select("id, description, spent_at, amount_base_cents, account_cents").eq("account_id", id).order("spent_at", { ascending: false }).limit(60),
+    supabase.from("incomes").select("id, source, received_at, amount_cents, account_cents").eq("account_id", id).order("received_at", { ascending: false }).limit(60),
+    supabase.from("account_transfers").select("id, transfer_date, amount_cents, to_amount_cents, note, from_account").eq("to_account", id).order("transfer_date", { ascending: false }).limit(60),
     supabase.from("account_transfers").select("id, transfer_date, amount_cents, note, to_account").eq("from_account", id).order("transfer_date", { ascending: false }).limit(60),
     supabase.from("account_adjustments").select("id, adjust_date, amount_cents, note").eq("account_id", id).order("adjust_date", { ascending: false }).limit(60),
   ]);
@@ -29,14 +29,14 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
   if (!acc) redirect("/cuentas"); // borrada (al vaciar el espacio) o sin acceso
   const nameOf = (aid: string) => accounts.find((a) => a.id === aid)?.name ?? "—";
   const lines: Line[] = [
-    ...(exp ?? []).map((e) => ({ lineId: `e${e.id}`, date: e.spent_at as string, label: e.description, cents: -e.amount_base_cents, href: `/movimientos/${e.id}` })),
-    ...(inc ?? []).map((i) => ({ lineId: `i${i.id}`, date: i.received_at as string, label: i.source, cents: i.amount_cents })),
-    ...(trIn ?? []).map((t) => ({ lineId: `ti${t.id}`, date: t.transfer_date as string, label: `${x("Traspaso desde")} ${nameOf(t.from_account)}${t.note ? ` · ${t.note}` : ""}`, cents: t.amount_cents })),
+    ...(exp ?? []).map((e) => ({ lineId: `e${e.id}`, date: e.spent_at as string, label: e.description, cents: -(e.account_cents ?? e.amount_base_cents), href: `/movimientos/${e.id}` })),
+    ...(inc ?? []).map((i) => ({ lineId: `i${i.id}`, date: i.received_at as string, label: i.source, cents: i.account_cents ?? i.amount_cents })),
+    ...(trIn ?? []).map((t) => ({ lineId: `ti${t.id}`, date: t.transfer_date as string, label: `${x("Traspaso desde")} ${nameOf(t.from_account)}${t.note ? ` · ${t.note}` : ""}`, cents: t.to_amount_cents ?? t.amount_cents })),
     ...(trOut ?? []).map((t) => ({ lineId: `to${t.id}`, date: t.transfer_date as string, label: `${x("Traspaso a")} ${nameOf(t.to_account)}${t.note ? ` · ${t.note}` : ""}`, cents: -t.amount_cents })),
     ...(adj ?? []).map((j) => ({ lineId: `a${j.id}`, date: j.adjust_date as string, label: `${x("Ajuste de saldo")}${j.note ? ` · ${j.note}` : ""}`, cents: j.amount_cents })),
   ].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 80);
   const demo = user.app_metadata?.demo === true;
-  const fmt = (c: number) => formatMoney(c, "EUR", x.locale);
+  const fmt = (c: number) => formatMoney(c, acc.currency, x.locale);
   const dateLabel = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString(x.locale, { day: "numeric", month: "short", timeZone: "UTC" });
   return (
     <section className="flex flex-col gap-4 pt-2">

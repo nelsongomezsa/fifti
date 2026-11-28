@@ -46,7 +46,7 @@ export default async function IncomePage() {
           <li key={i.id} className="flex items-center justify-between rounded-card border border-border bg-surface px-4 py-3 text-sm">
             <span>{i.source}<span className="block text-xs text-ink-3">{members?.find((m) => m.id === i.member_id)?.display_name} · {i.received_at}</span></span>
             <span className="flex items-center gap-3">
-              <span className="money font-mono">{formatMoney(i.amount_cents, "EUR", x.locale)}</span>
+              <span className="money font-mono">{formatMoney(i.amount_cents, active.currency, x.locale)}</span>
               <form action={deleteIncome}><input type="hidden" name="incomeId" value={i.id} /><button aria-label={x("Borrar ingreso")} className="min-h-11 min-w-11 text-over-text">✕</button></form>
             </span>
           </li>

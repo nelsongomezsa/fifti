@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { CURRENCIES } from "@/lib/fx";
 import { BP_TOTAL } from "@/lib/money";
 
 export const nameSchema = z.string().trim().min(1, "Pon un nombre").max(40, "Máximo 40 caracteres");
-const currency = z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/, "Moneda no válida");
+export const currencySchema = z.string().trim().toUpperCase().pipe(z.enum(CURRENCIES, { error: "Moneda no válida" }));
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((v) => !Number.isNaN(Date.parse(v)), "Fecha no válida");
 
 export const TEMPLATES = ["night", "dinner", "trip", "flat"] as const;
@@ -11,7 +12,7 @@ export const createSpaceSchema = z
   .object({
     name: z.string().trim().min(1, "Pon un nombre").max(60),
     kind: z.enum(["household", "group"]),
-    currency,
+    currency: currencySchema,
     emoji: z.string().trim().max(8).optional(),
     template: z.enum(TEMPLATES).optional(),
     startsOn: isoDate.optional(),

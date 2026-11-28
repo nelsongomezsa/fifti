@@ -33,15 +33,15 @@ export default async function MonthlySummaryPage() {
       <h1 className="text-2xl font-bold first-letter:uppercase">{x("Resumen de")}{" "}{name}</h1>
       <div className="rounded-card border border-border bg-surface p-4">
         <p className="text-sm text-ink-3">{x("Te sobró")}</p>
-        <p className={`money font-mono text-4xl font-semibold ${o.leftover < 0 ? "text-over-text" : ""}`}>{formatMoney(o.leftover, "EUR", x.locale)}</p>
-        <p className="money mt-2 flex justify-between font-mono text-sm text-ink-2"><span>{x("Ingresos")}{" "}{formatMoney(o.income, "EUR", x.locale)}</span><span>{x("Gasto")}{" "}{formatMoney(o.spent, "EUR", x.locale)}</span></p>
+        <p className={`money font-mono text-4xl font-semibold ${o.leftover < 0 ? "text-over-text" : ""}`}>{formatMoney(o.leftover, active.currency, x.locale)}</p>
+        <p className="money mt-2 flex justify-between font-mono text-sm text-ink-2"><span>{x("Ingresos")}{" "}{formatMoney(o.income, active.currency, x.locale)}</span><span>{x("Gasto")}{" "}{formatMoney(o.spent, active.currency, x.locale)}</span></p>
         <p className="mt-1 text-sm text-ink-2">{x("Tasa de ahorro")}{" "}<span className="money font-mono">{(o.savingsBp / 100).toFixed(0)} %</span></p>
       </div>
       <a href={`/api/informe?space=${active.id}&mes=${month}`} download className="inline-flex min-h-12 items-center justify-center rounded-full bg-accent px-6 font-semibold text-on-accent">{x("Descargar informe en PDF")}</a>
       {top.length > 0 && (
         <div className="rounded-card border border-border bg-surface p-4">
           <h2 className="mb-2 font-semibold">{x("Donde más gastaste")}</h2>
-          {top.map((f) => <p key={f.fundId} className="flex justify-between text-sm"><span>{f.name}</span><span className="money font-mono">{formatMoney(f.spent, "EUR", x.locale)}</span></p>)}
+          {top.map((f) => <p key={f.fundId} className="flex justify-between text-sm"><span>{f.name}</span><span className="money font-mono">{formatMoney(f.spent, active.currency, x.locale)}</span></p>)}
         </div>
       )}
     </section>

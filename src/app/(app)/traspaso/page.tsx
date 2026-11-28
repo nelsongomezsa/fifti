@@ -21,7 +21,7 @@ export default async function TransferPage({ searchParams }: { searchParams: Pro
       <TransferForm
         spaces={spaces}
         usedColors={accounts.map((a) => a.color)}
-        accounts={accounts.map((a) => ({ id: a.id, name: a.name, color: a.color, kind: a.kind, balanceCents: a.balanceCents, mine: a.mine }))}
+        accounts={accounts.map((a) => ({ id: a.id, name: a.name, color: a.color, kind: a.kind, balanceCents: a.balanceCents, mine: a.mine, currency: a.currency }))}
         demo={user.app_metadata?.demo === true}
         initial={{ from: sp.de && uuid.test(sp.de) ? sp.de : undefined, to: sp.a && uuid.test(sp.a) ? sp.a : undefined, cents: Number.isInteger(cents) && cents > 0 ? cents : undefined, source: sp.origen === "nomina" ? "payroll_split" : "manual" }}
       />

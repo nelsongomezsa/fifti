@@ -28,8 +28,9 @@ export default async function GoalPage({ params }: { params: Promise<{ id: strin
     supabase.from("saving_rules").select("id, kind, value, active").eq("goal_id", id),
     supabase.from("space_members").select("id, role").eq("space_id", g.space_id).eq("user_id", user.id).maybeSingle(),
     supabase.from("space_members").select("id, display_name").eq("space_id", g.space_id),
-    supabase.from("spaces").select("kind").eq("id", g.space_id).maybeSingle(),
+    supabase.from("spaces").select("kind, base_currency").eq("id", g.space_id).maybeSingle(),
   ]);
+  const cur: string = sp?.base_currency ?? "EUR";
   const canEdit = me && me.role !== "guest";
   const total = (contribs ?? []).reduce((a, c) => a + c.amount_cents, 0);
   const p = goalProgress(g.target_cents, total, (miles ?? []).map((m) => ({ amountCents: m.amount_cents, paid: m.paid })));
@@ -48,19 +49,19 @@ export default async function GoalPage({ params }: { params: Promise<{ id: strin
       <Link href="/ahorro" className="text-sm text-ink-2">{x("‹ Ahorro")}</Link>
       <div>
         <h1 className="text-2xl font-bold">{g.emoji ? `${g.emoji} ` : ""}{g.name}</h1>
-        <p className="money mt-1 font-mono text-3xl">{formatMoney(p.contributed, "EUR", x.locale)} <span className="text-base text-ink-3">{x("de")}{" "}{formatMoney(g.target_cents, "EUR", x.locale)}</span></p>
+        <p className="money mt-1 font-mono text-3xl">{formatMoney(p.contributed, cur, x.locale)} <span className="text-base text-ink-3">{x("de")}{" "}{formatMoney(g.target_cents, cur, x.locale)}</span></p>
         <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-track" role="progressbar" aria-valuenow={Math.round(p.pctBp / 100)} aria-valuemin={0} aria-valuemax={100} aria-label={x("Progreso")}>
           <div className="h-full rounded-full bg-lilac" style={{ width: `${p.pctBp / 100}%` }} />
         </div>
-        <p className="mt-2 text-sm text-ink-2">{x("Faltan")}{" "}<span className="money font-mono">{formatMoney(p.remaining, "EUR", x.locale)}</span>{g.deadline ? ` · hasta el ${g.deadline}` : ""}{need > 0 ? <> {x("· ahorra")}{" "}<span className="money font-mono">{formatMoney(need, "EUR", x.locale)}</span> {x("al mes")}</> : null}</p>
-        {g.kind === "big_event" && <p className="money mt-1 font-mono text-sm text-ink-3">{x("Disponible")}{" "}{formatMoney(p.available, "EUR", x.locale)} {x("· pagos pendientes")}{" "}{formatMoney(p.unpaidMilestones, "EUR", x.locale)}</p>}
+        <p className="mt-2 text-sm text-ink-2">{x("Faltan")}{" "}<span className="money font-mono">{formatMoney(p.remaining, cur, x.locale)}</span>{g.deadline ? ` · hasta el ${g.deadline}` : ""}{need > 0 ? <> {x("· ahorra")}{" "}<span className="money font-mono">{formatMoney(need, cur, x.locale)}</span> {x("al mes")}</> : null}</p>
+        {g.kind === "big_event" && <p className="money mt-1 font-mono text-sm text-ink-3">{x("Disponible")}{" "}{formatMoney(p.available, cur, x.locale)} {x("· pagos pendientes")}{" "}{formatMoney(p.unpaidMilestones, cur, x.locale)}</p>}
       </div>
 
       <div className="rounded-card border border-border bg-surface p-4">
         <h2 className="mb-3 font-semibold">{x("Evolución")}</h2>
         {pace.series.length < 1 ? <p className="text-sm text-ink-3">{x("Cuando aportes verás aquí cómo crece.")}</p> : (
           <>
-            <svg viewBox="0 0 300 90" className="h-24 w-full" role="img" aria-label={`${x("Evolución de la meta")}: ${formatMoney(pace.series[pace.series.length - 1]!.totalCents, "EUR", x.locale)} ${x("de")} ${formatMoney(g.target_cents, "EUR", x.locale)}`}>
+            <svg viewBox="0 0 300 90" className="h-24 w-full" role="img" aria-label={`${x("Evolución de la meta")}: ${formatMoney(pace.series[pace.series.length - 1]!.totalCents, cur, x.locale)} ${x("de")} ${formatMoney(g.target_cents, cur, x.locale)}`}>
               <line x1="0" x2="300" y1="6" y2="6" stroke="var(--border)" strokeDasharray="3 3" />
               {(() => {
                 const pts = pace.series.map((s, i) => [pace.series.length === 1 ? 150 : 6 + (i * 288) / (pace.series.length - 1), 84 - Math.min(1, s.totalCents / g.target_cents) * 78] as const);
@@ -69,8 +70,8 @@ export default async function GoalPage({ params }: { params: Promise<{ id: strin
               })()}
             </svg>
             <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
-              <div><dt className="t-label">{x("Lo que falta")}</dt><dd className="money font-mono">{formatMoney(p.remaining, "EUR", x.locale)}</dd></div>
-              <div><dt className="t-label">{x("Ritmo medio")}</dt><dd className="money font-mono">{formatMoney(pace.avgPerMonthCents, "EUR", x.locale)} {x("al mes")}</dd></div>
+              <div><dt className="t-label">{x("Lo que falta")}</dt><dd className="money font-mono">{formatMoney(p.remaining, cur, x.locale)}</dd></div>
+              <div><dt className="t-label">{x("Ritmo medio")}</dt><dd className="money font-mono">{formatMoney(pace.avgPerMonthCents, cur, x.locale)} {x("al mes")}</dd></div>
               <div className="col-span-2"><dt className="t-label">{x("Llegada estimada")}</dt><dd>{pace.reached ? x("¡Meta alcanzada!") : pace.etaDate ? new Date(`${pace.etaDate}T00:00:00Z`).toLocaleDateString(x.locale, { month: "long", year: "numeric", timeZone: "UTC" }) : x("Aporta para calcularla")}</dd></div>
             </dl>
           </>
@@ -87,7 +88,7 @@ export default async function GoalPage({ params }: { params: Promise<{ id: strin
       {g.kind === "challenge" && (
         <div className="rounded-card border border-border bg-surface p-4">
           <h2 className="font-semibold">{x("Reto de las 52 semanas")}</h2>
-          <p className="mt-1 text-sm text-ink-2">{x("Semana")}{" "}{nextWeek.week}: <span className="money font-mono">{formatMoney(nextWeek.amountCents, "EUR", x.locale)}</span> {x("· llevas")}{" "}{doneWeeks} {x("de 52")}</p>
+          <p className="mt-1 text-sm text-ink-2">{x("Semana")}{" "}{nextWeek.week}: <span className="money font-mono">{formatMoney(nextWeek.amountCents, cur, x.locale)}</span> {x("· llevas")}{" "}{doneWeeks} {x("de 52")}</p>
           {canEdit && doneWeeks < 52 && (
             <ActionForm action={addContribution} optimistic submit={`${x("Aportar semana")} ${nextWeek.week}`} className="mt-3 flex">
               <input type="hidden" name="goalId" value={id} /><input type="hidden" name="source" value="challenge" />
@@ -109,7 +110,7 @@ export default async function GoalPage({ params }: { params: Promise<{ id: strin
               <li key={m.id} className="flex items-center justify-between rounded-card border border-border bg-surface px-4 py-3 text-sm">
                 <span className={m.paid ? "text-ink-3 line-through" : ""}>{m.name}<span className="block text-xs text-ink-3">{m.due_on ?? "sin fecha"}</span></span>
                 <span className="flex items-center gap-2">
-                  <span className="money font-mono">{formatMoney(m.amount_cents, "EUR", x.locale)}</span>
+                  <span className="money font-mono">{formatMoney(m.amount_cents, cur, x.locale)}</span>
                   {canEdit && <form action={toggleMilestone}><input type="hidden" name="milestoneId" value={m.id} /><input type="hidden" name="goalId" value={id} /><input type="hidden" name="paid" value={m.paid ? "0" : "1"} />
                     <button className="min-h-11 rounded-full border border-border px-3 text-xs">{m.paid ? x("Deshacer") : x("Pagado")}</button></form>}
                 </span>
@@ -133,7 +134,7 @@ export default async function GoalPage({ params }: { params: Promise<{ id: strin
           <ul className="flex flex-col gap-2">
             {rules?.filter((r) => r.kind !== "weekly_challenge").map((r) => (
               <li key={r.id} className="flex items-center justify-between rounded-card border border-border bg-surface px-4 py-2 text-sm">
-                <span>{r.kind === "roundup" ? `${x("Redondeo al siguiente")} ${formatMoney(r.value, "EUR", x.locale)}` : `${(r.value / 100).toFixed(2).replace(".", ",")} % de cada ingreso`}</span>
+                <span>{r.kind === "roundup" ? `${x("Redondeo al siguiente")} ${formatMoney(r.value, cur, x.locale)}` : `${(r.value / 100).toFixed(2).replace(".", ",")} % de cada ingreso`}</span>
                 <form action={deleteRule}><input type="hidden" name="ruleId" value={r.id} /><input type="hidden" name="goalId" value={id} /><button aria-label={x("Quitar regla")} className="min-h-11 min-w-11 text-over-text">✕</button></form>
               </li>
             ))}
@@ -157,7 +158,7 @@ export default async function GoalPage({ params }: { params: Promise<{ id: strin
             <li key={c.id} className="flex items-center justify-between rounded-card border border-border bg-surface px-4 py-2 text-sm">
               <span>{x(SOURCE[c.source as keyof typeof SOURCE])}<span className="block text-xs text-ink-3">{new Date(`${c.contributed_at}T00:00:00Z`).toLocaleDateString(x.locale, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}{shared ? ` · ${memberName(c.member_id)}` : ""}</span></span>
               <span className="flex items-center gap-2">
-                <span className="money font-mono">{formatMoney(c.amount_cents, "EUR", x.locale)}</span>
+                <span className="money font-mono">{formatMoney(c.amount_cents, cur, x.locale)}</span>
                 {(c.source === "manual" || c.source === "challenge") && c.member_id === me?.id && (
                   <form action={deleteContribution}><input type="hidden" name="contributionId" value={c.id} /><input type="hidden" name="goalId" value={id} /><button aria-label={x("Borrar aportación")} className="min-h-11 min-w-11 text-over-text">✕</button></form>
                 )}

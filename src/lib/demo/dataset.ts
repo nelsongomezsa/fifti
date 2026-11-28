@@ -1,4 +1,5 @@
 import { DEMO_USER_ID, type Db, type Row } from "./fake-client";
+import { DEMO_RATES } from "./rates";
 
 /** Datos ficticios de la demo (Ana, Leo, Marta, Iván; "Casa de Ana y Leo", "Viaje Lisboa"). Se generan en memoria respecto a la fecha de hoy. */
 const uuid = (n: number) => `00000000-0000-4000-8000-${n.toString(16).padStart(12, "0")}`;
@@ -137,6 +138,7 @@ export function buildDemoDb(now: Date = new Date()): Db {
   const list = add("shopping_lists", { id: id(), space_id: H, created_at: `${rel(2)}T10:00:00Z`, closed_at: null });
   [["Leche", 2, false, hAna], ["Pan", 1, false, hLeo], ["Tomates", 1, true, hAna], ["Café", 1, false, hLeo]].forEach(([t, q, c, by], i) => add("shopping_items", { id: id(), list_id: list.id, space_id: H, text: t, quantity: q, checked: c, added_by: by === hAna ? DEMO_USER_ID : uuid(2), created_at: `${rel(2)}T10:0${i}:00Z` }));
   const loan = add("loans", { id: id(), user_id: DEMO_USER_ID, direction: "lent", person_name: "Marta", linked_user_id: null, shared: false, amount_cents: 5000, loan_date: rel(25), remind_on: rel(-5), note: "Entradas del concierto", created_at: `${rel(25)}T10:00:00Z` });
+  loan.currency = "EUR";
   add("loan_repayments", { id: id(), loan_id: loan.id, user_id: DEMO_USER_ID, amount_cents: 2000, paid_on: rel(10), created_at: `${rel(10)}T10:00:00Z` });
   add("favorites", { id: id(), user_id: DEMO_USER_ID, space_id: P, label: "Café", amount_cents: 250, category_id: catsOf[P]!.restaurants });
   add("category_rules", { id: id(), space_id: P, match_text: "Mercadona", match_type: "contains", category_id: catsOf[P]!.groceries, fund_id: null, priority: 10, created_by: DEMO_USER_ID, created_at: created });
@@ -147,8 +149,8 @@ export function buildDemoDb(now: Date = new Date()): Db {
   add("contributions", { id: id(), space_id: H, member_id: hLeo, month: monthStart(0), expected_cents: 50000, paid_cents: 20000 });
 
   // ───── Cuentas ficticias, traspasos y reparto de la nómina (Fifti no se conecta a ningún banco)
-  const acc = (space: string, name: string, bank: string, color: string, kind: string, opening: number, isDefault: boolean) =>
-    add("accounts", { id: id(), space_id: space, owner_user_id: DEMO_USER_ID, name, bank, color, kind, opening_cents: opening, opening_date: monthStart(5), is_default: isDefault, archived_at: null, created_at: created }).id as string;
+  const acc = (space: string, name: string, bank: string, color: string, kind: string, opening: number, isDefault: boolean, currency = "EUR") =>
+    add("accounts", { id: id(), space_id: space, owner_user_id: DEMO_USER_ID, name, bank, color, kind, currency, opening_cents: opening, opening_date: monthStart(5), is_default: isDefault, archived_at: null, created_at: created }).id as string;
   const aNom = acc(P, "Santander nómina", "Santander", "#EC0000", "payroll", 320000, true);
   const aRev = acc(P, "Revolut día a día", "Revolut", "#7DD3FC", "daily", 40000, false);
   const aIng = acc(P, "ING ahorro", "ING", "#FDBA74", "savings", 600000, false);
@@ -161,6 +163,14 @@ export function buildDemoDb(now: Date = new Date()): Db {
   }
   for (const i of db.incomes ?? []) if (i.space_id === P) i.account_id = aNom;
   for (const f of db.funds ?? []) if (f.space_id === P) f.account_id = f.kind === "fixed" ? aNom : f.kind === "savings" ? aIng : aRev;
+  // Viaje a Australia (inventado): una cuenta en dólares australianos y gastos en otras monedas, con los cambios de la demo
+  const aAud = acc(P, "Cuenta en Australia", "Banco Austral", "#34D399", "daily", 120000, false, "AUD");
+  const foreign = (ago: number, desc: string, original: number, currency: string, cat: string, accountId: string, accountCents: number) => {
+    const rate = DEMO_RATES[currency]!;
+    expense(P, pAna, [pAna], rel(ago), desc, Math.round(original * rate), cat, { amount_cents: original, currency, fx_rate: rate, account_id: accountId, account_cents: accountCents });
+  };
+  foreign(2, "Brunch en Melbourne", 3200, "AUD", "restaurants", aAud, 3200);
+  foreign(6, "Auriculares (web de EE. UU.)", 4500, "USD", "shopping", aRev, Math.round(4500 * DEMO_RATES.USD!));
   const tr = (from: string, to: string, cents: number, date: string, source: string, note: string) =>
     add("account_transfers", { id: id(), user_id: DEMO_USER_ID, from_account: from, to_account: to, amount_cents: cents, transfer_date: date, note, source, created_at: created });
   for (let back = 5; back >= 1; back--) { tr(aNom, aRev, 63000, monthStart(back), "payroll_split", "Reparto de la nómina"); tr(aNom, aIng, 42000, monthStart(back), "payroll_split", "Reparto de la nómina"); tr(aNom, aCom, 50000, monthStart(back), "household_contribution", "Aportación al hogar"); }

@@ -22,7 +22,7 @@ export default async function IncomeDetailPage() {
   const total = actualTotal > 0 ? actualTotal : expectedTotal;
   const entries = incomeResult.data ?? [];
   const mine = plan.members.filter((member) => member.user_id === user.id || (!member.user_id && me?.role === "owner"));
-  const money = (cents: number) => formatMoney(cents, "EUR", x.locale);
+  const money = (cents: number) => formatMoney(cents, active.currency, x.locale);
 
   return (
     <section className="flex flex-col gap-5 pt-2">

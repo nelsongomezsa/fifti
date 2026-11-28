@@ -10,8 +10,9 @@ import { ScrollToHash } from "@/components/ui/ScrollToHash";
 import { SetupPlanCard } from "@/components/plan/SetupPlanCard";
 import { SavingsTab } from "@/components/plan/SavingsTab";
 import { SheetButton } from "@/components/ui/SheetButton";
+import { ViewInCurrency } from "@/components/money/ViewInCurrency";
 import { detectSubscriptions } from "@/lib/detect";
-import { addMonths, formatMoney, fundLeftover, isMonthStart, monthOutlook, monthStart, summarizeFund } from "@/lib/money";
+import { addMonths, currencySymbol, formatMoney,fundLeftover, isMonthStart, monthOutlook, monthStart, summarizeFund } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 import { closePlan, copyPreviousPlan, deleteRecurring, generateContributions, markContributionPaid, reopenPlan, saveContributionRule, savePlan, saveRecurring } from "@/server/actions/plan";
 import { loadMirrorByFund, loadPlan } from "@/server/plan";
@@ -28,7 +29,8 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
   const active = await getActiveSpace(spaces);
   if (!active) return null;
   const supabase = await createClient();
-  const month = sp.mes && isMonthStart(sp.mes) ? sp.mes : monthStart(new Date());
+  const cur = active.currency;
+  const month =sp.mes && isMonthStart(sp.mes) ? sp.mes : monthStart(new Date());
   // Todas las consultas de la página en una sola ronda de red
   const sideQueries = Promise.all([
     supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, next_run, active, category_id, paid_from, rotation, rotation_pos").eq("space_id", active.id).order("next_run"),
@@ -83,12 +85,18 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
         <>
           <div className="rounded-card border border-border bg-surface p-5">
             <p className="t-label">{x("Ingresos del mes")}</p>
-            <p className="money t-figure mt-1">{formatMoney(incomeMonth, "EUR", x.locale)}</p>
+            <p className="money t-figure mt-1">{formatMoney(incomeMonth, cur, x.locale)}</p>
             <div className="mt-3 flex h-2.5 w-full overflow-hidden rounded-full bg-track" role="img" aria-label={x("Reparto del presupuesto por partidas")}>
               {rows.filter(({ row }) => row.planned > 0).map(({ f, row }) => <span key={f.id} style={{ width: `${(row.planned / Math.max(1, plannedTotal)) * 100}%`, background: f.color }} />)}
             </div>
-            <p className="mt-3 text-sm text-ink-2">{x("Te sobrará a final de mes")} <span className={`money font-mono font-semibold ${outlook.projectedLeftover < 0 ? "text-over-text" : "text-ink"}`}>{formatMoney(outlook.projectedLeftover, "EUR", x.locale)}</span></p>
+            <p className="mt-3 text-sm text-ink-2">{x("Te sobrará a final de mes")} <span className={`money font-mono font-semibold ${outlook.projectedLeftover < 0 ? "text-over-text" : "text-ink"}`}>{formatMoney(outlook.projectedLeftover, cur, x.locale)}</span></p>
           </div>
+
+          <ViewInCurrency user={user} base={cur} figures={[
+            { label: x("Ingresos del mes"), cents: incomeMonth },
+            { label: x("Te sobrará a final de mes"), cents: outlook.projectedLeftover },
+            { label: x("Gastado este mes"), cents: d.totalSpent },
+          ]} />
 
           <h2 className="text-lg font-semibold">{x("Tus partidas")}</h2>
           <ul className="flex flex-col gap-3">
@@ -103,15 +111,15 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
                     </span>
                     <span className="mt-2 block h-2 w-full overflow-hidden rounded-full bg-track"><span className="block h-full rounded-full" style={{ width: `${Math.min(100, row.usedBp / 100)}%`, background: f.color }} /></span>
                     <span className="money mt-2 flex justify-between font-mono text-xs text-ink-3">
-                      <span>{x("Gastado")} {formatMoney(row.spent, "EUR", x.locale)} {x("de")} {formatMoney(row.planned, "EUR", x.locale)}</span>
-                      <span className={over ? "text-over-text" : ""}>{over ? x("Te has pasado") : x("Quedan")} {formatMoney(Math.abs(row.remaining), "EUR", x.locale)}</span>
+                      <span>{x("Gastado")} {formatMoney(row.spent, cur, x.locale)} {x("de")} {formatMoney(row.planned, cur, x.locale)}</span>
+                      <span className={over ? "text-over-text" : ""}>{over ? x("Te has pasado") : x("Quedan")} {formatMoney(Math.abs(row.remaining), cur, x.locale)}</span>
                     </span>
                   </Link>
                 </li>
               );
             })}
           </ul>
-          {d.uncategorized > 0 && <p className="text-sm text-ink-3">{x("Sin categoría:")}{" "}<span className="money font-mono">{formatMoney(d.uncategorized, "EUR", x.locale)}</span></p>}
+          {d.uncategorized > 0 && <p className="text-sm text-ink-3">{x("Sin categoría:")}{" "}<span className="money font-mono">{formatMoney(d.uncategorized, cur, x.locale)}</span></p>}
         </>
       ) : (
         <SetupPlanCard />
@@ -137,7 +145,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
                 <div key={f.id} className="flex items-center justify-between gap-2 text-sm text-ink-2">
                   <span className="min-w-0 flex-1 truncate">{f.name}</span>
                   <select name={`mode_${f.id}`} defaultValue={a?.mode ?? "percent"} aria-label={`Tipo de ${f.name}`} className="min-h-11 rounded-card border border-border bg-surface-2 px-2 text-ink">
-                    <option value="percent">%</option><option value="amount">€</option>
+                    <option value="percent">%</option><option value="amount">{currencySymbol(cur, x.locale)}</option>
                   </select>
                   <input name={`val_${f.id}`} inputMode="decimal" defaultValue={a ? (a.mode === "percent" ? pctText(a.value) : centsText(a.value)) : ""} placeholder="0" aria-label={`Valor de ${f.name}`}
                     className="min-h-11 w-24 rounded-card border border-border bg-surface-2 px-3 text-right font-mono text-ink" />
@@ -164,7 +172,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
               const left = fundLeftover(a?.planned ?? 0, a?.carry ?? 0, d.spentByFund[f.id] ?? 0);
               return (
                 <label key={f.id} className="flex items-center justify-between gap-3 text-sm text-ink-2">
-                  <span>{f.name} <span className="money font-mono text-ink">{formatMoney(left, "EUR", x.locale)}</span></span>
+                  <span>{f.name} <span className="money font-mono text-ink">{formatMoney(left, cur, x.locale)}</span></span>
                   <select name={`act_${f.id}`} defaultValue={f.rollover ? "rollover" : "free"} disabled={left <= 0} aria-label={`Qué hacer con el sobrante de ${f.name}`} className="min-h-11 rounded-card border border-border bg-surface-2 px-2 text-ink">
                     <option value="rollover">{x("Pasa al mes siguiente")}</option><option value="free">{x("Queda libre")}</option>{goals?.map((g) => <option key={g.id} value={`goal:${g.id}`}>{x("A la meta:")}{" "}{g.name}</option>)}
                   </select>
@@ -189,7 +197,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
                   <option value="fixed_amount">{x("Importe fijo")}</option>
                 </select>
                 <input name="target" inputMode="decimal" defaultValue={rule ? centsText(rule.monthly_target_cents) : ""} placeholder={x("Bote mensual (1.200,00)")} aria-label={x("Bote mensual")} className={`${inputClass} font-mono`} />
-                <p className="text-xs text-ink-3">{x("Solo para % o importe fijo: un valor por persona (% o €).")}</p>
+                <p className="text-xs text-ink-3">{x("Solo para % o importe fijo: un valor por persona.")}</p>
                 {d.members.map((m) => (
                   <label key={m.id} className="flex items-center justify-between gap-3 text-sm text-ink-2">{m.display_name}
                     <input name={`rv_${m.id}`} inputMode="decimal" defaultValue={rule?.values && (rule.values as Record<string, number>)[m.id] !== undefined ? String((rule.values as Record<string, number>)[m.id]! / 100).replace(".", ",") : ""}
@@ -208,7 +216,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
                 return (
                   <li key={c.id} className="rounded-card border border-border bg-surface px-4 py-3 text-sm">
                     <p className="flex justify-between"><span>{nm(c.member_id)}</span>
-                      <span className="money font-mono">{formatMoney(c.paid_cents, "EUR", x.locale)} / {formatMoney(c.expected_cents, "EUR", x.locale)}</span></p>
+                      <span className="money font-mono">{formatMoney(c.paid_cents, cur, x.locale)} / {formatMoney(c.expected_cents, cur, x.locale)}</span></p>
                     {mineOrOwner && d.plan?.status !== "closed" && (
                       <ActionForm action={markContributionPaid} optimistic submit={c.paid_cents > 0 ? x("Actualizar") : x("Marcar como hecha")} tone="plain" className="mt-2 flex gap-2">
                         <input type="hidden" name="contributionId" value={c.id} />
@@ -230,7 +238,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
       {me && me.role !== "guest" && <Link href="/fijos/nuevo" className="inline-flex min-h-12 items-center justify-center rounded-full bg-accent px-6 font-semibold text-on-accent">+ {x("Añadir gasto fijo")}</Link>}
       {me && me.role !== "guest" && subs.map((c) => (
         <div key={c.description} className="rounded-card border border-border bg-surface p-4 text-sm">
-          <p><strong>{c.description}</strong> {x("se repite cada mes (")}<span className="money font-mono">{formatMoney(c.amountCents, "EUR", x.locale)}</span>, {c.months} {x("meses seguidos). ¿Lo pasamos a gasto fijo?")}</p>
+          <p><strong>{c.description}</strong> {x("se repite cada mes (")}<span className="money font-mono">{formatMoney(c.amountCents, cur, x.locale)}</span>, {c.months} {x("meses seguidos). ¿Lo pasamos a gasto fijo?")}</p>
           <ActionForm action={saveRecurring} optimistic submit={x("Pasar a gasto fijo")} tone="plain" className="mt-2">
             <input type="hidden" name="spaceId" value={active.id} /><input type="hidden" name="description" value={c.description} />
             <input type="hidden" name="amount" value={(c.amountCents / 100).toFixed(2).replace(".", ",")} /><input type="hidden" name="day" value={c.day} />
@@ -249,7 +257,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
                   <Link prefetch href={`/fijos/nuevo?id=${r.id}`} className="flex min-h-16 items-center justify-between gap-3 rounded-card border border-border bg-surface px-3 py-3 text-sm transition-colors hover:bg-surface-2">
                     <CategoryIcon systemName={cats?.find((c) => c.id === r.category_id)?.system_key} color={d.funds.find((f) => f.id === cats?.find((c) => c.id === r.category_id)?.fund_id)?.color} />
                     <span className="min-w-0 flex-1"><span className="block truncate font-medium">{r.description}</span><span className="block truncate text-sm text-ink-3">{x(FREQ[r.frequency as keyof typeof FREQ])} {x("· próximo")}{" "}{new Date(`${r.next_run}T00:00:00Z`).toLocaleDateString(x.locale, { day: "numeric", month: "short", timeZone: "UTC" }).replace(".", "")}{r.paid_from === "pot" ? ` · ${x("del bote")}` : ""}</span></span>
-                    <span className="money shrink-0 font-mono">{formatMoney(r.amount_cents, "EUR", x.locale)}</span>
+                    <span className="money shrink-0 font-mono">{formatMoney(r.amount_cents, cur, x.locale)}</span>
                     <span aria-hidden className="text-ink-3">›</span>
                   </Link>
                 </SwipeRow>

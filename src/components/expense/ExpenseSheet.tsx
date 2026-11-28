@@ -22,6 +22,8 @@ import { Keypad } from "./Keypad";
 export type SheetPrefill = {
   spaceId?: string;
   amountCents?: number;
+  /** Moneda del importe traído (si no se dice, la del espacio) */
+  currency?: string;
   categoryId?: string | null;
   description?: string;
   participants?: string[];
@@ -72,8 +74,11 @@ export function ExpenseSheet({
   const [accountTouched, setAccountTouched] = useState(false);
   const [fromPot, setFromPot] = useState(prefill?.edit?.paidFrom === "pot");
   const [tags, setTags] = useState(prefill?.tags ?? "");
-  const [currency, setCurrency] = useState(initialSpace.currency);
-  const [fx, setFx] = useState<number | null>(1);
+  // Moneda elegida a mano o traída con el importe; mientras no la haya, se propone la de la cuenta y si no la del espacio
+  const [chosenCurrency, setCurrency] = useState<string | null>(prefill?.currency ?? (prefill?.amountCents ? initialSpace.currency : null));
+  const currency = chosenCurrency ?? space.accounts?.find((a) => a.id === accountId)?.currency ?? space.currency;
+  const fxKey = `${currency}|${space.currency}|${date}`;
+  const [fxState, setFxState] = useState<{ key: string; rate: number | null } | null>(null);
   const [photo, setPhoto] = useState<File | null>(null);
   const [scan, setScan] = useState<{ busy: boolean; amountCents: number | null; date: string | null; error?: string } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -137,13 +142,13 @@ export function ExpenseSheet({
   useEffect(() => {
     if (currency === space.currency) return;
     let live = true;
-    getFxPreview(space.currency, currency, date).then((r) => { if (live) setFx(r); }).catch(() => { if (live) setFx(null); });
+    getFxPreview(space.currency, currency, date).then((rate) => { if (live) setFxState({ key: fxKey, rate }); }).catch(() => { if (live) setFxState({ key: fxKey, rate: null }); });
     return () => { live = false; };
-  }, [currency, space.currency, date]);
+  }, [currency, space.currency, date, fxKey]);
 
   const changeSpace = (s: SheetSpace) => {
     setAccountId(s.accounts?.find((a) => a.isDefault)?.id ?? null);
-    setCurrency(s.currency); setFx(1);
+    setCurrency(null);
     setSpace(s);
     setCategoryId(s.topCategoryId);
     setPayerId(s.meId);
@@ -161,13 +166,16 @@ export function ExpenseSheet({
 
   const cents = parseToCents(amount) ?? 0;
   const sameCurrency = currency === space.currency;
-  const baseCents = sameCurrency ? cents : fx ? Math.round(cents * fx) : 0;
+  const fxReady = fxState?.key === fxKey;
+  const fx = sameCurrency ? 1 : fxReady ? fxState.rate : null;
+  const noFx = fxReady ? "No hemos podido obtener el tipo de cambio." : "Consultando el tipo de cambio…";
+  const baseCents =sameCurrency ? cents : fx ? Math.round(cents * fx) : 0;
   const isGroup = space.kind !== "personal";
   const participants = useMemo(() => space.members.filter((m) => included.has(m.id)), [space.members, included]);
 
   const live = useMemo(() => {
     if (cents <= 0) return { share: 0, error: null as string | null };
-    if (!sameCurrency && !fx) return { share: 0, error: "No hemos podido obtener el tipo de cambio." };
+    if (!sameCurrency && !fx) return { share: 0, error: noFx };
     if (!isGroup) return { share: baseCents, error: null };
     try {
       let custom;
@@ -187,7 +195,7 @@ export function ExpenseSheet({
     } catch (e) {
       return { share: 0, error: e instanceof RangeError ? e.message : x("Reparto no válido") };
     }
-  }, [cents, baseCents, fx, sameCurrency, isGroup, mode, participants, pct, space.meId, x]);
+  }, [cents, baseCents, fx, noFx, sameCurrency, isGroup, mode, participants, pct, space.meId, x]);
 
   const save = async () => {
     setError(null);
@@ -202,7 +210,7 @@ export function ExpenseSheet({
       : undefined;
     const input: ExpenseInput = {
       id: prefill?.edit?.id, clientId: prefill?.edit?.clientId ?? crypto.randomUUID(), spaceId: space.id,
-      description: desc.trim(), categoryId, spentAt: date, amountCents: cents, currency,
+      description: desc.trim(), categoryId, spentAt: date, amountCents: cents, currency: currency as ExpenseInput["currency"],
       paidFrom: fromPot ? "pot" : "member", splitMode: mode, participants: participants.map((p) => p.id), custom,
       payers, isPrivate: isGroup && isPrivate,
       ...(accountTouched ? { accountId } : {}),
@@ -271,7 +279,7 @@ export function ExpenseSheet({
               {[space.currency, ...CURRENCIES.filter((c) => c !== space.currency)].map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
-          {!sameCurrency && cents > 0 && <p className="mb-2 text-right font-mono text-sm text-ink-3">{fx ? `≈ ${formatMoney(baseCents, space.currency, x.locale)}` : x("No hemos podido obtener el tipo de cambio.")}</p>}
+          {!sameCurrency && cents > 0 && <p className="mb-2 text-right font-mono text-sm text-ink-3">{fx ? `≈ ${formatMoney(baseCents, space.currency, x.locale)}` : x(noFx)}</p>}
 
           <input
             value={desc} onChange={(e) => onDesc(e.target.value)} maxLength={120} placeholder={x("Concepto")} aria-label={x("Concepto")}
@@ -319,7 +327,7 @@ export function ExpenseSheet({
             <label className="mt-2 flex min-h-11 items-center justify-between gap-3 rounded-card border border-border bg-surface px-3 text-sm text-ink-2">{x("Sale de")}
               <select value={accountId ?? ""} onChange={(e) => { setAccountId(e.target.value || null); setAccountTouched(true); }} aria-label={x("Cuenta")} className="min-h-11 max-w-[65%] bg-transparent text-right font-medium text-ink">
                 <option value="">{x("Sin cuenta")}</option>
-                {space.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                {space.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}{a.currency !== space.currency ? ` (${a.currency})` : ""}</option>)}
               </select>
             </label>
           )}

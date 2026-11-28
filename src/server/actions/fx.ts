@@ -13,6 +13,6 @@ export async function getFxPreview(base: string, from: string, date: string): Pr
   if (!ok.success || !isCurrency(base) || !isCurrency(from)) return null;
   const { data } = await (await createClient()).auth.getUser();
   if (!data.user) return null;
-  if (!(await allow(RULES.comment, data.user.id))) return null;
+  if (!(await allow(RULES.fxPreview, data.user.id))) return null;
   return resolveFx(base, from, date);
 }

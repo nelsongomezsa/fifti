@@ -17,9 +17,15 @@ export function formatMoney(cents: Cents, currency = "EUR", locale = "es-ES"): s
   return new Intl.NumberFormat(locale, { style: "currency", currency, useGrouping: "always" }).format(cents / 100);
 }
 
-/** Solo el número con dos decimales y miles (para CSV y textos): 2.100,00. */
-export function formatAmount(cents: Cents, locale = "es-ES"): string {
-  return new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: "always" }).format(cents / 100);
+/** Decimales propios de la moneda (el yen no lleva). Por dentro todo se guarda en centésimas. */
+export function currencyDecimals(currency: string): number {
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency }).resolvedOptions().maximumFractionDigits ?? 2;
+}
+
+/** Solo el número, con los decimales de su moneda y miles (para CSV y textos): 2.100,00. */
+export function formatAmount(cents: Cents, locale = "es-ES", currency = "EUR"): string {
+  const decimals = currencyDecimals(currency);
+  return new Intl.NumberFormat(locale, { minimumFractionDigits: decimals, maximumFractionDigits: decimals, useGrouping: "always" }).format(cents / 100);
 }
 
 /** Símbolo de la moneda (€, $, £…) según el idioma. */

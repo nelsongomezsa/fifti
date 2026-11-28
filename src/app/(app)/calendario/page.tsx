@@ -7,6 +7,7 @@ import { getTx } from "@/i18n/tx";
 import { occurrenceNumber, projectRecurring, rotationPayer, upcomingCharges } from "@/lib/calendar";
 import { addMonths, formatMoney, isMonthStart, monthStart } from "@/lib/money";
 import { displayName } from "@/lib/system-names";
+import { sumIn } from "@/server/fx";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
 
@@ -60,13 +61,15 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       (recAll ?? []).map((r) => ({ id: r.id, description: r.description, amountCents: r.amount_cents, frequency: r.frequency, day: r.day, nextRun: r.next_run, spaceId: r.space_id })),
       (milesAll ?? []).map((m) => ({ date: m.due_on as string, label: m.name, cents: m.amount_cents, spaceId: m.space_id })), todayIso, 30, skips);
     const bubble = (id: string) => { const s = spaces.find((q) => q.id === id); return !s ? "—" : s.kind === "personal" ? x("Personal") : s.name; };
-    const total = list.reduce((a, c) => a + c.cents, 0);
+    // Aquí se juntan cobros de todos los espacios: cada uno en su moneda y el total en la del espacio activo
+    const currencyOf = (id: string) => spaces.find((q) => q.id === id)?.currency ?? active.currency;
+    const total = await sumIn(active.currency, list.map((c) => ({ cents: c.cents, currency: currencyOf(c.spaceId) })));
     return (
       <section className="flex flex-col gap-4 pt-2">
         {header}
         <div className="rounded-card border border-border bg-surface p-4">
           <p className="text-sm text-ink-3">{x("Total de los próximos 30 días")}</p>
-          <p className="money t-figure mt-1">{formatMoney(total, "EUR", x.locale)}</p>
+          <p className="money t-figure mt-1">{total.approximate ? "≈ " : ""}{formatMoney(total.total, active.currency, x.locale)}</p>
           <p className="text-xs text-ink-3">{list.length} {list.length === 1 ? x("cobro") : x("cobros")}</p>
         </div>
         {list.length === 0 ? <EmptyState title={x("Sin cobros en los próximos 30 días")} text={x("Cuando añadas gastos fijos, aquí verás los próximos con su fecha y el total del periodo.")} actionLabel={x("Añadir gasto fijo")} href="/fijos/nuevo" /> : (
@@ -78,7 +81,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                   <CategoryIcon systemName={cat?.system_key} color={cat?.funds?.color} />
                   <span className="min-w-0 flex-1"><span className="block truncate font-medium">{c.label}</span>
                     <span className="block truncate text-xs text-ink-3">{new Date(`${c.date}T00:00:00Z`).toLocaleDateString(x.locale, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })} · {bubble(c.spaceId)}{c.kind === "meta" ? ` · ${x("pago de meta")}` : ""}</span></span>
-                  <span className="money shrink-0 font-mono">{formatMoney(c.cents, "EUR", x.locale)}</span>
+                  <span className="money shrink-0 font-mono">{formatMoney(c.cents, currencyOf(c.spaceId), x.locale)}</span>
                 </li>
               );
             })}
@@ -116,7 +119,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       {(rec ?? []).length === 0 && events.length === 0 && (
         <EmptyState title={x("Aún no hay gastos fijos")} text={x("Apunta alquiler, luz o suscripciones una vez y verás aquí cuándo toca pagar cada uno, con aviso antes de que lleguen.")} actionLabel={x("Añadir gasto fijo")} href="/fijos/nuevo" />
       )}
-      <CalendarMonth key={month} label={label} offset={offset} days={days} events={events} todayDay={month === monthStart(new Date()) ? new Date().getUTCDate() : null} advanceDays={advance} />
+      <CalendarMonth key={month} currency={active.currency} label={label}offset={offset} days={days} events={events} todayDay={month === monthStart(new Date()) ? new Date().getUTCDate() : null} advanceDays={advance} />
     </section>
   );
 }

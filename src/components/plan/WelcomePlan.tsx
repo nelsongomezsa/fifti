@@ -9,14 +9,32 @@ import { suggestCategory } from "@/lib/nl/parse";
 import { matchRule, type CategoryRule } from "@/lib/rules/match";
 import { parsePercentToBp } from "@/lib/validation/spaces";
 import { savePlan, saveRecurring } from "@/server/actions/plan";
+import { changeSpaceCurrency } from "@/server/actions/currency";
+import { CurrencySelect } from "@/components/money/CurrencySelect";
+import { CTX_CACHE_KEY } from "@/components/nav/PlusButton";
 
 type Member = { id: string; name: string; mine: boolean };
 type Fund = { id: string; name: string; color: string; suggested: number | null };
 
 /** Bienvenida en 2 pasos: ingresos del mes y plan sugerido editable. Se guarda con la misma acción (y validación) que el plan normal. */
-export function WelcomePlan({ initialStep = 1, categories = [], rules = [], spaceId, month, currency, members, funds }: { initialStep?: 1 | 2 | 3 | 4; categories?: { id: string; name: string }[]; rules?: CategoryRule[]; spaceId: string; month: string; currency: string; members: Member[]; funds: Fund[] }) {
+export function WelcomePlan({ initialStep = 1, categories = [], rules = [], spaceId, month, currency, suggestedCurrency, canChangeCurrency = false, members, funds }: { initialStep?: 1 | 2 | 3 | 4; categories?: { id: string; name: string }[]; rules?: CategoryRule[]; spaceId: string; month: string; currency: string; suggestedCurrency?: string; canChangeCurrency?: boolean; members: Member[]; funds: Fund[] }) {
   const x = useTx();
   const router = useRouter();
+  const [chosenCurrency, setChosenCurrency] = useState(suggestedCurrency ?? currency);
+  const [currencyBusy, setCurrencyBusy] = useState(false);
+  const [currencyErr, setCurrencyErr] = useState<string | null>(null);
+  // Si se eligió otra moneda, se aplica al espacio antes de seguir (así el plan se apunta ya en ella)
+  const next1 = async () => {
+    setCurrencyErr(null);
+    if (canChangeCurrency && chosenCurrency !== currency) {
+      setCurrencyBusy(true);
+      const r = await changeSpaceCurrency({ spaceId, currency: chosenCurrency }).catch(() => ({ ok: false, error: x("No se ha podido completar.") }));
+      setCurrencyBusy(false);
+      if (!r.ok) return setCurrencyErr(r.error ?? x("No se ha podido completar."));
+      try { localStorage.removeItem(CTX_CACHE_KEY); } catch { /* sin almacenamiento */ }
+    }
+    setStep(2);
+  };
   const [step, setStep] = useState<1 | 2 | 3 | 4>(initialStep);
   const [accBusy, setAccBusy] = useState(false);
   const [accErr, setAccErr] = useState<string | null>(null);
@@ -91,8 +109,13 @@ export function WelcomePlan({ initialStep = 1, categories = [], rules = [], spac
       <h1 id="welcome-title" className="text-2xl font-bold">{step === 1 ? x("¿Cuánto ingresas este mes?") : step === 2 ? x("Tu plan sugerido") : step === 3 ? x("Tu primer gasto fijo") : x("¿Cuántas cuentas usas?")}</h1>
 
       {step === 1 ? (
-        <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); if (step1Ok) setStep(2); }}>
+        <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); if (step1Ok && !currencyBusy) void next1(); }}>
           <p className="text-sm text-ink-2">{x("Suma nómina y otros ingresos. Es una estimación: puedes cambiarla después.")}</p>
+          {canChangeCurrency && (
+            <label className="flex flex-col gap-1.5 text-sm text-ink-2">{x("Tu moneda")}
+              <CurrencySelect value={chosenCurrency} onChange={(e) => setChosenCurrency(e.target.value)} />
+            </label>
+          )}
           {members.map((m) => (
             <label key={m.id} className="flex flex-col gap-1.5 text-sm text-ink-2">
               {m.mine ? x("Tus ingresos") : `${x("Ingresos de")} ${m.name} (${x("opcional")})`}
@@ -101,7 +124,8 @@ export function WelcomePlan({ initialStep = 1, categories = [], rules = [], spac
                 className="min-h-12 rounded-card border border-border bg-surface px-4 font-mono text-lg text-ink" />
             </label>
           ))}
-          <button type="submit" disabled={!step1Ok} className="min-h-12 rounded-full bg-accent px-6 font-semibold text-on-accent disabled:cursor-not-allowed disabled:opacity-50">{x("Siguiente")}</button>
+          {currencyErr && <p role="alert" className="text-sm text-over-text">{currencyErr}</p>}
+          <button type="submit" disabled={!step1Ok || currencyBusy} className="min-h-12 rounded-full bg-accent px-6 font-semibold text-on-accent disabled:cursor-not-allowed disabled:opacity-50">{currencyBusy ? x("Cambiando…") : x("Siguiente")}</button>
         </form>
       ) : step === 4 ? (
         <div className="flex flex-col gap-3">

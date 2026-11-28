@@ -1,15 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { CurrencySelect } from "@/components/money/CurrencySelect";
 import { SheetShell } from "@/components/ui/SheetShell";
 import { useTx } from "@/i18n/tx-client";
-import { formatMoney, parseToCents } from "@/lib/money";
+import { currencySymbol, formatMoney, parseToCents } from "@/lib/money";
+import { getFxPreview } from "@/server/actions/fx";
 import { adjustBalance, archiveAccount, createTransfer, saveAccount } from "@/server/actions/accounts";
 
-export type SpaceOpt = { id: string; name: string; kind: "personal" | "household" | "group" };
-export type AccountOpt = { id: string; name: string; color: string; kind: "payroll" | "daily" | "savings" | "shared"; balanceCents: number; mine: boolean };
-export type EditableAccount = { id: string; spaceId: string; name: string; bank: string | null; color: string; kind: AccountOpt["kind"]; openingCents: number; openingDate: string; isDefault: boolean };
+export type SpaceOpt = { id: string; name: string; kind: "personal" | "household" | "group"; currency: string };
+export type AccountOpt = { id: string; name: string; color: string; kind: "payroll" | "daily" | "savings" | "shared"; balanceCents: number; mine: boolean; currency: string };
+export type EditableAccount = { id: string; spaceId: string; name: string; bank: string | null; color: string; kind: AccountOpt["kind"]; openingCents: number; openingDate: string; isDefault: boolean; currency: string };
 
 // Paleta de marca (sin rojo: se asocia a alarma o deuda)
 const COLORS = ["#A78BFA", "#C8F060", "#7DD3FC", "#FF9F43", "#34D399", "#F472B6", "#FDBA74", "#9AA3AF"];
@@ -34,7 +36,9 @@ export function AccountEditor({ spaces, account, label, demo, variant = "primary
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const space = spaces.find((s) => s.id === spaceId);
-  const kinds = space?.kind === "personal" ? KINDS.filter((k) => k.id !== "shared") : KINDS;
+  const [chosenCurrency, setCurrency] = useState<string | null>(account?.currency ?? null);
+  const currency = chosenCurrency ?? space?.currency ?? "EUR";
+  const kinds =space?.kind === "personal" ? KINDS.filter((k) => k.id !== "shared") : KINDS;
 
   const submit = () => {
     setErr(null);
@@ -43,7 +47,7 @@ export function AccountEditor({ spaces, account, label, demo, variant = "primary
     const c = opening.trim() ? parseToCents(opening.replace("-", "")) : 0;
     if (c === null || !name.trim()) return setErr(x("Datos no válidos"));
     start(async () => {
-      const r = await saveAccount({ id: account?.id, spaceId, name: name.trim(), bank: bank.trim(), color, kind, openingCents: neg ? -c : c, openingDate, isDefault }).catch(() => null);
+      const r = await saveAccount({ id: account?.id, spaceId, name: name.trim(), bank: bank.trim(), color, kind, openingCents: neg ? -c : c, openingDate, isDefault, currency }).catch(() => null);
       if (!r || !r.ok) return setErr(r?.error ?? x("No se ha podido completar."));
       setOpen(false); router.refresh();
     });
@@ -66,6 +70,9 @@ export function AccountEditor({ spaces, account, label, demo, variant = "primary
                 <select value={spaceId} onChange={(e) => { setSpaceId(e.target.value); if (spaces.find((s) => s.id === e.target.value)?.kind === "personal" && kind === "shared") setKind("daily"); }} className={FIELD}>{spaces.map((s) => <option key={s.id} value={s.id}>{s.kind === "personal" ? x("Personal") : s.name}</option>)}</select>
               </label>
             )}
+            <label className="flex flex-col gap-1 text-sm text-ink-2">{x("Moneda de la cuenta")}
+              <CurrencySelect value={currency} onChange={(e) => setCurrency(e.target.value)} className={FIELD} />
+            </label>
             <div role="group" aria-label={x("Color")} className="flex flex-wrap gap-2">
               {COLORS.map((c) => <button key={c} type="button" aria-label={c} aria-pressed={color === c} onClick={() => setColor(c)} className={`size-11 rounded-full border-2 ${color === c ? "border-ink" : "border-transparent"}`} style={{ background: c }} />)}
             </div>
@@ -100,7 +107,25 @@ export function TransferForm({ accounts, spaces = [], usedColors = [], demo, ini
   const [pending, start] = useTransition();
   const cents = parseToCents(amount) ?? 0;
   const dest = accounts.find((a) => a.id === to);
-  const fmt = (c: number) => formatMoney(c, "EUR", x.locale);
+  const fromCurrency = accounts.find((a) => a.id === from)?.currency ?? "EUR";
+  const toCurrency = dest?.currency ?? fromCurrency;
+  const crossCurrency = fromCurrency !== toCurrency;
+  const fmt = (c: number) => formatMoney(c, fromCurrency, x.locale);
+
+  // Entre monedas distintas se propone lo que llega con el cambio del día, pero se puede corregir (el banco aplica el suyo)
+  const [typedArrives, setArrives] = useState<string | null>(null);
+  const [rate, setRate] = useState<{ key: string; value: number | null } | null>(null);
+  const rateKey = `${fromCurrency}|${toCurrency}|${date}`;
+  useEffect(() => {
+    if (!crossCurrency) return;
+    let live = true;
+    getFxPreview(toCurrency, fromCurrency, date).then((value) => { if (live) setRate({ key: rateKey, value }); }).catch(() => { if (live) setRate({ key: rateKey, value: null }); });
+    return () => { live = false; };
+  }, [crossCurrency, fromCurrency, toCurrency, date, rateKey]);
+  const todayRate = rate?.key === rateKey ? rate.value : null;
+  const arrives = typedArrives ?? (todayRate && cents > 0 ? toInput(Math.round(cents * todayRate)) : "");
+  const arrivesCents = parseToCents(arrives) ?? 0;
+  const ready = cents > 0 && !!from && !!to && (!crossCurrency || arrivesCents > 0);
 
   if (accounts.length < 2) return (
     <div className="flex flex-col items-start gap-3 rounded-card border border-border bg-surface p-4">
@@ -112,30 +137,36 @@ export function TransferForm({ accounts, spaces = [], usedColors = [], demo, ini
     if (demo) return setMsg({ ok: false, text: x("Crea una cuenta para guardar") });
     setMsg({ ok: true, text: `${fmt(cents)} ${x("traspasados")}` }); // optimista
     start(async () => {
-      const r = await createTransfer({ fromId: from, toId: to, amountCents: cents, date, note: note.trim() || undefined, source: initial?.source ?? "manual" }).catch(() => null);
+      const r = await createTransfer({ fromId: from, toId: to, amountCents: cents, date, note: note.trim() || undefined, source: initial?.source ?? "manual", ...(crossCurrency ? { toAmountCents: arrivesCents } : {}) }).catch(() => null);
       if (!r || !r.ok) return setMsg({ ok: false, text: r?.error ?? x("No se ha podido completar.") });
-      setAmount(""); setNote(""); router.refresh();
+      setAmount(""); setArrives(null); setNote(""); router.refresh();
     });
   };
   return (
-    <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); if (cents > 0 && from && to) save(); }}>
+    <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); if (ready) save(); }}>
       <div className="flex items-baseline gap-2 rounded-card border border-border bg-surface px-4 py-3 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent">
         <input inputMode="decimal" value={amount} onChange={(e) => { setAmount(e.target.value); setMsg(null); }} placeholder="0,00" aria-label={x("Importe")} autoFocus className="t-display w-full min-w-0 border-0 bg-transparent p-0 text-ink !outline-none placeholder:text-ink-3" />
-        <span className="t-figure text-ink-3">€</span>
+        <span className="t-figure text-ink-3">{currencySymbol(fromCurrency, x.locale)}</span>
       </div>
       <label className="flex flex-col gap-1 text-sm text-ink-2">{x("De la cuenta")}
-        <select value={from} onChange={(e) => setFrom(e.target.value)} className={FIELD}>{mine.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
+        <select value={from} onChange={(e) => { setFrom(e.target.value); setArrives(null); }} className={FIELD}>{mine.map((a) => <option key={a.id} value={a.id}>{a.name} ({a.currency})</option>)}</select>
       </label>
       <label className="flex flex-col gap-1 text-sm text-ink-2">{x("A la cuenta")}
-        <select value={to} onChange={(e) => setTo(e.target.value)} className={FIELD}>{accounts.filter((a) => a.id !== from).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
+        <select value={to} onChange={(e) => { setTo(e.target.value); setArrives(null); }} className={FIELD}>{accounts.filter((a) => a.id !== from).map((a) => <option key={a.id} value={a.id}>{a.name} ({a.currency})</option>)}</select>
       </label>
+      {crossCurrency && (
+        <label className="flex flex-col gap-1 text-sm text-ink-2">{`${x("Importe que llega")} (${toCurrency})`}
+          <input inputMode="decimal" value={arrives} onChange={(e) => { setArrives(e.target.value); setMsg(null); }} placeholder="0,00" aria-label={x("Importe que llega")} className={`${FIELD} font-mono`} />
+          <span className="text-xs text-ink-3">{todayRate ? x("Propuesto con el cambio del día. Pon lo que de verdad llegó: tu banco aplica el suyo.") : x("Pon lo que llega a la otra cuenta.")}</span>
+        </label>
+      )}
       {dest?.kind === "shared" && <p className="text-sm text-ink-2">{x("Es la cuenta común de un hogar: contará como tu aportación al hogar.")}</p>}
       <div className="grid grid-cols-2 gap-2">
         <label className="flex flex-col gap-1 text-sm text-ink-2">{x("Fecha")}<input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={FIELD} /></label>
         <label className="flex flex-col gap-1 text-sm text-ink-2">{x("Nota")}<input value={note} onChange={(e) => setNote(e.target.value)} maxLength={80} className={FIELD} /></label>
       </div>
       {msg && <p role={msg.ok ? "status" : "alert"} className={`text-sm ${msg.ok ? "text-ink-2" : "text-over-text"}`}>{msg.text}</p>}
-      <button type="submit" disabled={cents <= 0 || !from || !to || pending} className="min-h-14 rounded-full bg-accent text-base font-semibold text-on-accent disabled:opacity-50">{pending ? x("Guardando…") : x("Hacer traspaso")}</button>
+      <button type="submit" disabled={!ready || pending} className="min-h-14 rounded-full bg-accent text-base font-semibold text-on-accent disabled:opacity-50">{pending ? x("Guardando…") : x("Hacer traspaso")}</button>
     </form>
   );
 }
