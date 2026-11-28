@@ -6,7 +6,8 @@ export const options = (page: Page, text: string | RegExp) => swipeRow(page, tex
 
 /** Gesto con el dedo de verdad (eventos táctiles del navegador). Solo en el proyecto móvil. */
 export async function swipe(page: Page, target: Locator, dx: number, dy = 0) {
-  await target.scrollIntoViewIfNeeded();
+  // Al centro: abajo del todo la taparía la barra de navegación y el dedo caería en ella
+  await target.evaluate((el) => el.scrollIntoView({ block: "center" }));
   const box = (await target.boundingBox())!;
   const from = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
   const cdp = await page.context().newCDPSession(page);
@@ -19,8 +20,9 @@ export async function swipe(page: Page, target: Locator, dx: number, dy = 0) {
 /** Pulsa una acción de la fila como lo haría cada cual: deslizando con el dedo o desde «⋯» con el ratón o el teclado. */
 export async function rowAction(page: Page, isMobile: boolean, text: string | RegExp, action: string) {
   const row = swipeRow(page, text);
-  if (isMobile) await swipe(page, row.locator("[data-swipe-content]"), action === "Borrar" ? -120 : 120);
-  else await options(page, text).click();
+  // Una fila puede llevar otras dentro: la primera coincidencia es la suya
+  if (isMobile) await swipe(page, row.locator("[data-swipe-content]").first(), action === "Borrar" ? -120 : 120);
+  else await options(page, text).first().click();
   const button = row.getByRole("button", { name: action, exact: true }).or(row.getByRole("link", { name: action, exact: true }));
-  await button.click();
+  await button.first().click();
 }

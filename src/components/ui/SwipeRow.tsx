@@ -119,7 +119,10 @@ export function SwipeRow({ id, name, kind, confirm, dialog, secondary, children 
   const onDown = (e: React.PointerEvent) => {
     swiped.current = false;
     // El ratón no desliza (usa «⋯»); sobre un campo o un formulario abierto, tampoco
-    if (e.pointerType === "mouse" || (e.target as Element).closest("input, select, textarea, form")) return;
+    const target = e.target as Element;
+    if (e.pointerType === "mouse" || target.closest("input, select, textarea, form")) return;
+    // Con filas dentro de filas (o diálogos), cada toque es solo de la fila más cercana
+    if (!e.currentTarget.contains(target) || target.closest("[data-swipe-content]") !== e.currentTarget) return;
     drag.current = { x: e.clientX, y: e.clientY, base: dx, axis: null, width: e.currentTarget.getBoundingClientRect().width, offset: dx };
   };
   const onMove = (e: React.PointerEvent) => {
