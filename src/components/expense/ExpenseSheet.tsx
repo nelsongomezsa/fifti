@@ -13,7 +13,7 @@ import { submitExpense } from "@/lib/offline/submit";
 import { CURRENCIES } from "@/lib/fx";
 import { getFxPreview } from "@/server/actions/fx";
 import { scanReceipt } from "@/lib/ocr";
-import { uploadReceipt } from "@/server/actions/receipts";
+import { uploadReceipt } from "@/lib/upload-receipt";
 import type { ExpenseInput } from "@/lib/validation/expense";
 import type { SheetContext, SheetSpace } from "@/server/actions/sheet";
 import type { SaveResult } from "@/server/actions/expenses";
@@ -82,6 +82,7 @@ export function ExpenseSheet({
   const [photo, setPhoto] = useState<File | null>(null);
   const [scan, setScan] = useState<{ busy: boolean; amountCents: number | null; date: string | null; error?: string } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [photoFailed, setPhotoFailed] = useState<{ message: string; info: SavedInfo } | null>(null);
   // El error solo se ve mientras importe y concepto siguen como estaban al pulsar Guardar: al escribir desaparece
   const [errState, setErrState] = useState<{ msg: string; sig: string } | null>(null);
   const sig = `${amount}\u0000${desc}`;
@@ -226,12 +227,16 @@ export function ExpenseSheet({
     const res = await submitExpense(input);
     setSaving(false);
     if (!res.ok) return setError(res.error);
-    if (photo && res.id !== "pending") {
-      const fd = new FormData(); fd.set("expenseId", res.id); fd.set("file", photo);
-      await uploadReceipt(fd);
-    }
     try { localStorage.setItem(LAST_KEY, space.id); } catch { /* sin almacenamiento */ }
-    onSaved({ id: res.id, shareCents: res.shareCents, spaceName: space.kind === "personal" ? x("Personal") : space.name, currency: space.currency, pending: res.id === "pending", ruleHint: res.ruleHint });
+    const info: SavedInfo = { id: res.id, shareCents: res.shareCents, spaceName: space.kind === "personal" ? x("Personal") : space.name, currency: space.currency, pending: res.id === "pending", ruleHint: res.ruleHint };
+    if (photo && res.id !== "pending") {
+      setSaving(true);
+      const upload = await uploadReceipt(res.id, photo, x);
+      setSaving(false);
+      // El gasto ya está guardado: se avisa de que la foto no, sin dejar guardarlo otra vez
+      if (!upload.ok) return setPhotoFailed({ message: upload.error, info });
+    }
+    onSaved(info);
     onClose();
   };
 
@@ -423,9 +428,10 @@ export function ExpenseSheet({
           {(error ?? (cents > 0 ? live.error : null)) && (
             <p role="alert" className="text-sm text-over-text">{x(error ?? live.error ?? "")}</p>
           )}
-          <button type="button" onClick={save} disabled={saving}
+          {photoFailed && <p role="alert" className="text-sm text-over-text">{`${x("El gasto se ha guardado, pero la foto no.")} ${photoFailed.message}`}</p>}
+          <button type="button" onClick={photoFailed ? () => { onSaved(photoFailed.info); onClose(); } : save} disabled={saving}
             className="mt-2 min-h-12 w-full rounded-full text-base font-semibold text-on-accent disabled:opacity-60" style={{ background: accent }}>
-            {saving ? x("Guardando…") : `${x("Guardar en")} ${bubbleLabel}`}
+            {saving ? x("Guardando…") : photoFailed ? x("Entendido") : `${x("Guardar en")} ${bubbleLabel}`}
           </button>
         </div>
       </div>

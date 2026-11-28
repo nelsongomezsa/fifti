@@ -1,6 +1,4 @@
 [
-  "./node_modules/@img/**/*",
-  "./node_modules/sharp/**/*",
   "./node_modules/@swc/core*/**/*",
   "./node_modules/@swc/counter/**/*",
   "./node_modules/@swc/types/**/*",

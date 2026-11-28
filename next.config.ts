@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 import traceExcludes from "./scripts/trace-excludes.json";
+import traceImageExcludes from "./scripts/trace-excludes-imagen.json";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
@@ -26,12 +27,18 @@ const csp = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  // Cada pantalla es su propia función en Vercel y su tamaño cuenta en el arranque en frío. No usamos next/image, así que sharp
-  // (libvips, ~28 MB) y los binarios de compilación se dejan fuera del paquete de cada función.
+  // Cada pantalla es su propia función en Vercel y su tamaño cuenta en el arranque en frío: los binarios de compilación se
+  // dejan fuera de todas, y sharp (libvips, ~28 MB) de todas menos /api/ticket, que recodifica las fotos de los tickets.
+  // Ningún otro código puede importar sharp. No usamos next/image.
   // OJO: @swc/helpers NO se puede excluir; Next lo exige en runtime (sin él, todas las rutas dan 500).
-  // La lista vive en scripts/trace-excludes.json y `npm run check:runtime` arranca la app sin esos paquetes para comprobarlo.
+  // Las listas viven en scripts/trace-excludes*.json y `npm run check:runtime` comprueba la traza de cada función.
   outputFileTracingExcludes: {
     "*": traceExcludes,
+    "!**/api/ticket": traceImageExcludes,
+  },
+  // libvips se carga en tiempo de ejecución y el rastreo de dependencias no siempre la ve
+  outputFileTracingIncludes: {
+    "/api/ticket": ["./node_modules/sharp/**/*", "./node_modules/@img/**/*"],
   },
   reactStrictMode: true,
   // Caché de navegación en el cliente: las pantallas ya vistas (o precargadas) salen al instante y se revalidan por detrás (RefreshOnNav)

@@ -6,6 +6,7 @@ const RUTAS = [
   { path: "/login" },
   { path: "/registro" },
   { path: "/api/ping" },
+  { path: "/api/ticket" }, // procesa una imagen de prueba: dice si sharp funciona en la función de las fotos
   { path: "/inicio", headers: { cookie: "fifti_demo=1" } },
 ];
 

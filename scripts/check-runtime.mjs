@@ -19,7 +19,27 @@ if (!existsSync(".next/BUILD_ID")) {
 }
 
 // "./node_modules/@swc/core*/**/*" -> ["@swc/core*"]
-const patrones = JSON.parse(readFileSync("scripts/trace-excludes.json", "utf8")).map((g) => g.replace(/^\.\/node_modules\//, "").replace(/\/\*\*\/\*$/, ""));
+const leer = (f) => JSON.parse(readFileSync(f, "utf8")).map((g) => g.replace(/^\.\/node_modules\//, "").replace(/\/\*\*\/\*$/, ""));
+const excluidosSiempre = leer("scripts/trace-excludes.json");
+const excluidosImagen = leer("scripts/trace-excludes-imagen.json"); // fuera de todas las funciones menos /api/ticket
+const patrones = [...excluidosSiempre, ...excluidosImagen];
+
+// La traza de cada función dice qué se sube con ella: sharp y libvips solo con la de las fotos, y con esa sí o sí.
+// (La traza común `next-server` no se mira: Next la limpia de sharp únicamente cuando construye en Vercel.)
+function comprobarTrazas() {
+  const listar = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? listar(join(d, e.name)) : [join(d, e.name)]));
+  const trazas = listar(".next/server").filter((f) => f.endsWith(".nft.json"));
+  const ticket = join(".next", "server", "app", "api", "ticket", "route.js.nft.json");
+  let mal = 0;
+  const sobran = trazas.filter((f) => f !== ticket && JSON.parse(readFileSync(f, "utf8")).files.some((x) => /node_modules\/(sharp|@img)\//.test(x)));
+  if (sobran.length) { console.log(`FALLO sharp en funciones que no lo necesitan: ${sobran.slice(0, 5).join(", ")}`); mal++; }
+  const suyos = trazas.includes(ticket) ? JSON.parse(readFileSync(ticket, "utf8")).files : [];
+  for (const [que, re] of [["sharp", /node_modules\/sharp\//], ["el binario de sharp", /node_modules\/@img\/sharp-(?!libvips)/], ["libvips", /node_modules\/@img\/sharp-libvips/]]) {
+    if (!suyos.some((x) => re.test(x))) { console.log(`FALLO /api/ticket no lleva ${que}`); mal++; }
+  }
+  if (!mal) console.log(`OK    trazas: sharp solo en /api/ticket (${trazas.length} funciones revisadas)`);
+  return mal;
+}
 
 function expandir(patron) {
   if (!patron.includes("*")) return existsSync(join(NM, patron)) ? [patron] : [];
@@ -34,16 +54,19 @@ function expandir(patron) {
 const paquetes = [...new Set(patrones.flatMap(expandir))];
 const movidos = [];
 
-function restaurar() {
-  for (const p of movidos.splice(0).reverse()) {
+/** Devuelve a node_modules lo apartado: todo, o solo lo que case con `solo`. */
+function restaurar(solo) {
+  const toca = (p) => !solo || solo.some((patron) => p === patron || p.startsWith(`${patron}/`));
+  for (const p of movidos.filter(toca).reverse()) {
     mkdirSync(dirname(join(NM, p)), { recursive: true });
     renameSync(join(BAK, p), join(NM, p));
+    movidos.splice(movidos.indexOf(p), 1);
   }
-  rmSync(BAK, { recursive: true, force: true });
+  if (movidos.length === 0) rmSync(BAK, { recursive: true, force: true });
 }
 
 let server;
-let fallos = 0;
+let fallos = comprobarTrazas();
 try {
   if (existsSync(BAK)) {
     console.error(`${BAK} existe de una ejecución anterior interrumpida: restáuralo a mano antes de seguir.`);
@@ -99,6 +122,17 @@ try {
       if (!ok) fallos++;
       console.log(`${ok ? "OK   " : "FALLO"} ${r.status} POST ${path} (server action)`);
     }
+    // Ya se ha visto que nada más necesita sharp: se le devuelve, como a la función de las fotos, y procesa una imagen
+    restaurar(excluidosImagen);
+    const foto = await fetch(`${BASE}/api/ticket`, { redirect: "manual", signal: AbortSignal.timeout(20000) });
+    const fotoOk = foto.status === 200 && (await foto.text()).includes('"ok":true');
+    if (!fotoOk) fallos++;
+    console.log(`${fotoOk ? "OK   " : "FALLO"} ${foto.status} /api/ticket (procesa una imagen)`);
+    // Sin sesión no se sube nada
+    const anonima = await fetch(`${BASE}/api/ticket`, { method: "POST", redirect: "manual", body: new FormData(), headers: { origin: BASE }, signal: AbortSignal.timeout(20000) });
+    const cerrada = [401, 413].includes(anonima.status);
+    if (!cerrada) fallos++;
+    console.log(`${cerrada ? "OK   " : "FALLO"} ${anonima.status} POST /api/ticket sin sesión`);
     if (fallos) console.error("\n" + salida.split("\n").filter((l) => /error|cannot find/i.test(l)).slice(0, 8).join("\n"));
   }
 } finally {

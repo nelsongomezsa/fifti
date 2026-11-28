@@ -36,7 +36,7 @@ Revisión del 25-11-2026 contra el código y las migraciones.
 | 17 | Sin stack traces | Cumple | Mensajes genéricos; el detalle va a los logs del servidor (`rpcMessage`) |
 | 18 | Dependabot, audit, gitleaks, osv | Cumple | `npm audit`: 0 vulnerabilidades; osv-scanner sin incidencias; Dependabot semanal; CI con gitleaks y osv |
 | 19 | HIBP por k-anonymity | Cumple | `src/lib/security/hibp.ts` (5 caracteres del SHA-1) al registrarse y al cambiar la contraseña |
-| 20 | Fotos de tickets | Cumple | Magic bytes, 5 MB, recodificado sin EXIF, bucket privado, URL firmada |
+| 20 | Fotos de tickets | Cumple | `/api/ticket`: sesión, permiso sobre el gasto, misma procedencia, límite de uso, magic bytes, 4 MB, recodificado sin EXIF, bucket privado, URL firmada |
 
 Cabeceras (`next.config.ts`): CSP estricta (origen propio, Turnstile y el proyecto de Supabase), HSTS, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy` y `Permissions-Policy`. Las cabeceras de producción en vivo no se han podido consultar en esta revisión: se leen del código.
 

@@ -5,4 +5,5 @@ export function sniffImageType(b: Uint8Array): "jpeg" | "png" | "webp" | null {
   if (b.length >= 12 && String.fromCharCode(...b.slice(0, 4)) === "RIFF" && String.fromCharCode(...b.slice(8, 12)) === "WEBP") return "webp";
   return null;
 }
-export const MAX_RECEIPT_BYTES = 5 * 1024 * 1024;
+/** 4 MB: por encima, la petición supera el límite de las funciones de Vercel (4,5 MB). */
+export const MAX_RECEIPT_BYTES = 4 * 1024 * 1024;

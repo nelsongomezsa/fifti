@@ -86,7 +86,7 @@ flowchart LR
 - **Invitados sin cuenta** = sesiones anónimas de Supabase Auth ligadas por RLS a un solo grupo y un solo perfil; pueden convertirse en cuenta conservando su historial.
 - **Enlaces** (invitación, invitado, reclamar perfil, resumen público): token de 32 bytes, solo se guarda su hash, con caducidad, usos máximos y revocación.
 - **Gastos privados** dentro de un grupo: el detalle vive en una tabla aparte legible solo por su autor. **Historial** inmutable (solo inserción) escrito por triggers.
-- **Tickets**: tipo real por magic bytes, máx. 5 MB, recodificado sin EXIF, bucket privado y URL firmada de 5 minutos; OCR en el navegador con archivos propios.
+- **Tickets**: se suben por `/api/ticket` (la única función que lleva `sharp`): sesión, permiso sobre el gasto, misma procedencia, límite de uso, tipo real por magic bytes, máx. 4 MB, recodificado sin EXIF, bucket privado y URL firmada de 5 minutos; OCR en el navegador con archivos propios.
 - **CSV**: escape de inyección de fórmulas al exportar; al importar, límites, validación por fila y vista previa.
 
 ## Seguridad
