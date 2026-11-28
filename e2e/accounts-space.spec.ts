@@ -2,6 +2,9 @@ import { expect, test } from "@playwright/test";
 import { admin, e2eConfigured, login, newUser, personalOf, removeUsers, seedExpense, seedPlan, type TestUser } from "./helpers";
 
 test.skip(!e2eConfigured, "Faltan las claves de pruebas");
+// Estas pruebas no van del service worker, y es lo único del navegador que puede dejar una navegación sin responder
+// con el servidor sano (una vez, un `goto` a /traspaso no terminó en 60 s). Si vuelve a pasar, ya no es él.
+test.use({ serviceWorkers: "block" });
 
 let ana: TestUser;
 test.beforeEach(async () => { ana = await newUser("Ana"); await seedPlan(ana); });
