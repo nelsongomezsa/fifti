@@ -40,5 +40,6 @@ test("crear el hogar e invitar a la pareja, apuntar un gasto, ver el balance y s
   await expect(page.getByText("20,00 €").first()).toBeVisible();
   await page.getByText("Saldar", { exact: true }).first().click();
   await page.getByRole("button", { name: "Marcar como pagado" }).click();
-  await expect.poll(async () => (await admin().from("settlements").select("id")).data?.length ?? 0, { timeout: 15_000 }).toBeGreaterThan(0);
+  // Solo la liquidación de este hogar: con cualquiera de la base, la prueba podía acabar (y borrar los usuarios) antes de que se guardara
+  await expect.poll(async () => (await admin().from("settlements").select("id, spaces!inner(created_by)").eq("spaces.created_by", ana.id)).data?.length ?? 0, { timeout: 15_000 }).toBeGreaterThan(0);
 });

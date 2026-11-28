@@ -94,6 +94,12 @@ test("el enlace de un gasto que ya no existe lo dice y deja volver, sin 404", as
   expect(notFound).toEqual([]);
 });
 
+test("un id que no es válido responde 404 de verdad", async ({ page }) => {
+  await login(page, ana);
+  const res = await page.goto("/movimientos/no-es-un-id");
+  expect(res?.status()).toBe(404);
+});
+
 test("borrar un gasto fijo vuelve a la lista de fijos y ya no aparece", async ({ page }) => {
   const p = await personalOf(ana);
   const today = new Date().toISOString().slice(0, 10);
