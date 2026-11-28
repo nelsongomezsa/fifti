@@ -7,6 +7,7 @@ import { CategoryIcon } from "@/components/ui/CategoryIcon";
 import { SwipeHint } from "@/components/ui/SwipeHint";
 import { SwipeRow } from "@/components/ui/SwipeRow";
 import { canDeleteExpense } from "@/lib/permissions";
+import { incomeConfirms } from "@/server/income-goals";
 import { MovementFilters } from "@/components/movements/MovementFilters";
 import { PendingExpenseRows } from "@/components/expense/optimistic";
 import { ArrowRightLeft, Users, Wallet } from "lucide-react";
@@ -93,6 +94,7 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
     ...contribs.map((c) => ({ id: `c${c.id}`, kind: "contribution" as const, date: (c.paid_at ?? month) as string, cents: c.paid_cents, currency: cur, title:`${x("Aportación de")} ${memberName.get(c.member_id) ?? "—"}`, sub: x("Aportación al hogar") })),
     ...transfers.map((t) => ({ id: `t${t.id}`, kind: "transfer" as const, date: t.transfer_date as string, cents: t.amount_cents, currency: accById.get(t.from_account)?.currency ?? cur, title:`${accById.get(t.from_account)?.name ?? "—"} → ${accById.get(t.to_account)?.name ?? "—"}`, sub: [x("Traspaso"), t.note].filter(Boolean).join(" · "), href: `/cuentas/${t.from_account}`, deleteId: t.user_id === user.id ? t.id : undefined })),
   ];
+  const incomeAsk = await incomeConfirms(supabase, x, incomes.map((i) => i.id));
   const dayKeys = [...new Set([...rows.map((e) => e.spent_at as string), ...others.map((o) => o.date)])].sort((a, b) => b.localeCompare(a));
   const total = rows.length + others.length;
   const href = (patch: Partial<SP>) => {
@@ -165,7 +167,7 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
                     return (
                       <li key={o.id}>
                         {o.deleteId && o.kind !== "contribution" ? (
-                          <SwipeRow id={o.deleteId} name={o.title} kind={o.kind} secondary={o.kind === "income" ? { label: x("Editar"), href: "/inicio/ingresos" } : undefined}>{content}</SwipeRow>
+                          <SwipeRow id={o.deleteId} name={o.title} kind={o.kind} confirm={incomeAsk.get(o.deleteId)} secondary={o.kind === "income" ? { label: x("Editar"), href: "/inicio/ingresos" } : undefined}>{content}</SwipeRow>
                         ) : content}
                       </li>
                     );

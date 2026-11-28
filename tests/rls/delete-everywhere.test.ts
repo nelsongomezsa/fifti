@@ -171,7 +171,47 @@ describe.skipIf(!rlsConfigured)("borrar: quién puede cada cosa", () => {
     expect(await exists("tags", tag)).toBe(false);
   });
 
-  it("borrar un espacio: solo quien lo creó, nunca el Personal, y se lleva todo con sus cuentas", async () => {
+  it("al borrar un espacio, las cuentas ajenas pasan a su Personal con sus traspasos y ajustes", async () => {
+    const { space } = await group();
+    const account = async (u: U, name: string, kind = "daily") =>
+      ok(await u.client.rpc("save_account", { p: { space_id: space, name, kind, opening_cents: 10000, opening_date: DATE } })) as string;
+    const move = async (u: U, from: string, to: string, amount: number) =>
+      ok(await u.client.rpc("create_transfer", { p_from: from, p_to: to, p_amount: amount, p_date: DATE, p_note: null, p_source: "manual" })) as string;
+    const anas = await account(ana, "De Ana");
+    const common = await account(ana, "Común de Ana", "shared");
+    const daily = await account(leo, "Diario de Leo"), savings = await account(leo, "Ahorro de Leo"), leoCommon = await account(leo, "Común de Leo", "shared");
+    const own = await move(leo, daily, savings, 300);
+    const toAna = await move(leo, daily, common, 100);
+    ok(await leo.client.rpc("adjust_account_balance", { p_account: savings, p_target: 55555, p_note: null }));
+    const leoHome = await personal(leo);
+
+    const result = ok(await ana.client.rpc("delete_space", { p_space: space })) as { moved: string[] };
+
+    expect(result.moved).toEqual([leo.id]);
+    for (const id of [anas, common]) expect(await exists("accounts", id)).toBe(false);
+    for (const id of [daily, savings, leoCommon]) expect((await rows("accounts", "id", id))[0], id).toMatchObject({ space_id: leoHome, owner_user_id: leo.id });
+    expect((await rows("accounts", "id", leoCommon))[0]).toMatchObject({ kind: "daily" });
+    expect(await exists("account_transfers", own)).toBe(true);
+    expect(await exists("account_transfers", toAna)).toBe(false); // iba a una cuenta que sí se borra
+    expect(await rows("account_adjustments", "account_id", savings)).toHaveLength(1);
+    expect((await admin().from("accounts").select("id").eq("owner_user_id", leo.id).eq("space_id", leoHome).eq("is_default", true)).data).toHaveLength(1);
+    expect((await leo.client.from("accounts").select("id").eq("id", savings)).data).toHaveLength(1);
+  });
+
+  it("borrar un ingreso se lleva sus aportaciones automáticas y ninguna más", async () => {
+    const space = await personal(ana);
+    const me = await member(ana, space);
+    const goals = [await insert("savings_goals", { space_id: space, name: "Colchón", target_cents: 100000, kind: "simple" }), await insert("savings_goals", { space_id: space, name: "Viaje Lisboa", target_cents: 100000, kind: "simple" })];
+    for (const goal of goals) await insert("saving_rules", { space_id: space, goal_id: goal, kind: "percent_of_income", value: 1000 });
+    const manual = await insert("goal_contributions", { goal_id: goals[0], space_id: space, member_id: me, amount_cents: 100, source: "manual", contributed_at: DATE });
+    const income = ok(await ana.client.rpc("save_income", { p: { space_id: space, member_id: me, amount_cents: 100000, source: "Nómina", received_at: DATE } })) as string;
+    expect((await ana.client.from("goal_contributions").select("goal_id").eq("source_income_id", income)).data).toHaveLength(2);
+    ok(await del(ana, "income", income));
+    expect(await rows("goal_contributions", "source_income_id", income)).toEqual([]);
+    expect(await exists("goal_contributions", manual)).toBe(true);
+  });
+
+  it("borrar un espacio: solo quien lo creó, nunca el Personal, y se lleva todo", async () => {
     const { space, anaM, leoM } = await group();
     const spent = await expense(ana, space, anaM);
     const mine = ok(await leo.client.rpc("save_account", { p: { space_id: space, name: "Cuenta de Leo", kind: "daily", opening_cents: 1, opening_date: DATE } })) as string;
@@ -182,7 +222,7 @@ describe.skipIf(!rlsConfigured)("borrar: quién puede cada cosa", () => {
     expect(result.others).toEqual([leo.id]);
     expect(await exists("spaces", space)).toBe(false);
     expect(await exists("expenses", spent)).toBe(false);
-    expect(await exists("accounts", mine)).toBe(false);
+    expect(await exists("accounts", mine)).toBe(true); // la de Leo se muda, no se borra
     expect(await exists("space_members", leoM)).toBe(false);
   });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clearedBody, deleteImpact, type OtherAccount, type TransferRow } from "@/lib/account-delete";
+import { clearedBody, deletedSpaceNotices, deleteImpact,type OtherAccount, type TransferRow } from "@/lib/account-delete";
 import { localizePayload } from "@/i18n/push-content";
 
 const me = "ana", gone = "A";
@@ -22,6 +22,16 @@ describe("saldos que cambian al borrar una cuenta", () => {
   it("las cuentas que no se ven se avisan sin nombre ni importe, y los traspasos ajenos también", () => {
     const r = deleteImpact(gone, me, [t("Z", gone, 9000, { userId: "leo" })], accounts);
     expect(r).toEqual({ changes: [], hidden: true, othersTransfers: true });
+  });
+  it("al borrar un espacio, quien tenía cuentas recibe que han pasado a Personal y el resto no", () => {
+    const [moved, rest] = deletedSpaceNotices(["leo", "eva"], ["leo"]);
+    expect(moved).toMatchObject({ users: ["leo"], url: "/cuentas" });
+    expect(rest).toMatchObject({ users: ["eva"], body: "Se ha borrado este espacio." });
+    for (const [locale, word] of [["es", /Personal/], ["en", /Personal/]] as const) {
+      expect(localizePayload((tr) => ({ title: "Casa", body: tr(moved!.body), url: moved!.url }), locale).body).toMatch(word);
+    }
+    expect(localizePayload((tr) => ({ title: "Casa", body: tr(moved!.body), url: "/cuentas" }), "en").body).not.toBe(moved!.body);
+    expect(deletedSpaceNotices([], [])).toEqual([]);
   });
   it("el aviso a los demás dice si se borraron cuentas, sin importes, en su idioma", () => {
     for (const locale of ["es", "en"]) {

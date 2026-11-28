@@ -4,6 +4,7 @@ import { ActionForm, inputClass } from "@/components/ui/ActionForm";
 import { createClient } from "@/lib/supabase/server";
 import { formatMoney } from "@/lib/money";
 import { SwipeRow } from "@/components/ui/SwipeRow";
+import { incomeConfirms } from "@/server/income-goals";
 import { saveIncome } from "@/server/actions/expenses";
 import { loadAccounts } from "@/server/accounts";
 import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
@@ -22,6 +23,7 @@ export default async function IncomePage() {
   const spaceAccounts = (await loadAccounts(supabase, user.id)).filter((a) => a.spaceId === active.id);
   const { data: incomes } = await supabase.from("incomes").select("id, member_id, amount_cents, source, received_at").eq("space_id", active.id).order("received_at", { ascending: false }).limit(30);
   const today = new Date().toISOString().slice(0, 10);
+  const ask = await incomeConfirms(supabase, x, (incomes ?? []).map((i) => i.id));
 
   if (me?.role === "guest") return <p className="pt-4 text-ink-2">{x("Los invitados no registran ingresos.")}</p>;
   return (
@@ -45,7 +47,7 @@ export default async function IncomePage() {
       <ul className="flex flex-col gap-2">
         {incomes?.map((i) => (
           <li key={i.id}>
-            <SwipeRow id={i.id} name={i.source} kind={mine.some((m) => m.id === i.member_id) ? "income" : undefined}>
+            <SwipeRow id={i.id} name={i.source} kind={mine.some((m) => m.id === i.member_id) ? "income" : undefined} confirm={ask.get(i.id)}>
               <div className="flex min-h-14 items-center justify-between gap-3 rounded-card border border-border bg-surface px-4 py-3 text-sm">
                 <span>{i.source}<span className="block text-xs text-ink-3">{members?.find((m) => m.id === i.member_id)?.display_name} · {i.received_at}</span></span>
                 <span className="money font-mono">{formatMoney(i.amount_cents, active.currency, x.locale)}</span>

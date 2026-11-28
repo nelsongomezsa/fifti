@@ -7,6 +7,7 @@ import { SwipeRow } from "@/components/ui/SwipeRow";
 import { formatMoney, addMonths } from "@/lib/money";
 import { deleteItem } from "@/server/actions/delete";
 import { saveIncome } from "@/server/actions/expenses";
+import { incomeConfirms } from "@/server/income-goals";
 import { detailContext } from "@/server/inicio-detail";
 import { loadPlan } from "@/server/plan";
 
@@ -27,6 +28,7 @@ export default async function IncomeDetailPage() {
   const entries = incomeResult.data ?? [];
   const mine = plan.members.filter((member) => member.user_id === user.id || (!member.user_id && me?.role === "owner"));
   const money = (cents: number) => formatMoney(cents, active.currency, x.locale);
+  const ask = await incomeConfirms(supabase, x, entries.map((e) => e.id));
 
   return (
     <section className="flex flex-col gap-5 pt-2">
@@ -82,12 +84,12 @@ export default async function IncomeDetailPage() {
                       </ActionForm>
                       <div className="mt-3">
                         <DetailDelete label={x("Borrar ingreso")} title={x("¿Borrar este ingreso?")}
-                          description={x("Se quita de tus cuentas, con las aportaciones a metas que salieron solas de él.")} action={deleteItem.bind(null, { kind: "income", id: entry.id })} />
+                          description={ask.get(entry.id)?.description ?? x("Se quita de tus cuentas. Esta acción no se puede deshacer.")} action={deleteItem.bind(null, { kind: "income", id: entry.id })} />
                       </div>
                     </details>}
                   </div>;
                   return <li key={entry.id}>
-                    <SwipeRow id={entry.id} name={entry.source || x("Sin origen")} kind={editable ? "income" : undefined}
+                    <SwipeRow id={entry.id} name={entry.source || x("Sin origen")} kind={editable ? "income" : undefined} confirm={ask.get(entry.id)}
                       secondary={editable ? { label: x("Editar"), expand: true } : undefined}>{card}</SwipeRow>
                   </li>;
                 })}

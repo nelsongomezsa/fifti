@@ -10,7 +10,7 @@ import { allow } from "@/lib/security/user-limit";
 import { createClient } from "@/lib/supabase/server";
 import { rpcMessage } from "@/server/rpc-error";
 import { notify } from "@/server/push";
-import { clearedBody } from "@/lib/account-delete";
+import { clearedBody, deletedSpaceNotices } from "@/lib/account-delete";
 import { removeSpaceReceipts } from "@/server/receipts";
 import { warmContribution } from "@/server/currency-warm";
 
@@ -60,8 +60,13 @@ export async function deleteSpace(input: unknown): Promise<SimpleResult> {
   if (error) return { ok: false, error: x(rpcMessage(error)) };
   // La base ya ha comprobado el permiso y borrado los gastos: fuera también las fotos
   await removeSpaceReceipts(p.data.spaceId);
-  const r = res as { name: string; others: string[] } | null;
-  if (r?.others?.length) await notify(r.others, "space_cleared", (t) => ({ title: r.name, body: t("Se ha borrado este espacio."), url: "/inicio" }));
+  const r = res as { name: string; others: string[]; moved: string[] } | null;
+  if (r) {
+    // A quien se le han mudado cuentas se le dice dónde están ahora
+    for (const group of deletedSpaceNotices(r.others, r.moved)) {
+      await notify(group.users, "space_cleared", (t) => ({ title: r.name, body: t(group.body), url: group.url }));
+    }
+  }
   revalidatePath("/", "layout");
   redirect("/inicio?borrado=espacio", RedirectType.replace);
 }

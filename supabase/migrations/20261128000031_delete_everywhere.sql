@@ -248,11 +248,12 @@ begin
   end if;
 end; $$;
 
-/* Borrar un espacio entero (menos el Personal): solo quien lo creó. Devuelve a quién avisar. */
+/* Borrar un espacio entero (menos el Personal): solo quien lo creó. Las cuentas de otras personas no se borran:
+   pasan a su Personal. Devuelve a quién avisar y de quién se han movido cuentas. */
 create or replace function public.delete_space(p_space uuid)
 returns jsonb language plpgsql security definer set search_path = public, pg_temp
 as $$
-declare uid uuid := auth.uid(); sp public.spaces; v_users jsonb; v_account uuid;
+declare uid uuid := auth.uid(); sp public.spaces; v_users jsonb; v_account uuid; v_owner uuid; v_personal uuid; v_moved jsonb := '[]'::jsonb;
 begin
   if uid is null or public.is_guest_user() then raise exception 'No autorizado'; end if;
   select * into sp from public.spaces where id = p_space for update;
@@ -265,13 +266,29 @@ begin
   delete from public.monthly_plans where space_id = p_space;
   delete from public.expenses where space_id = p_space;
   delete from public.incomes where space_id = p_space;
-  for v_account in select id from public.accounts where space_id = p_space loop
+  -- Solo se borran las cuentas de quien borra el espacio (con sus traspasos y ajustes)
+  for v_account in select id from public.accounts where space_id = p_space and owner_user_id = uid loop
     perform public._delete_account(v_account);
+  end loop;
+  -- Las de otras personas se mudan a su Personal, con los traspasos entre ellas y sus ajustes. Una «común» deja de serlo.
+  for v_owner in select distinct owner_user_id from public.accounts where space_id = p_space loop
+    select s.id into v_personal from public.spaces s join public.space_members m on m.space_id = s.id
+      where s.kind = 'personal' and m.user_id = v_owner limit 1;
+    if v_personal is null then raise exception 'No autorizado'; end if; -- antes de perder una cuenta, no se borra nada
+    update public.accounts set space_id = v_personal, is_default = false,
+      kind = case when kind = 'shared' then 'daily' else kind end
+      where space_id = p_space and owner_user_id = v_owner;
+    -- Si su Personal no tenía cuenta por defecto, la primera de las mudadas lo es
+    update public.accounts set is_default = true where id = (
+      select a.id from public.accounts a where a.owner_user_id = v_owner and a.space_id = v_personal and a.archived_at is null
+        and not exists (select 1 from public.accounts d where d.owner_user_id = v_owner and d.space_id = v_personal and d.is_default)
+      order by a.created_at, a.id limit 1);
+    v_moved := v_moved || to_jsonb(v_owner);
   end loop;
   delete from public.spaces where id = p_space;
   insert into public.audit_log (space_id, actor, table_name, row_id, action, diff)
-  values (null, uid, 'spaces', p_space, 'delete', jsonb_build_object('kind', sp.kind));
-  return jsonb_build_object('name', sp.name, 'others', v_users);
+  values (null, uid, 'spaces', p_space, 'delete', jsonb_build_object('kind', sp.kind, 'owners_moved', jsonb_array_length(v_moved)));
+  return jsonb_build_object('name', sp.name, 'others', v_users, 'moved', v_moved);
 end; $$;
 
 /* Salir de un espacio: el historial se queda con el nombre; las cuentas propias vuelven a Personal. */

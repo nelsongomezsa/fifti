@@ -93,6 +93,43 @@ test("ingreso: desde la lista y desde su botón", async ({ page, isMobile }) => 
   await expect(page.getByText("Aún no hay ingresos este mes.")).toBeVisible();
 });
 
+test("un ingreso con aportaciones automáticas pide confirmación", async ({ page, isMobile }) => {
+  for (const name of ["Colchón", "Viaje Lisboa"]) {
+    const goal = await insert("savings_goals", { space_id: home.spaceId, name, target_cents: 500000, kind: "simple" });
+    await insert("saving_rules", { space_id: home.spaceId, goal_id: goal, kind: "percent_of_income", value: 500 });
+  }
+  const id = (await ana.client.rpc("save_income", { p: { space_id: home.spaceId, member_id: home.memberId, amount_cents: 100000, source: "Nómina de Ana", received_at: today() } })).data as string;
+  const dialog = page.getByRole("alertdialog");
+  for (const path of ["/movimientos", "/inicio/ingresos"]) {
+    if (path === "/movimientos") await open(page, path);
+    else { await page.goto(path); await page.waitForLoadState("networkidle"); }
+    await rowAction(page, isMobile, "Nómina de Ana", "Borrar");
+    await expect(dialog).toContainText("Se borrarán también sus aportaciones a 2 metas.");
+    await dialog.getByRole("button", { name: "Cancelar" }).click();
+    expect(await count("incomes", id)).toBe(1);
+  }
+  await rowAction(page, isMobile, "Nómina de Ana", "Borrar");
+  await dialog.getByRole("button", { name: "Borrar" }).click();
+  await gone("incomes", id);
+  expect((await admin().from("goal_contributions").select("id").eq("source_income_id", id)).data).toEqual([]);
+});
+
+test("al borrar un espacio, las cuentas de los demás pasan a su Personal y la confirmación lo dice", async ({ page }) => {
+  const { space } = await household();
+  const mine = await account("Cuenta de Ana", space);
+  const theirs = (await leo!.client.rpc("save_account", { p: { space_id: space, name: "Cuenta de Leo", kind: "daily", opening_cents: 100, opening_date: today() } })).data as string;
+  const leoHome = (await personalOf(leo!)).spaceId;
+  await open(page, `/espacio/${space}`, space);
+  await page.getByRole("button", { name: "Borrar este espacio" }).click();
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog).toContainText("Las cuentas de otros miembros no se borran: pasan a su espacio Personal.");
+  await dialog.getByRole("textbox").fill("Casa de Ana y Leo");
+  await dialog.getByRole("button", { name: "Borrar" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Espacio borrado" })).toBeVisible();
+  await gone("accounts", mine);
+  expect((await admin().from("accounts").select("space_id").eq("id", theirs).single()).data).toEqual({ space_id: leoHome });
+});
+
 test("traspaso y ajuste de saldo en el detalle de la cuenta", async ({ page, isMobile }) => {
   const from = await account("Nómina"), to = await account("Ahorro");
   const transfer = (await ana.client.rpc("create_transfer", { p_from: from, p_to: to, p_amount: 5000, p_date: today(), p_note: null, p_source: "manual" })).data as string;

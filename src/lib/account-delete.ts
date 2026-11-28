@@ -30,6 +30,14 @@ export function deleteImpact(accountId: string, userId: string, transfers: Trans
   };
 }
 
+/** A quién y qué se avisa al borrar un espacio: quien tenía cuentas en él se entera de que ahora están en Personal. */
+export function deletedSpaceNotices(members: string[], moved: string[]): { users: string[]; body: string; url: string }[] {
+  return [
+    { users: moved, body: "Se ha borrado este espacio. Tus cuentas de él han pasado a tu espacio Personal.", url: "/cuentas" },
+    { users: members.filter((u) => !moved.includes(u)), body: "Se ha borrado este espacio.", url: "/inicio" },
+  ].filter((g) => g.users.length > 0);
+}
+
 /** Texto del aviso a los demás miembros al vaciar un espacio (sin importes). */
 export const clearedBody = (accountsDeleted: number) =>
   accountsDeleted > 0 ? "Se han borrado los datos de este espacio, y también cuentas de quien lo ha vaciado." : "Se han borrado los datos de este espacio.";

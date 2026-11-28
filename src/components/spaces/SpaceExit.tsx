@@ -24,7 +24,7 @@ export function SpaceExit({ spaceId, name, owner }: { spaceId: string; name: str
         <ConfirmDialog
           title={owner ? `${x("¿Borrar el espacio")} «${name}»?` : `${x("¿Salir del espacio")} «${name}»?`}
           description={owner
-            ? x("Se borra todo lo de este espacio para todos sus miembros: gastos, ingresos, plan, metas y las cuentas del espacio. No se puede deshacer.")
+            ? x("Se borra todo lo de este espacio para todos sus miembros: gastos, ingresos, plan, metas y tus cuentas del espacio. Las cuentas de otros miembros no se borran: pasan a su espacio Personal. No se puede deshacer.")
             : x("Dejas de verlo. Lo que apuntaste se queda con tu nombre y tus cuentas propias pasan a Personal.")}
           confirmLabel={owner ? x("Borrar") : x("Salir")}
           onConfirm={run} onClose={() => setOpen(false)}>
