@@ -80,7 +80,7 @@ export async function copyPreviousPlan(_prev: FormState, fd: FormData): Promise<
 const recurringSchema = z
   .object({
     spaceId: z.uuid(), id: z.uuid().optional(), description: z.string().trim().min(1).max(120),
-    amountCents: z.number().int().min(1).max(MAX_AMOUNT_CENTS), frequency: z.enum(["weekly", "monthly", "quarterly", "yearly"]),
+    amountCents: z.number().int().min(1).max(MAX_AMOUNT_CENTS), frequency: z.enum(["weekly", "biweekly", "monthly", "quarterly", "yearly"]),
     day: z.number().int().min(1).max(31), nextRun: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), categoryId: z.uuid().nullable(),
     paidFrom: z.enum(["member", "pot"]), detected: z.boolean().default(false), rotation: z.array(z.uuid()).max(8).default([]), accountId: z.uuid().nullable().optional(),
   })

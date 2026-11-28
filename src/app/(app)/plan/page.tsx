@@ -18,13 +18,14 @@ import { addMonths, currencySymbol, formatMoney,fundLeftover, isMonthStart, mont
 import { createClient } from "@/lib/supabase/server";
 import { closePlan, copyPreviousPlan, generateContributions,markContributionPaid, reopenPlan, saveContributionRule, savePlan, saveRecurring } from "@/server/actions/plan";
 import { loadMirrorByFund, loadPlan } from "@/server/plan";
+import { paydaysText } from "@/lib/paydays-text";
 import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
 
 export const metadata: Metadata = { title: "Plan" };
 
 const pctText = (bp: number) => (bp / 100).toFixed(2).replace(".", ",");
 const centsText = (c: number) => (c / 100).toFixed(2).replace(".", ",");
-const FREQ = { weekly: "Semanal", monthly: "Mensual", quarterly: "Trimestral", yearly: "Anual" } as const;
+const FREQ = { weekly: "Semanal", biweekly: "Quincenal", monthly: "Mensual", quarterly: "Trimestral", yearly: "Anual" } as const;
 
 export default async function PlanPage({ searchParams }: { searchParams: Promise<{ mes?: string; vista?: string }> }) {
   const [x, sp, user, spaces] = await Promise.all([getTx(), searchParams, requireUser(), listMySpaces()]);
@@ -53,7 +54,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
   const me = d.members.find((m) => m.user_id === user.id);
   const canEdit = !!me && me.role !== "guest" && d.plan?.status !== "closed";
   const label = new Date(`${month}T00:00:00Z`).toLocaleDateString(x.locale, { month: "long", year: "numeric", timeZone: "UTC" });
-  const outlook = monthOutlook(Object.values(d.actual).reduce((a, b) => a + b, 0) || Object.values(d.expected).reduce((a, b) => a + b, 0), d.totalSpent, rows.map(({ f, row }) => ({ kind: f.kind, planned: row.planned, spent: row.spent })));
+  const outlook = monthOutlook(d.income, d.totalSpent, rows.map(({ f, row }) => ({ kind: f.kind, planned: row.planned, spent: row.spent })));
   const expectedTotal = Object.values(d.expected).reduce((a, b) => a + b, 0);
   const actualTotal = Object.values(d.actual).reduce((a, b) => a + b, 0);
 
@@ -61,7 +62,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
   const nm = (id: string) => d.members.find((m) => m.id === id)?.display_name ?? "—";
   const myRecurring = recurring ?? [];
   const tab = sp.vista === "fijos" || sp.vista === "ahorro" ? sp.vista : "presupuesto";
-  const incomeMonth = Object.values(d.actual).reduce((a, b) => a + b, 0) || Object.values(d.expected).reduce((a, b) => a + b, 0);
+  const incomeMonth = d.income;
   const plannedTotal = rows.reduce((a, { row }) => a + row.planned, 0);
 
   return (
@@ -88,6 +89,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
           <div className="rounded-card border border-border bg-surface p-5">
             <p className="t-label">{x("Ingresos del mes")}</p>
             <p className="money t-figure mt-1">{formatMoney(incomeMonth, cur, x.locale)}</p>
+            {d.paydays && <p className="mt-1 text-sm text-ink-2">{paydaysText(x, d.paydays)}</p>}
             <div className="mt-3 flex h-2.5 w-full overflow-hidden rounded-full bg-track" role="img" aria-label={x("Reparto del presupuesto por partidas")}>
               {rows.filter(({ row }) => row.planned > 0).map(({ f, row }) => <span key={f.id} style={{ width: `${(row.planned / Math.max(1, plannedTotal)) * 100}%`, background: f.color }} />)}
             </div>

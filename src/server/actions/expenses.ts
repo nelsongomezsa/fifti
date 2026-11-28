@@ -16,7 +16,9 @@ import {
 import { uuidSchema } from "@/lib/validation/spaces";
 import { rpcMessage } from "@/server/rpc-error";
 import type { FormState } from "./auth";
-import { resolveFx } from "@/server/fx";
+import { resolveFx, warmRates } from "@/server/fx";
+import { nextOccurrence } from "@/lib/calendar";
+import { isoWeekday } from "@/lib/paydays";
 import { receiptsOf, removeUnusedReceipts } from "@/server/receipts";
 import { warmMovement } from "@/server/currency-warm";
 import { notify } from "@/server/push";
@@ -212,19 +214,48 @@ export async function saveIncome(_prev: FormState, fd: FormData): Promise<FormSt
     id: fd.get("id") || undefined, spaceId: fd.get("spaceId"), memberId: fd.get("memberId"), amountCents: cents ?? 0,
     source: String(fd.get("source") ?? "Nómina") || "Nómina", receivedAt: fd.get("receivedAt"), isRecurring: fd.get("isRecurring") === "on",
     accountId: fd.has("accountId") ? (String(fd.get("accountId")) || null) : undefined,
+    currency: fd.get("currency") || undefined, frequency: fd.get("frequency") || undefined,
+    day: fd.get("day") ? Number(fd.get("day")) : undefined, ruleId: fd.get("ruleId") || undefined,
   });
   if (!parsed.success) return { error: x(parsed.error.issues[0]?.message ?? "Datos no válidos") };
   const { supabase, user } = await ctx();
   if (!user) return { error: x("Sesión caducada.") };
+  if (!(await allow(RULES.planWrites, user.id))) return { error: x("Demasiados intentos. Espera un rato.") };
   const v = parsed.data;
-  await warmMovement(supabase, { spaceId: v.spaceId, userId: user.id, day: v.receivedAt, accountId: v.accountId, movementId: v.id, table: "incomes" });
-  const { data: incomeId, error } = await supabase.rpc("save_income", {
-    p: { id: v.id ?? null, space_id: v.spaceId, member_id: v.memberId, amount_cents: v.amountCents, source: v.source, received_at: v.receivedAt, is_recurring: v.isRecurring },
-  });
-  if (error) return { error: x(rpcMessage(error)) };
-  if (v.accountId !== undefined && incomeId) {
-    const acc = await supabase.rpc("set_movement_account", { p_kind: "income", p_id: (incomeId as string) ?? v.id, p_account: v.accountId });
-    if (acc.error) return { error: x(rpcMessage(acc.error)) };
+  const base = (await supabase.from("spaces").select("base_currency").eq("id", v.spaceId).maybeSingle()).data?.base_currency as string | undefined;
+  const currency = v.currency ?? base;
+  await warmMovement(supabase, { spaceId: v.spaceId, userId: user.id, day: v.receivedAt, currency, accountId: v.accountId, movementId: v.id, table: "incomes" });
+  if (currency && base && currency !== base) await warmRates([{ from: currency, to: base, day: v.receivedAt }]);
+
+  const repeats = v.frequency !== "once" || !!v.ruleId;
+  let incomeId: string | undefined = v.id;
+  // Un cobro puntual, o el cobro ya apuntado que pasa a ser el primero de una serie
+  if (!repeats || (v.id && !v.ruleId)) {
+    const { data, error } = await supabase.rpc("save_income", {
+      p: { id: v.id ?? null, space_id: v.spaceId, member_id: v.memberId, amount_cents: v.amountCents, currency, source: v.source, received_at: v.receivedAt, is_recurring: v.isRecurring },
+    });
+    if (error) return { error: x(rpcMessage(error)) };
+    incomeId = (data as string) ?? v.id;
+    if (v.accountId !== undefined && incomeId) {
+      const acc = await supabase.rpc("set_movement_account", { p_kind: "income", p_id: incomeId, p_account: v.accountId });
+      if (acc.error) return { error: x(rpcMessage(acc.error)) };
+    }
+  }
+  if (repeats) {
+    if (v.frequency === "once") return { error: x("Datos no válidos") };
+    const today = new Date().toISOString().slice(0, 10);
+    const monthly = v.frequency === "monthly";
+    const day = monthly ? v.day ?? Number(v.receivedAt.slice(8)) : v.frequency === "yearly" ? Number(v.receivedAt.slice(8)) : isoWeekday(v.receivedAt);
+    // Mensual: la próxima vez que toque ese día; al editar la serie, sin volver a un mes ya cobrado
+    const from = v.ruleId && v.receivedAt.slice(0, 7) > today.slice(0, 7) ? `${v.receivedAt.slice(0, 7)}-01` : today;
+    const nextRun = monthly ? nextOccurrence("monthly", day, from) : v.receivedAt;
+    const { error } = await supabase.rpc("save_income_rule", {
+      p: { id: v.ruleId ?? null, from_income: v.ruleId ? null : incomeId ?? null, space_id: v.spaceId, member_id: v.memberId, amount_cents: v.amountCents,
+        currency, source: v.source, account_id: v.accountId ?? null, frequency: v.frequency, day, next_run: nextRun },
+    });
+    if (error) return { error: x(rpcMessage(error)) };
+    revalidatePath("/", "layout");
+    return { ok: true, message: x("Ingreso que se repite guardado.") };
   }
   revalidatePath("/", "layout");
   // Día de cobro: si hay partidas con cuenta asociada, un aviso genérico (sin importes) recuerda repartir la nómina

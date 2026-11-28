@@ -32,7 +32,7 @@ export default async function NewFixedPage({ searchParams }: { searchParams: Pro
         accounts={(await loadAccounts(supabase, user.id)).filter((a) => a.spaceId === active.id).map((a) => ({ id: a.id, name: a.name, isDefault: a.mine && a.isDefault }))}
         categories={(cats ?? []).map((c) => ({ id: c.id, name: displayName(x, c.name, c.system_key) }))}
         rules={(rules ?? []).map((r) => ({ id: r.id, matchText: r.match_text, matchType: r.match_type as "contains" | "starts_with" | "exact", categoryId: r.category_id, priority: r.priority }))}
-        initial={editing ? { id: editing.id, description: editing.description, cents: editing.amount_cents, freq: editing.frequency as "weekly" | "monthly" | "quarterly" | "yearly", day: editing.day, category: editing.category_id ?? "" } : undefined}
+        initial={editing ? { id: editing.id, description: editing.description, cents: editing.amount_cents, freq: editing.frequency as "weekly" | "biweekly" | "monthly" | "quarterly" | "yearly", day: editing.day, category: editing.category_id ?? "" } : undefined}
         notify={{ on: prefs?.fixed_tomorrow ?? true, days: prefs?.fixed_advance_days ?? 1 }}
       />
     </section>

@@ -44,6 +44,16 @@ export async function warmContribution(supabase: Sb, spaceId: string) {
   if (data) await warmRates((await personalCurrencies(spaceId)).map((to) => ({ from: data.base_currency as string, to, day: today() })));
 }
 
+/** Antes de apuntar los cobros que se repiten: el cambio de hoy de cada regla a la moneda de su espacio y de su cuenta. */
+export async function warmIncomeRules() {
+  const { data } = await createAdminClient().from("income_rules").select("currency, spaces(base_currency), accounts(currency)").eq("active", true).lte("next_run", today()).limit(2000);
+  await warmRates((data ?? []).flatMap((r) => {
+    const from = r.currency as string;
+    const targets = [(r.spaces as unknown as { base_currency: string } | null)?.base_currency, (r.accounts as unknown as { currency: string } | null)?.currency];
+    return targets.filter((to): to is string => !!to).map((to) => ({ from, to, day: today() }));
+  }));
+}
+
 /** Antes de generar los gastos fijos (tarea diaria): cambios de hoy entre las monedas de espacios y de Personales en uso. */
 export async function warmRecurring() {
   const { data } = await createAdminClient().from("spaces").select("kind, base_currency").is("archived_at", null).limit(5000);

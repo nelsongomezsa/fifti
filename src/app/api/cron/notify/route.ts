@@ -32,6 +32,16 @@ export async function GET(request: NextRequest) {
       await notify(usersForLead(adv, dueUsers.get(r.space_id) ?? [], daysLeft), "fixed_tomorrow", fixedExpensePayload(r.description, daysLeft), `${r.id}:${r.next_run}`);
     }
 
+    // Día de cobro: un aviso por cada ingreso que se repite apuntado hoy, sin importes
+    const { data: paid } = await admin.from("incomes").select("id, space_id, member_id").eq("received_at", today).not("rule_id", "is", null).limit(2000);
+    for (const i of paid ?? []) {
+      const { data: m } = await admin.from("space_members").select("user_id").eq("id", i.member_id).maybeSingle();
+      if (!m?.user_id) continue;
+      const { count } = await admin.from("funds").select("id", { count: "exact", head: true }).eq("space_id", i.space_id).not("account_id", "is", null);
+      const split = (count ?? 0) > 0;
+      await notify([m.user_id], "payday_split", (t) => ({ title: "Fifti", body: t(split ? "Es día de cobro: reparte tu nómina entre tus cuentas." : "Es día de cobro."), url: "/inicio" }), i.id);
+    }
+
     // 2. Aportaciones al hogar pendientes (a partir del día 5)
     if (now.getUTCDate() >= 5) {
       const { data: cs } = await admin.from("contributions").select("id, member_id, expected_cents, paid_cents").eq("month", month).limit(2000);

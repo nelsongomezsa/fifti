@@ -1,6 +1,7 @@
 import { getTx } from "@/i18n/tx";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { paydaysText } from "@/lib/paydays-text";
 import { ChargeRow } from "@/components/calendar/ChargeRow";
 import { CategoryIcon } from "@/components/ui/CategoryIcon";
 import { PartnerInvite } from "@/components/home/PartnerInvite";
@@ -117,6 +118,11 @@ export default async function HomePage() {
         </Link>
       )}
 
+      {o.plan.paydays && (
+        <Link prefetch href="/inicio/ingresos" className="flex min-h-11 items-center justify-between gap-3 px-1 text-sm text-ink-2">
+          <span className="money">{paydaysText(x, o.plan.paydays)}</span><span aria-hidden className="text-ink-3">›</span>
+        </Link>
+      )}
       {/* 1 · Tarjeta principal: abre el Plan */}
       {!o.plan.configured || isGroup ? (
         <div className={cardCls}>

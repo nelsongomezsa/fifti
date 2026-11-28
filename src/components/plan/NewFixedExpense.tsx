@@ -12,6 +12,7 @@ import { deleteRecurringAndGo, saveRecurring } from "@/server/actions/plan";
 
 const FREQS: { id: NewFrequency; label: string; every: string }[] = [
   { id: "monthly", label: "Mensual", every: "Cada mes" }, { id: "weekly", label: "Semanal", every: "Cada semana" },
+  { id: "biweekly", label: "Quincenal", every: "Cada dos semanas" },
   { id: "quarterly", label: "Trimestral", every: "Cada trimestre" }, { id: "yearly", label: "Anual", every: "Cada año" },
 ];
 const WEEKDAYS = ["L", "M", "X", "J", "V", "S", "D"];
@@ -47,7 +48,8 @@ export function NewFixedExpense({ spaceId, currency, categories, rules, notify, 
     const byRule = matchRule(rules, text)?.categoryId ?? null;
     setCategory((byRule && categories.some((c) => c.id === byRule) ? byRule : suggestCategory(text, categories)) ?? "");
   };
-  const changeFreq = (f: NewFrequency) => { setFreq(f); if (f === "weekly") setDay(((new Date().getUTCDay() + 6) % 7) + 1); else if (freq === "weekly") setDay(Math.min(28, new Date().getUTCDate())); };
+  const byWeekday = (f: NewFrequency) => f === "weekly" || f === "biweekly";
+  const changeFreq = (f: NewFrequency) => { setFreq(f); if (byWeekday(f)) setDay(((new Date().getUTCDay() + 6) % 7) + 1); else if (byWeekday(freq)) setDay(Math.min(28, new Date().getUTCDate())); };
 
   useEffect(() => { if (state.ok) router.replace("/plan?vista=fijos"); }, [state.ok, router]);
 
@@ -98,7 +100,7 @@ export function NewFixedExpense({ spaceId, currency, categories, rules, notify, 
         </label>
       </div>
 
-      <div role="group" aria-label={x("Frecuencia")} className="grid grid-cols-4 gap-2">
+      <div role="group" aria-label={x("Frecuencia")} className="grid grid-cols-3 gap-2">
         {FREQS.map((f) => (
           <button key={f.id} type="button" aria-pressed={freq === f.id} onClick={() => changeFreq(f.id)}
             className={`min-h-11 rounded-full border px-1 text-sm font-medium ${freq === f.id ? "border-accent bg-accent text-on-accent" : "border-border text-ink-2"}`}>{x(f.label)}</button>
@@ -106,13 +108,13 @@ export function NewFixedExpense({ spaceId, currency, categories, rules, notify, 
       </div>
 
       <div className="flex flex-col gap-2">
-        <p className="t-label">{freq === "weekly" ? x("Día de la semana") : x("Día del cobro")}</p>
+        <p className="t-label">{byWeekday(freq) ? x("Día de la semana") : x("Día del cobro")}</p>
         {freq === "yearly" && (
           <select value={month} onChange={(e) => setMonth(Number(e.target.value))} aria-label={x("Mes")} className={FIELD}>
             {Array.from({ length: 12 }, (_, i) => <option key={i} value={i + 1}>{new Date(Date.UTC(2026, i, 1)).toLocaleDateString(x.locale, { month: "long", timeZone: "UTC" })}</option>)}
           </select>
         )}
-        {freq === "weekly" ? (
+        {byWeekday(freq) ? (
           <div className="grid grid-cols-7 gap-1.5" role="group" aria-label={x("Día de la semana")}>
             {WEEKDAYS.map((w, i) => <button key={w} type="button" aria-pressed={day === i + 1} onClick={() => setDay(i + 1)} className={`min-h-11 rounded-card border font-mono text-sm ${day === i + 1 ? "border-accent bg-accent text-on-accent" : "border-border text-ink-2"}`}>{x(w)}</button>)}
           </div>
@@ -121,7 +123,7 @@ export function NewFixedExpense({ spaceId, currency, categories, rules, notify, 
             {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => <button key={d} type="button" aria-pressed={day === d} onClick={() => setDay(d)} className={`min-h-11 rounded-card border font-mono text-sm ${day === d ? "border-accent bg-accent text-on-accent" : "border-border text-ink-2"}`}>{d}</button>)}
           </div>
         )}
-        <p className="text-sm text-ink-2" aria-live="polite">{x("Próximo cobro")}: <strong className="text-ink first-letter:uppercase">{nextLabel}</strong></p>
+        <p className="text-sm text-ink-2" aria-live="polite">{x("Próximo pago")}: <strong className="text-ink first-letter:uppercase">{nextLabel}</strong></p>
       </div>
 
       {accounts.length > 1 && (

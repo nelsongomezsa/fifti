@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getTx } from "@/i18n/tx";
+import { CURRENCIES } from "@/lib/fx";
 import { MAX_AMOUNT_CENTS, parseToCents } from "@/lib/money";
 import { RULES } from "@/lib/security/rate-limit";
 import { allow } from "@/lib/security/user-limit";
@@ -20,6 +21,7 @@ const createSchema = z.object({
   loanDate: iso,
   remindOn: iso.nullable(),
   note: z.string().trim().max(80).nullable(),
+  currency: z.enum(CURRENCIES),
 }).strict().refine((v) => !v.shared || v.linkedUserId !== null, { message: "Para compartirlo, elige a la persona de tus burbujas." });
 const repaySchema = z.object({ loanId: z.uuid(), amountCents: z.number().int().min(1).max(MAX_AMOUNT_CENTS) }).strict();
 const idSchema = z.object({ loanId: z.uuid() }).strict();
@@ -35,7 +37,7 @@ export async function createLoan(_prev: FormState, fd: FormData): Promise<FormSt
   const x = await getTx();
   const p = createSchema.safeParse({
     direction: f(fd, "direction"), personName: f(fd, "personName"), linkedUserId: f(fd, "linkedUserId") || null, shared: f(fd, "shared") === "1",
-    amountCents: parseToCents(f(fd, "amount")) ?? 0, loanDate: f(fd, "loanDate") || new Date().toISOString().slice(0, 10), remindOn: f(fd, "remindOn") || null, note: f(fd, "note") || null,
+    amountCents: parseToCents(f(fd, "amount")) ?? 0, loanDate: f(fd, "loanDate") || new Date().toISOString().slice(0, 10), remindOn: f(fd, "remindOn") || null, note: f(fd, "note") || null, currency: f(fd, "currency"),
   });
   if (!p.success) return { error: x(p.error.issues[0]?.message ?? "Datos no válidos") };
   const { supabase, user } = await session();
@@ -43,7 +45,7 @@ export async function createLoan(_prev: FormState, fd: FormData): Promise<FormSt
   if (!(await allow(RULES.loans, user.id))) return { error: x("Demasiados intentos. Espera un rato.") };
   const v = p.data;
   const { error } = await supabase.from("loans").insert({
-    direction: v.direction, person_name: v.personName, linked_user_id: v.linkedUserId, shared: v.shared, amount_cents: v.amountCents, loan_date: v.loanDate, remind_on: v.remindOn, note: v.note,
+    direction: v.direction, person_name: v.personName, linked_user_id: v.linkedUserId, shared: v.shared, amount_cents: v.amountCents, loan_date: v.loanDate, remind_on: v.remindOn, note: v.note, currency: v.currency,
   });
   if (error) return { error: x(rpcMessage(error)) };
   revalidatePath("/", "layout");

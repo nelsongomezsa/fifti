@@ -1,6 +1,7 @@
 "use client";
 
-import { Flag } from "lucide-react";
+import { Flag, Wallet } from "lucide-react";
+import { SkipPayday } from "@/components/income/SkipPayday";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createElement, useState, useTransition } from "react";
@@ -11,9 +12,13 @@ import { formatMoney } from "@/lib/money";
 import { setRecurringSkip } from "@/server/actions/plan";
 
 export type CalEvent = {
-  date: string; label: string; cents: number; kind: "fijo" | "meta"; payer?: string; sysName?: string | null; color?: string;
+  date: string; label: string; cents: number; kind: "fijo" | "meta" | "ingreso"; payer?: string; sysName?: string | null; color?: string;
   recurringId?: string; categoryName?: string; alertOn?: string; skipped?: boolean;
+  /** Cobros: la regla de la que salen (si aún se puede saltar) y su moneda */
+  ruleId?: string; currency?: string;
 };
+
+const INCOME_COLOR = "var(--lime)";
 
 const addDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 
@@ -33,9 +38,13 @@ export function CalendarMonth({ label, currency, offset, days, events: serverEve
   const [error, setError] = useState<string | null>(null);
   const fmt = (c: number) => formatMoney(c, currency, x.locale);
   const compact = (c: number) => (c % 100 === 0 ? String(c / 100) : (c / 100).toFixed(2).replace(".", ","));
-  const icon = (e: CalEvent, size: number) => (e.kind === "meta" ? <Flag size={size} strokeWidth={2.2} /> : createElement(categoryIcon(e.sysName), { size, strokeWidth: 2.2 }));
-  const active = events.filter((e) => !e.skipped);
+  const icon = (e: CalEvent, size: number) => (e.kind === "meta" ? <Flag size={size} strokeWidth={2.2} /> : e.kind === "ingreso" ? <Wallet size={size} strokeWidth={2.2} /> : createElement(categoryIcon(e.sysName), { size, strokeWidth: 2.2 }));
+  const money = (e: CalEvent) => formatMoney(e.cents, e.currency ?? currency, x.locale);
+  // Lo que se paga y lo que se cobra se cuentan aparte
+  const active = events.filter((e) => !e.skipped && e.kind !== "ingreso");
   const total = active.reduce((a, e) => a + e.cents, 0);
+  const incoming = events.filter((e) => !e.skipped && e.kind === "ingreso");
+  const incomingCurrency = new Set(incoming.map((e) => e.currency ?? currency)).size === 1 ? incoming[0]?.currency ?? currency : null;
   const shown = sel === null ? [] : (byDay.get(sel) ?? []);
 
   const skip = (e: CalEvent, skipIt: boolean) => {
@@ -51,7 +60,11 @@ export function CalendarMonth({ label, currency, offset, days, events: serverEve
 
   return (
     <>
-      <p className="text-sm text-ink-2">{active.length} {active.length === 1 ? x("cobro") : x("cobros")} · <span className="money font-mono text-ink">{fmt(total)}</span></p>
+      <p className="text-sm text-ink-2">{active.length} {active.length === 1 ? x("pago") : x("pagos")} · <span className="money font-mono text-ink">{fmt(total)}</span></p>
+      {incoming.length > 0 && (
+        <p className="-mt-3 flex items-center gap-2 text-sm text-ink-2"><span aria-hidden className="size-2 rounded-full" style={{ background: INCOME_COLOR }} />
+          {incoming.length} {incoming.length === 1 ? x("cobro por llegar") : x("cobros por llegar")}{incomingCurrency ? <> · <span className="money font-mono text-ink">{formatMoney(incoming.reduce((a, e) => a + e.cents, 0), incomingCurrency, x.locale)}</span></> : null}</p>
+      )}
       <div className="grid grid-cols-7 gap-1 text-center text-xs" role="grid" aria-label={`${x("Calendario de")} ${label}`}>
         {["L", "M", "X", "J", "V", "S", "D"].map((d) => <span key={d} className="py-1 text-ink-3" role="columnheader">{x(d)}</span>)}
         {Array.from({ length: offset }, (_, i) => <span key={`o${i}`} />)}
@@ -62,13 +75,15 @@ export function CalendarMonth({ label, currency, offset, days, events: serverEve
           return (
             <span key={day} role="gridcell">
               <button type="button" onClick={() => setSel(on ? null : day)} aria-pressed={on}
-                aria-label={list.length ? `${day}: ${list.map((e) => `${e.label} ${fmt(e.cents)}${e.skipped ? ` (${x("saltado")})` : ""}`).join(", ")}` : String(day)}
+                aria-label={list.length ? `${day}: ${list.map((e) => `${e.kind === "ingreso" ? `${x("cobro")} ` : ""}${e.label} ${money(e)}${e.skipped ? ` (${x("saltado")})` : ""}`).join(", ")}` : String(day)}
                 className={`flex min-h-14 w-full flex-col items-center justify-start gap-0.5 rounded-card border px-0.5 py-1 transition-colors ${on ? "border-lilac bg-surface-2" : list.length ? "border-border bg-surface" : "border-transparent"} ${isToday ? "ring-2 ring-lilac" : ""}`}>
                 <span className={`font-mono text-[13px] leading-none ${isToday ? "font-bold text-ink" : "text-ink-3"}`}>{day}</span>
                 {live.length > 0 && (
                   <>
                     <span aria-hidden className="flex items-center gap-0.5">{live.slice(0, 3).map((e, k) => <span key={k} className="size-1.5 rounded-full" style={{ background: e.color ?? "var(--accent)" }} />)}</span>
-                    <span className="money font-mono text-[13px] leading-none text-ink-2">{compact(live.reduce((a, e) => a + e.cents, 0))}</span>
+                    {live.some((e) => e.kind !== "ingreso")
+                      ? <span className="money font-mono text-[13px] leading-none text-ink-2">{compact(live.filter((e) => e.kind !== "ingreso").reduce((a, e) => a + e.cents, 0))}</span>
+                      : <span className="money font-mono text-[13px] leading-none text-lime">+{compact(live.reduce((a, e) => a + e.cents, 0))}</span>}
                   </>
                 )}
               </button>
@@ -79,7 +94,24 @@ export function CalendarMonth({ label, currency, offset, days, events: serverEve
 
       <section aria-live="polite" className="flex flex-col gap-2">
         <h2 className="text-sm text-ink-3">{sel === null ? x("Elige un día") : new Date(`${events[0]?.date.slice(0, 8) ?? "2026-01-"}${String(sel).padStart(2, "0")}T00:00:00Z`).toLocaleDateString(x.locale, { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })}</h2>
-        {shown.length === 0 ? <p className="rounded-card border border-border bg-surface p-4 text-sm text-ink-3">{x("No hay cobros este día.")}</p> : shown.map((e) => (
+        {shown.length === 0 ? <p className="rounded-card border border-border bg-surface p-4 text-sm text-ink-3">{x("No hay nada este día.")}</p> : shown.map((e) => (e.kind === "ingreso" ? (
+          <article key={`${e.ruleId}-${e.date}`} className={`rounded-card border border-border bg-surface p-4 ${e.skipped ? "opacity-70" : ""}`}>
+            <div className="flex items-center gap-3">
+              <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-full bg-surface-2 text-lime">{icon(e, 20)}</span>
+              <div className="min-w-0 flex-1">
+                <p className={`truncate font-medium ${e.skipped ? "line-through" : ""}`}>{e.label}</p>
+                <p className="truncate text-xs text-ink-3">{e.skipped ? x("Cobro saltado") : x("Cobro")}</p>
+              </div>
+              <span className="money shrink-0 font-mono text-lime">+{money(e)}</span>
+            </div>
+            {canEdit && e.ruleId && (
+              <div className="mt-3 flex gap-2">
+                <Link href="/inicio/ingresos" className="flex min-h-11 flex-1 items-center justify-center rounded-full border border-border text-sm font-semibold">{x("Editar")}</Link>
+                <SkipPayday ruleId={e.ruleId} date={e.date} skipped={!!e.skipped} />
+              </div>
+            )}
+          </article>
+        ) : (
           <ChargeRow key={`${e.recurringId ?? e.label}-${e.date}`} recurringId={e.recurringId} name={e.label} canEdit={canEdit}>
           <article className={`rounded-card border border-border bg-surface p-4 ${e.skipped ? "opacity-70" : ""}`}>
             <div className="flex items-center gap-3">
@@ -100,7 +132,7 @@ export function CalendarMonth({ label, currency, offset, days, events: serverEve
             )}
           </article>
           </ChargeRow>
-        ))}
+        )))}
         {error && <p role="alert" className="text-sm text-over-text">{error}</p>}
       </section>
     </>

@@ -19,7 +19,7 @@ export function buildDemoDb(now: Date = new Date()): Db {
 
   const db: Db = {};
   const add = (t: string, row: Row) => { (db[t] ??= []).push(row); return row; };
-  for (const t of ["accounts", "account_transfers", "account_adjustments", "spaces", "space_members", "profiles", "funds", "categories", "expenses", "expense_splits", "expense_payers", "expense_tags", "tags", "expense_comments", "expense_reactions", "expense_private_details", "audit_log", "incomes", "monthly_plans", "plan_incomes", "plan_allocations", "recurring_expenses", "recurring_skips", "savings_goals", "goal_contributions", "goal_milestones", "saving_rules", "personal_mirror", "mirror_prefs", "favorites", "category_rules", "loans", "loan_repayments", "shopping_lists", "shopping_items", "settlements", "cross_offsets", "cross_offset_lines", "contributions", "contribution_rules", "notification_prefs", "notification_log", "push_subscriptions", "share_links", "fx_rates"]) db[t] = [];
+  for (const t of ["accounts", "account_transfers", "account_adjustments", "spaces", "space_members", "profiles", "funds", "categories", "expenses", "expense_splits", "expense_payers", "expense_tags", "tags", "expense_comments", "expense_reactions", "expense_private_details", "audit_log", "incomes", "income_rules", "income_skips", "monthly_plans", "plan_incomes", "plan_allocations", "recurring_expenses", "recurring_skips", "savings_goals", "goal_contributions", "goal_milestones", "saving_rules", "personal_mirror", "mirror_prefs", "favorites", "category_rules", "loans", "loan_repayments", "shopping_lists", "shopping_items", "settlements", "cross_offsets", "cross_offset_lines", "contributions", "contribution_rules", "notification_prefs", "notification_log", "push_subscriptions", "share_links", "fx_rates"]) db[t] = [];
 
   add("profiles", { id: DEMO_USER_ID, display_name: "Ana", locale: "es", discreet_mode: false, ai_phrases: false, avatar_color: "#A78BFA", swipe_hint_at: "2026-01-01T00:00:00Z" });
   add("notification_prefs", { user_id: DEMO_USER_ID, new_expense: true, fixed_tomorrow: true, fund_threshold: true, goal_reached: true, monthly_summary: true, contribution_pending: true, offset_proposal: true, daily_reminder: false, reminder_hour: 21, timezone: "Europe/Madrid", fixed_advance_days: 1 });
@@ -176,6 +176,12 @@ export function buildDemoDb(now: Date = new Date()): Db {
   for (let back = 5; back >= 1; back--) { tr(aNom, aRev, 63000, monthStart(back), "payroll_split", "Reparto de la nómina"); tr(aNom, aIng, 42000, monthStart(back), "payroll_split", "Reparto de la nómina"); tr(aNom, aCom, 50000, monthStart(back), "household_contribution", "Aportación al hogar"); }
   tr(aNom, aRev, 63000, monthStart(0), "payroll_split", "Reparto de la nómina"); // este mes queda pendiente el traspaso a ING
   tr(aNom, aCom, 50000, monthStart(0), "household_contribution", "Aportación al hogar");
+  // Un trabajo de fin de semana en Australia (inventado): se cobra cada semana en AUD
+  const weekly = add("income_rules", { id: id(), space_id: P, member_id: pAna, source: "Cafetería en Melbourne", amount_cents: 65000, currency: "AUD", account_id: aAud, frequency: "weekly", day: 1, next_run: rel(-4), active: true, created_at: created }).id as string;
+  for (const ago of [10, 3]) {
+    if (rel(ago) < monthStart(0)) continue;
+    add("incomes", { id: id(), space_id: P, member_id: pAna, amount_cents: Math.round(65000 * DEMO_RATES.AUD!), currency: "EUR", source: "Cafetería en Melbourne", received_at: rel(ago), is_recurring: true, account_id: aAud, account_cents: 65000, original_amount_cents: 65000, original_currency: "AUD", rule_id: weekly, rule_date: rel(ago) });
+  }
   add("account_adjustments", { id: id(), account_id: aRev, amount_cents: -1250, adjust_date: monthStart(1), note: "Ajuste de saldo", created_by: DEMO_USER_ID, created_at: created });
   return db;
 }

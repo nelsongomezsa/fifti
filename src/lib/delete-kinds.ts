@@ -1,7 +1,7 @@
 /** Lo que se puede borrar desde una lista, con el aviso que sale al hacerlo. */
 export const DELETE_KINDS = [
   "expense", "recurring", "income", "transfer", "adjustment", "goal", "contribution", "saving_rule",
-  "loan", "repayment", "rule", "shopping_item", "settlement", "comment", "favorite", "tag",
+  "loan", "repayment", "rule", "shopping_item", "settlement", "comment", "favorite", "tag", "income_rule",
 ] as const;
 
 export type DeleteKind = (typeof DELETE_KINDS)[number];
@@ -11,6 +11,7 @@ export const DELETED_LABEL: Record<DeleteKind, string> = {
   adjustment: "Ajuste borrado", goal: "Meta borrada", contribution: "Aportación borrada", saving_rule: "Regla borrada",
   loan: "Préstamo borrado", repayment: "Devolución borrada", rule: "Regla borrada", shopping_item: "Artículo borrado",
   settlement: "Pago borrado", comment: "Comentario borrado", favorite: "Favorito borrado", tag: "Etiqueta borrada",
+  income_rule: "Ingreso que se repite borrado",
 };
 
 export const GOAL_DELETE = "Se borran la meta, sus aportaciones, pagos programados y reglas. Tus gastos y el dinero de tus cuentas no se tocan.";

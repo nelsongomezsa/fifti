@@ -8,7 +8,9 @@ import { getTx } from "@/i18n/tx";
 import { occurrenceNumber, projectRecurring, rotationPayer, upcomingCharges } from "@/lib/calendar";
 import { addMonths, formatMoney, isMonthStart, monthStart } from "@/lib/money";
 import { displayName } from "@/lib/system-names";
+import { pendingPaydays, type PayFrequency } from "@/lib/paydays";
 import { sumIn } from "@/server/fx";
+import { loadIncomeRules } from "@/server/income-rules";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
 
@@ -64,7 +66,20 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     const bubble = (id: string) => { const s = spaces.find((q) => q.id === id); return !s ? "—" : s.kind === "personal" ? x("Personal") : s.name; };
     const { data: roles } = await supabase.from("space_members").select("space_id, role").eq("user_id", user.id);
     const canEditIn = new Set((roles ?? []).filter((r) => r.role !== "guest").map((r) => r.space_id));
-    // Aquí se juntan cobros de todos los espacios: cada uno en su moneda y el total en la del espacio activo
+    // Los cobros de los ingresos que se repiten, de todos los espacios que se ven
+    const [{ data: payRules }, { data: paySkips }] = await Promise.all([
+      supabase.from("income_rules").select("id, space_id, source, amount_cents, currency, frequency, day, next_run").eq("active", true),
+      supabase.from("income_skips").select("rule_id, skip_on"),
+    ]);
+    const skippedPay = new Set((paySkips ?? []).map((s) => `${s.rule_id}|${s.skip_on}`));
+    const nextMonth = addMonths(monthStart(new Date()), 1);
+    const coming = (payRules ?? []).flatMap((r) => {
+      const rule = { id: r.id, memberId: "", source: r.source, amountCents: r.amount_cents, currency: r.currency, accountId: null, frequency: r.frequency as PayFrequency, day: r.day, nextRun: r.next_run, active: true };
+      return [monthStart(new Date()), nextMonth, addMonths(nextMonth, 1)].flatMap((m) => pendingPaydays(rule, m, skippedPay))
+        .filter((date) => date >= todayIso && date <= end)
+        .map((date) => ({ id: r.id as string, date, label: r.source as string, cents: r.amount_cents as number, currency: r.currency as string, spaceId: r.space_id as string }));
+    }).sort((a, b) => a.date.localeCompare(b.date));
+    // Aquí se juntan pagos de todos los espacios: cada uno en su moneda y el total en la del espacio activo
     const currencyOf = (id: string) => spaces.find((q) => q.id === id)?.currency ?? active.currency;
     const total = await sumIn(active.currency, list.map((c) => ({ cents: c.cents, currency: currencyOf(c.spaceId) })));
     return (
@@ -73,9 +88,25 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
         <div className="rounded-card border border-border bg-surface p-4">
           <p className="text-sm text-ink-3">{x("Total de los próximos 30 días")}</p>
           <p className="money t-figure mt-1">{total.approximate ? "≈ " : ""}{formatMoney(total.total, active.currency, x.locale)}</p>
-          <p className="text-xs text-ink-3">{list.length} {list.length === 1 ? x("cobro") : x("cobros")}</p>
+          <p className="text-xs text-ink-3">{list.length} {list.length === 1 ? x("pago") : x("pagos")}</p>
         </div>
-        {list.length === 0 ? <EmptyState title={x("Sin cobros en los próximos 30 días")} text={x("Cuando añadas gastos fijos, aquí verás los próximos con su fecha y el total del periodo.")} actionLabel={x("Añadir gasto fijo")} href="/fijos/nuevo" /> : (
+        {coming.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <h2 className="text-sm text-ink-3">{x("Cobros por llegar")}</h2>
+            <ul className="flex flex-col gap-2">
+              {coming.map((c) => (
+                <li key={`${c.id}-${c.date}`} className="flex items-center gap-3 rounded-card border border-border bg-surface px-3 py-3 text-sm">
+                  <span aria-hidden className="size-2.5 shrink-0 rounded-full bg-lime" />
+                  <span className="min-w-0 flex-1"><span className="block truncate font-medium">{c.label}</span>
+                    <span className="block truncate text-xs text-ink-3">{new Date(`${c.date}T00:00:00Z`).toLocaleDateString(x.locale, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })} · {bubble(c.spaceId)}</span></span>
+                  <span className="money shrink-0 font-mono text-lime">+{formatMoney(c.cents, c.currency, x.locale)}</span>
+                </li>
+              ))}
+            </ul>
+            <h2 className="mt-2 text-sm text-ink-3">{x("Pagos")}</h2>
+          </div>
+        )}
+        {list.length === 0 ? <EmptyState title={x("Sin pagos en los próximos 30 días")} text={x("Cuando añadas gastos fijos, aquí verás los próximos con su fecha y el total del periodo.")} actionLabel={x("Añadir gasto fijo")} href="/fijos/nuevo" /> : (
           <ul className="flex flex-col gap-2">
             {list.map((c, i) => {
               const cat = c.kind === "fijo" ? catOf.get(c.id ?? "") : null;
@@ -99,6 +130,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   }
 
   const [{ data: rec }, { data: mem }, { data: miles }] = monthData!;
+  const incomes = await loadIncomeRules(supabase, active.id);
   const events: CalEvent[] = [
     ...(rec ?? []).flatMap((r) => projectRecurring({ id: r.id, description: r.description, amountCents: r.amount_cents, frequency: r.frequency, day: r.day, nextRun: r.next_run }, month)
       .map((date) => {
@@ -108,6 +140,12 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
           recurringId: r.id, categoryName: cat ? displayName(x, cat.name, cat.system_key) : undefined, skipped: skips.has(`${r.id}|${date}`) };
       })),
     ...(miles ?? []).map((m) => ({ date: m.due_on as string, label: m.name, cents: m.amount_cents, kind: "meta" as const, color: "#A78BFA" })),
+    // Los cobros que aún no han llegado (los saltados se ven tachados, para poder recuperarlos)
+    ...incomes.rules.flatMap((r) => pendingPaydays(r, month).map((date) => ({
+      date, label: r.source, cents: r.amountCents, currency: r.currency, kind: "ingreso" as const, color: "var(--lime)",
+      ruleId: (mem ?? []).some((m) => m.id === r.memberId && (m.user_id === user.id || (!m.user_id && (mem ?? []).some((o) => o.user_id === user.id && o.role === "owner")))) ? r.id : undefined,
+      skipped: incomes.skips.has(`${r.id}|${date}`),
+    }))),
   ].sort((a, b) => a.date.localeCompare(b.date));
 
   const first = new Date(`${month}T00:00:00Z`);

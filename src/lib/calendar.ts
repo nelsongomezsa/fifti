@@ -1,4 +1,8 @@
-export type RecurringLite = { id: string; description: string; amountCents: number; frequency: "weekly" | "monthly" | "quarterly" | "yearly"; day: number; nextRun: string };
+export type Frequency = "weekly" | "biweekly" | "monthly" | "quarterly" | "yearly";
+export type RecurringLite = { id: string; description: string; amountCents: number; frequency: Frequency; day: number; nextRun: string };
+
+// Todo son fechas de calendario en UTC: los cambios de hora no mueven ningún cobro
+const STEP_DAYS: Partial<Record<Frequency, number>> = { weekly: 7, biweekly: 14 };
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 const dim = (y: number, m0: number) => new Date(Date.UTC(y, m0 + 1, 0)).getUTCDate();
@@ -9,11 +13,13 @@ export function projectRecurring(r: RecurringLite, monthIso: string): string[] {
   const start = Date.UTC(y, m - 1, 1), end = Date.UTC(y, m - 1, dim(y, m - 1));
   const next = Date.parse(`${r.nextRun}T00:00:00Z`);
   const out: string[] = [];
-  if (r.frequency === "weekly") {
+  const every = STEP_DAYS[r.frequency];
+  if (every) {
+    const step = every * 86400000;
     let t = next;
     if (t > end) return [];
-    if (t < start) t += Math.ceil((start - t) / 604800000) * 604800000;
-    for (; t <= end; t += 604800000) out.push(iso(new Date(t)));
+    if (t < start) t += Math.ceil((start - t) / step) * step;
+    for (; t <= end; t += step) out.push(iso(new Date(t)));
   } else if (r.frequency === "quarterly") {
     const n = new Date(next);
     const diff = (y - n.getUTCFullYear()) * 12 + (m - 1 - n.getUTCMonth());
@@ -34,7 +40,8 @@ export function projectRecurring(r: RecurringLite, monthIso: string): string[] {
 /** Nº de cobro (0 = el próximo) al que corresponde una fecha proyectada; sirve para saber a quién le toca en un gasto fijo con turnos. */
 export function occurrenceNumber(r: Pick<RecurringLite, "frequency" | "nextRun">, dateIso: string): number {
   const a = new Date(`${r.nextRun}T00:00:00Z`), b = new Date(`${dateIso}T00:00:00Z`);
-  if (r.frequency === "weekly") return Math.max(0, Math.round((b.getTime() - a.getTime()) / 604800000));
+  const every = STEP_DAYS[r.frequency];
+  if (every) return Math.max(0, Math.round((b.getTime() - a.getTime()) / (every * 86400000)));
   if (r.frequency === "monthly") return Math.max(0, (b.getUTCFullYear() - a.getUTCFullYear()) * 12 + b.getUTCMonth() - a.getUTCMonth());
   if (r.frequency === "quarterly") return Math.max(0, Math.round(((b.getUTCFullYear() - a.getUTCFullYear()) * 12 + b.getUTCMonth() - a.getUTCMonth()) / 3));
   return Math.max(0, b.getUTCFullYear() - a.getUTCFullYear());
@@ -60,13 +67,13 @@ export function upcomingCharges(recurring: (RecurringLite & { spaceId: string })
   return out.sort((a, b) => a.date.localeCompare(b.date) || a.label.localeCompare(b.label));
 }
 
-export type NewFrequency = "weekly" | "monthly" | "quarterly" | "yearly";
+export type NewFrequency = Frequency;
 
-/** Próximo cobro de un gasto fijo que se está creando: `day` es el día del mes (o 1-7 si es semanal: lunes = 1); `month` (1-12) solo para anual. */
+/** Próximo cobro de un gasto fijo que se está creando: `day` es el día del mes (o 1-7 si es semanal o cada dos semanas: lunes = 1); `month` (1-12) solo para anual. */
 export function nextOccurrence(freq: NewFrequency, day: number, todayIso: string, month?: number): string {
   const t = new Date(`${todayIso}T00:00:00Z`);
   const y = t.getUTCFullYear(), m0 = t.getUTCMonth();
-  if (freq === "weekly") {
+  if (freq === "weekly" || freq === "biweekly") {
     const isoDow = ((t.getUTCDay() + 6) % 7) + 1;
     const add = (day - isoDow + 7) % 7;
     return iso(new Date(t.getTime() + add * 86400000));

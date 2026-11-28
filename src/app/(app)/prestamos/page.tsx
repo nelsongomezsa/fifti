@@ -6,6 +6,7 @@ import { ActionForm, inputClass } from "@/components/ui/ActionForm";
 import { getTx } from "@/i18n/tx";
 import { formatMoney } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
+import { CurrencySelect } from "@/components/money/CurrencySelect";
 import { DetailDelete } from "@/components/ui/DetailDelete";
 import { SwipeHint } from "@/components/ui/SwipeHint";
 import { SwipeRow } from "@/components/ui/SwipeRow";
@@ -102,7 +103,10 @@ export default async function LoansPage() {
               <option value="">{x("Sin vincular")}</option>{people.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
             </select>
           )}
-          <input name="amount" required inputMode="decimal" placeholder="50,00" aria-label={x("Importe")} className={`${inputClass} font-mono`} />
+          <div className="flex gap-2">
+            <input name="amount" required inputMode="decimal" placeholder="50,00" aria-label={x("Importe")} className={`${inputClass} min-w-0 flex-1 font-mono`} />
+            <CurrencySelect name="currency" defaultValue={home} aria-label={x("Moneda del préstamo")} className="min-h-12 w-28 shrink-0 rounded-card border border-border bg-surface px-2 text-sm text-ink" />
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <label className="flex flex-col gap-1 text-xs text-ink-3">{x("Fecha")}<input type="date" name="loanDate" defaultValue={today} className={inputClass} /></label>
             <label className="flex flex-col gap-1 text-xs text-ink-3">{x("Recordar el (opcional)")}<input type="date" name="remindOn" className={inputClass} /></label>

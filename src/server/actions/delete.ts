@@ -26,7 +26,9 @@ async function remove(input: unknown): Promise<DeleteResult> {
   const { data } = await supabase.auth.getUser();
   if (!data.user) return { ok: false, error: x("Sesión caducada.") };
   if (!(await allow(RULES.deletes, data.user.id))) return { ok: false, error: x("Demasiados intentos. Espera un rato.") };
-  const { error } = await supabase.rpc("delete_item", { p_kind: p.data.kind, p_id: p.data.id });
+  const { error } = p.data.kind === "income_rule"
+    ? await supabase.rpc("delete_income_rule", { p_id: p.data.id })
+    : await supabase.rpc("delete_item", { p_kind: p.data.kind, p_id: p.data.id });
   return error ? { ok: false, error: x(rpcMessage(error)) } : { ok: true };
 }
 

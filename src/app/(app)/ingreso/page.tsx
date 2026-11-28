@@ -1,6 +1,8 @@
 import { getTx } from "@/i18n/tx";
 import type { Metadata } from "next";
-import { ActionForm, inputClass } from "@/components/ui/ActionForm";
+import Link from "next/link";
+import { IncomeFields } from "@/components/income/IncomeFields";
+import { ActionForm } from "@/components/ui/ActionForm";
 import { createClient } from "@/lib/supabase/server";
 import { formatMoney } from "@/lib/money";
 import { SwipeRow } from "@/components/ui/SwipeRow";
@@ -20,10 +22,11 @@ export default async function IncomePage() {
   const { data: members } = await supabase.from("space_members").select("id, user_id, display_name, role").eq("space_id", active.id);
   const me = members?.find((m) => m.user_id === user.id);
   const mine = members?.filter((m) => m.user_id === user.id || (!m.user_id && me?.role === "owner")) ?? [];
-  const spaceAccounts = (await loadAccounts(supabase, user.id)).filter((a) => a.spaceId === active.id);
+  const spaceAccounts = user.is_anonymous ? [] : (await loadAccounts(supabase, user.id)).filter((a) => a.spaceId === active.id);
   const { data: incomes } = await supabase.from("incomes").select("id, member_id, amount_cents, source, received_at").eq("space_id", active.id).order("received_at", { ascending: false }).limit(30);
   const today = new Date().toISOString().slice(0, 10);
   const ask = await incomeConfirms(supabase, x, (incomes ?? []).map((i) => i.id));
+  const defaultAccount = spaceAccounts.find((a) => a.mine && a.isDefault);
 
   if (me?.role === "guest") return <p className="pt-4 text-ink-2">{x("Los invitados no registran ingresos.")}</p>;
   return (
@@ -31,25 +34,18 @@ export default async function IncomePage() {
       <h1 className="text-2xl font-bold">{x("Ingresos")}</h1>
       <ActionForm action={saveIncome} optimistic submit={x("Guardar ingreso")}>
         <input type="hidden" name="spaceId" value={active.id} />
-        <select name="memberId" aria-label={x("Persona")} className={inputClass} defaultValue={me?.id}>
-          {mine.map((m) => <option key={m.id} value={m.id}>{m.user_id === user.id ? x("Yo") : m.display_name}</option>)}
-        </select>
-        <input name="amount" inputMode="decimal" required placeholder={x("Importe (1.800,00)")} aria-label={x("Importe")} className={`${inputClass} font-mono`} />
-        <input name="source" defaultValue="Nómina" maxLength={60} aria-label={x("Origen")} className={inputClass} />
-        <input name="receivedAt" type="date" defaultValue={today} required aria-label={x("Fecha")} className={inputClass} />
-        {spaceAccounts.length > 0 && (
-          <select name="accountId" aria-label={x("Cuenta")} className={inputClass} defaultValue={spaceAccounts.find((a) => a.mine && a.isDefault)?.id ?? ""}>
-            <option value="">{x("Sin cuenta")}</option>{spaceAccounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
-        )}
-        <label className="flex min-h-11 items-center gap-3 text-sm text-ink-2"><input type="checkbox" name="isRecurring" /> {x("Se repite cada mes")}</label>
+        <IncomeFields
+          members={mine.map((m) => ({ id: m.id, name: m.user_id === user.id ? x("Yo") : m.display_name }))}
+          accounts={spaceAccounts.map((a) => ({ id: a.id, name: a.name, currency: a.currency }))}
+          initial={{ amount: "", currency: defaultAccount?.currency ?? active.currency, source: x("Nómina"), date: today, frequency: "once", day: Number(today.slice(8)), accountId: defaultAccount?.id ?? null, memberId: me?.id ?? mine[0]?.id ?? "" }} />
       </ActionForm>
+      <Link href="/inicio/ingresos" className="flex min-h-11 items-center self-start text-sm text-ink-2">{x("Ingresos que se repiten")} ›</Link>
       <ul className="flex flex-col gap-2">
         {incomes?.map((i) => (
           <li key={i.id}>
             <SwipeRow id={i.id} name={i.source} kind={mine.some((m) => m.id === i.member_id) ? "income" : undefined} confirm={ask.get(i.id)}>
               <div className="flex min-h-14 items-center justify-between gap-3 rounded-card border border-border bg-surface px-4 py-3 text-sm">
-                <span>{i.source}<span className="block text-xs text-ink-3">{members?.find((m) => m.id === i.member_id)?.display_name} · {i.received_at}</span></span>
+                <span>{i.source}<span className="block text-xs text-ink-3">{members?.find((m) => m.id === i.member_id)?.display_name} · {new Date(`${i.received_at}T00:00:00Z`).toLocaleDateString(x.locale, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</span></span>
                 <span className="money font-mono">{formatMoney(i.amount_cents, active.currency, x.locale)}</span>
               </div>
             </SwipeRow>

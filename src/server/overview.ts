@@ -65,9 +65,7 @@ export async function loadOverview(supabase: SupabaseClient, spaceId: string, ki
   const spendSeries = fillSeries(months, s.spend).map((v, i) => v + fillSeries(months, s.mir)[i]!);
   const incSeries = fillSeries(months, s.inc);
 
-  const expectedTotal = Object.values(plan.expected).reduce((a, b) => a + b, 0);
-  const actualTotal = Object.values(plan.actual).reduce((a, b) => a + b, 0);
-  const income = actualTotal > 0 ? actualTotal : expectedTotal;
+  const income = plan.income;
   const spent = plan.totalSpent;
   const prevIncome = incSeries[4]! > 0 ? incSeries[4]! : 0;
   const prevLeftover = prevIncome - spendSeries[4]!;
