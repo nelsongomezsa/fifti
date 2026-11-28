@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect, RedirectType } from "next/navigation";
 import { z } from "zod";
 import { getTx } from "@/i18n/tx";
 import { MAX_AMOUNT_CENTS } from "@/lib/money";
@@ -66,6 +67,19 @@ export async function archiveAccount(input: unknown): Promise<AccountResult> {
   if (error) return { ok: false, error: x(rpcMessage(error)) };
   done();
   return { ok: true };
+}
+
+/** Borra una cuenta (solo la persona dueña; lo comprueba la base) y vuelve a Mis cuentas. Si falla, no se mueve. */
+export async function removeBankAccount(input: unknown): Promise<AccountResult> {
+  const p = idSchema.safeParse(input);
+  const { x, supabase, user, limited } = await session();
+  if (!p.success) return { ok: false, error: x("Datos no válidos") };
+  if (!user) return { ok: false, error: x("Sesión caducada.") };
+  if (limited || !(await allow(RULES.deletes, user.id))) return { ok: false, error: x("Demasiados intentos. Espera un rato.") };
+  const { error } = await supabase.rpc("delete_account", { p_id: p.data.id });
+  if (error) return { ok: false, error: x(rpcMessage(error)) };
+  done();
+  redirect("/cuentas?borrado=1", RedirectType.replace);
 }
 
 export async function createTransfer(input: unknown): Promise<AccountResult> {

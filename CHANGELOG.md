@@ -4,6 +4,7 @@ Historial de Fifti por fechas. Formato libre, del más reciente al más antiguo.
 
 ## 2026-11-28
 
+- **Borrar cuentas**: en Mis cuentas las filas se deslizan (Borrar a la izquierda, Archivar a la derecha) y el detalle tiene «Borrar cuenta», siempre con confirmación. Se van sus traspasos y ajustes; los gastos, ingresos, gastos fijos y partidas se quedan sin cuenta. «Vaciar este espacio» puede borrar también tus cuentas de ese espacio (marcado por defecto). Requiere la migración `20261128000029_delete_accounts.sql`.
 - **Escribir seguido en las hojas**: tras la primera letra el foco saltaba al panel, porque el efecto que lo ponía dependía de `onClose`, una función nueva en cada render. Ahora el foco se pone solo al abrir (`useSheetFocus`) y el bloqueo del scroll no se reinicia. `e2e/typing.spec.ts` teclea letra a letra en seis hojas.
 - **Fotos que dejan de usarse**: al cambiar o quitar la foto (botón nuevo «Quitar foto»), borrar el gasto, vaciar el espacio o borrar la cuenta, se eliminan del bucket, comprobando antes el permiso. Editar un gasto privado ya no pierde su foto, y al pasarlo a privado la ruta deja de estar en la fila que ven los demás.
 - **La foto del ticket vuelve a funcionar**: se sube por `/api/ticket`, la única función que incluye `sharp`; el resto siguen igual de pequeñas. Las fotos grandes se reducen en el móvil (máximo 4 MB), y si la foto falla al apuntar un gasto ahora se avisa en vez de ignorarlo. `check:runtime` comprueba qué función lleva `sharp` y procesa una imagen; `smoke` lo comprueba en producción.

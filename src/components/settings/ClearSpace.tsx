@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTx } from "@/i18n/tx-client";
+import { sheetContextChanged } from "@/lib/sheet-context";
 import { clearSpace } from "@/server/actions/space-admin";
 
 const DELAY = 10;
@@ -12,6 +13,7 @@ export function ClearSpace({ spaceId, name, canClear, shared, demo }: { spaceId:
   const x = useTx();
   const router = useRouter();
   const [typed, setTyped] = useState("");
+  const [deleteAccounts, setDeleteAccounts] = useState(true);
   const [left, setLeft] = useState<number | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -19,9 +21,9 @@ export function ClearSpace({ spaceId, name, canClear, shared, demo }: { spaceId:
   useEffect(() => stop, []);
 
   const run = async () => {
-    const r = await clearSpace({ spaceId, confirmName: typed }).catch(() => ({ ok: false, error: x("No se ha podido completar.") }));
+    const r = await clearSpace({ spaceId, confirmName: typed, deleteAccounts }).catch(() => ({ ok: false, error: x("No se ha podido completar.") }));
     setLeft(null);
-    if (r.ok) { setMsg({ ok: true, text: x("Espacio vaciado.") }); setTyped(""); router.refresh(); }
+    if (r.ok) { setMsg({ ok: true, text: x("Espacio vaciado.") }); setTyped(""); sheetContextChanged(); router.refresh(); }
     else setMsg({ ok: false, text: r.error ?? x("No se ha podido completar.") });
   };
   const start = () => {
@@ -41,9 +43,12 @@ export function ClearSpace({ spaceId, name, canClear, shared, demo }: { spaceId:
   return (
     <div className="flex flex-col gap-3 rounded-card border border-over p-4">
       <h3 className="font-semibold text-over-text">{x("Vaciar este espacio")}</h3>
-      <p className="text-sm text-ink-2">{x("Borra los gastos, ingresos, plan, gastos fijos, metas y préstamos de este espacio. No toca tu cuenta ni tus otros espacios.")}{shared ? ` ${x("Avisaremos a los demás miembros.")}` : ""}</p>
+      <p className="text-sm text-ink-2">{x("Borra los gastos, ingresos, plan, gastos fijos, metas y préstamos de este espacio. No toca tu usuario ni tus otros espacios.")}{deleteAccounts ? ` ${x("También se borran tus cuentas de este espacio, con sus traspasos y ajustes.")}` : ` ${x("Tus cuentas se conservan.")}`}{shared ? ` ${x("Avisaremos a los demás miembros.")}` : ""}</p>
       {left === null ? (
         <>
+          <label className="flex min-h-11 items-center gap-3 text-sm text-ink-2">
+            <input type="checkbox" checked={deleteAccounts} onChange={(e) => setDeleteAccounts(e.target.checked)} className="size-5" />{x("Borrar también mis cuentas de este espacio")}
+          </label>
           <label className="flex flex-col gap-1 text-sm text-ink-2">{x("Escribe")} <strong className="text-ink">{name}</strong> {x("para confirmar")}
             <input value={typed} onChange={(e) => setTyped(e.target.value)} maxLength={60} autoComplete="off" className="min-h-12 rounded-card border border-border bg-surface px-4 text-base text-ink" />
           </label>

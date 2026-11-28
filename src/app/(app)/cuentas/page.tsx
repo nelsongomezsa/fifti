@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AccountEditor } from "@/components/accounts/AccountForms";
+import { AccountSwipeRow } from "@/components/accounts/AccountSwipeRow";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { getTx } from "@/i18n/tx";
 import { formatMoney } from "@/lib/money";
@@ -39,16 +40,18 @@ export default async function AccountsPage() {
             {total.missing && <p className="text-xs text-ink-3">{x("Falta alguna cuenta: no hay tipo de cambio.")}</p>}
           </div>
           <ul className="flex flex-col gap-2">
-            {accounts.map((a) => (
-              <li key={a.id}>
-                <Link href={`/cuentas/${a.id}`} prefetch className="flex min-h-16 items-center gap-3 rounded-card border border-border bg-surface px-4 py-3">
+            {accounts.map((a) => {
+              const row = (
+                <Link href={`/cuentas/${a.id}`} prefetch draggable={false} className="flex min-h-16 items-center gap-3 rounded-card border border-border bg-surface px-4 py-3">
                   <span aria-hidden className="size-3 shrink-0 rounded-full" style={{ background: a.color }} />
                   <span className="min-w-0 flex-1"><span className="block truncate font-medium">{a.name}{a.isDefault ? ` · ${x("por defecto")}` : ""}</span>
                     <span className="block truncate text-xs text-ink-3">{[a.bank, kindLabel[a.kind], spaceName(a.spaceId)].filter(Boolean).join(" · ")}</span></span>
                   <span className="money shrink-0 font-mono">{formatMoney(a.balanceCents, a.currency, x.locale)}</span>
                 </Link>
-              </li>
-            ))}
+              );
+              // Solo las tuyas se pueden archivar o borrar; las comunes de otra persona no se deslizan
+              return <li key={a.id}>{a.mine ? <AccountSwipeRow id={a.id} name={a.name} demo={demo}>{row}</AccountSwipeRow> : row}</li>;
+            })}
           </ul>
           <Link href="/traspaso" className="flex min-h-12 items-center justify-center rounded-full border border-border font-semibold">{x("Hacer un traspaso")}</Link>
         </>

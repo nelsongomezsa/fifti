@@ -3,6 +3,7 @@
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useTx } from "@/i18n/tx-client";
+import { sheetContextChanged } from "@/lib/sheet-context";
 
 /** Aviso breve al llegar con ?borrado=1; el parámetro se quita de la URL para que no reaparezca al recargar. */
 export function DeletedNotice() {
@@ -15,8 +16,12 @@ export function DeletedNotice() {
 
   if (flag !== seen) {
     setSeen(flag);
-    if (flag) setMessage(path === "/plan" ? "Gasto fijo borrado" : "Gasto borrado");
+    if (flag) setMessage(path === "/plan" ? "Gasto fijo borrado" : path === "/cuentas" ? "Cuenta borrada" : "Gasto borrado");
   }
+
+  useEffect(() => {
+    if (flag && path === "/cuentas") sheetContextChanged();
+  }, [flag, path]);
 
   useEffect(() => {
     if (!flag) return;

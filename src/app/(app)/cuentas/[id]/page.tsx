@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AccountEditor, AdjustBalance } from "@/components/accounts/AccountForms";
+import { DeleteAccountButton } from "@/components/accounts/DeleteAccount";
 import { getTx } from "@/i18n/tx";
 import { formatMoney } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
@@ -68,6 +69,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
           })}
         </ul>
       )}
+      {acc.mine && <div className="mt-4"><DeleteAccountButton id={acc.id} name={acc.name} demo={demo} /></div>}
     </section>
   );
 }

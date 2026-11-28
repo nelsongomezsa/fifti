@@ -7,6 +7,7 @@ import { ArrowRightLeft, HandCoins, Home, PiggyBank, Receipt, Repeat, Settings, 
 import { SheetShell } from "@/components/ui/SheetShell";
 import { ExpenseSheet, type SheetPrefill } from "@/components/expense/ExpenseSheet";
 import { usePendingExpenses } from "@/components/expense/optimistic";
+import { SHEET_CONTEXT_STALE } from "@/lib/sheet-context";
 import { useTx } from "@/i18n/tx-client";
 import { removeItem } from "@/lib/offline/queue";
 import { submitExpense } from "@/lib/offline/submit";
@@ -101,6 +102,14 @@ export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
     return () => { clearTimeout(t0); if (!idle) clearTimeout(t1 as number); };
   }, [refreshCtx]);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  useEffect(() => {
+    const onStale = () => {
+      try { localStorage.removeItem(CTX_CACHE_KEY); } catch { /* sin almacenamiento */ }
+      void refreshCtx();
+    };
+    window.addEventListener(SHEET_CONTEXT_STALE, onStale);
+    return () => window.removeEventListener(SHEET_CONTEXT_STALE, onStale);
+  }, [refreshCtx]);
   useEffect(() => {
     if (refreshing || savedRef.current.length === 0) return;
     const done = savedRef.current;

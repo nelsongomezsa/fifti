@@ -14,7 +14,7 @@ import { warmContribution } from "@/server/currency-warm";
 
 export type SimpleResult = { ok: boolean; error?: string };
 
-const clearSchema = z.object({ spaceId: z.uuid(), confirmName: z.string().trim().min(1).max(60) }).strict();
+const clearSchema = z.object({ spaceId: z.uuid(), confirmName: z.string().trim().min(1).max(60), deleteAccounts: z.boolean() }).strict();
 const contributeSchema = z.object({ spaceId: z.uuid(), amountCents: z.number().int().min(1).max(MAX_AMOUNT_CENTS) }).strict();
 
 /** Vacía un espacio (gastos, ingresos, plan, fijos, metas, préstamos). Solo su creador; se escribe el nombre para confirmar. */
@@ -30,7 +30,7 @@ export async function clearSpace(input: unknown): Promise<SimpleResult> {
   const { data: sp } = await supabase.from("spaces").select("name, kind").eq("id", p.data.spaceId).maybeSingle();
   const shown = sp?.kind === "personal" ? "Personal" : sp?.name;
   if (!sp || p.data.confirmName.toLowerCase() !== String(shown).trim().toLowerCase()) return { ok: false, error: x("El nombre no coincide.") };
-  const { data: res, error } = await supabase.rpc("clear_space", { p_space: p.data.spaceId });
+  const { data: res, error } = await supabase.rpc("clear_space", { p_space: p.data.spaceId, p_delete_accounts: p.data.deleteAccounts });
   if (error) return { ok: false, error: x(rpcMessage(error)) };
   // La base ya ha comprobado que es quien creó el espacio y ha borrado sus gastos: fuera también las fotos
   await removeSpaceReceipts(p.data.spaceId);
