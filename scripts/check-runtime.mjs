@@ -9,6 +9,7 @@ import { dirname, join } from "node:path";
 const PORT = process.env.CHECK_RUNTIME_PORT ?? "3114";
 const BASE = `http://127.0.0.1:${PORT}`;
 const RUTAS = ["/", "/login", "/registro", "/api/ping", "/inicio"];
+const PANTALLAS_CON_ACCIONES = ["/inicio", "/movimientos", "/plan", "/ajustes", "/cuentas"];
 const NM = "node_modules";
 const BAK = join(NM, ".runtime-check-bak");
 
@@ -82,6 +83,21 @@ try {
       const ok = r.status === 200;
       if (!ok) fallos++;
       console.log(`${ok ? "OK   " : "FALLO"} ${r.status} ${path}`);
+    }
+    // Cargar una pantalla no basta: sus server actions se cargan aparte, todas juntas, y un módulo que falte las tumba todas.
+    // Se ejecuta una de verdad (la de la hoja «Nuevo gasto», en la demo: no escribe nada) en varias pantallas.
+    const acciones = Object.entries(JSON.parse(readFileSync(".next/server/server-reference-manifest.json", "utf8")).node);
+    const hoja = acciones.find(([, a]) => a.exportedName === "loadSheetContext")?.[0];
+    if (!hoja) { console.error("FALLO no se encuentra la server action de prueba"); fallos++; }
+    else for (const path of PANTALLAS_CON_ACCIONES) {
+      const r = await fetch(BASE + path, {
+        method: "POST", redirect: "manual", body: "[]", signal: AbortSignal.timeout(20000),
+        headers: { cookie: "fifti_demo=1", origin: BASE, accept: "text/x-component", "content-type": "text/plain;charset=UTF-8", "next-action": hoja },
+      });
+      const cuerpo = await r.text();
+      const ok = r.status === 200 && cuerpo.includes('"spaces"');
+      if (!ok) fallos++;
+      console.log(`${ok ? "OK   " : "FALLO"} ${r.status} POST ${path} (server action)`);
     }
     if (fallos) console.error("\n" + salida.split("\n").filter((l) => /error|cannot find/i.test(l)).slice(0, 8).join("\n"));
   }

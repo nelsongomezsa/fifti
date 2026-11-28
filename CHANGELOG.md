@@ -4,6 +4,7 @@ Historial de Fifti por fechas. Formato libre, del más reciente al más antiguo.
 
 ## 2026-11-28
 
+- **Incidente de producción**: todas las server actions respondían 500 (ningún botón guardaba). `receipts.ts` importaba `sharp` en la cabecera y `sharp` está excluido de las funciones, así que fallaba la carga del módulo que comparten todas las actions. Las pantallas cargaban, y por eso no lo vieron ni `check:runtime` ni `smoke`. Ahora `sharp` se importa solo al subir una foto y `check:runtime` ejecuta además una server action en varias pantallas. La subida de la foto del ticket sigue sin funcionar en producción mientras `sharp` esté excluido.
 - **Varias monedas**: moneda elegible y modificable en cada espacio (también Personal), con un desplegable en vez de texto libre; cuentas y préstamos con su propia moneda y traspasos entre monedas; «Ver en otra moneda» en Inicio y Plan; el reflejo en Personal y las aportaciones funcionan aunque las monedas sean distintas. Corregidos de paso: las sumas de Movimientos mezclaban importes de distintas monedas, editar un gasto en otra moneda lo reconvertía y la compensación entre grupos podía mezclar monedas. Requiere la migración `20261128000028_currencies.sql`. Detalle en `docs/monedas.md`.
 - Un id de gasto que no es válido responde 404 (antes 200).
 - **Cabecera en el iPhone instalado**: respeta el margen seguro de arriba en todas las pantallas, hojas y avisos; franja oscura bajo la hora para que se lea en los dos temas; más aire entre los botones y acceso a Ajustes también en el menú del +.

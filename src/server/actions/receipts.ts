@@ -4,7 +4,6 @@ import { getTx } from "@/i18n/tx";
 
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
-import sharp from "sharp";
 import { RULES } from "@/lib/security/rate-limit";
 import { allow } from "@/lib/security/user-limit";
 import { MAX_RECEIPT_BYTES, sniffImageType } from "@/lib/security/image";
@@ -35,12 +34,16 @@ export async function uploadReceipt(fd: FormData): Promise<ReceiptResult> {
 
   let clean: Buffer;
   try {
+    // sharp se carga SOLO aquí. Un `import` arriba del archivo hace que, si el paquete no está en la función,
+    // fallen todas las server actions de la pantalla (pasó en producción: 500 en cualquier botón).
+    const { default: sharp } = await import("sharp");
     clean = await sharp(bytes, { limitInputPixels: 40_000_000, failOn: "error" })
       .rotate() // aplica la orientación EXIF antes de descartarla
       .resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true })
       .webp({ quality: 80 })
       .toBuffer(); // sin .withMetadata(): se eliminan EXIF/GPS
-  } catch {
+  } catch (err) {
+    console.error("[receipt]", err instanceof Error ? err.message.split("\n")[0] : "error");
     return { ok: false, error: x("No se ha podido procesar la foto.") };
   }
 
