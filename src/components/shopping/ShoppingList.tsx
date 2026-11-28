@@ -7,7 +7,8 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useTx } from "@/i18n/tx-client";
 import { formatMoney, parseToCents } from "@/lib/money";
-import { addShoppingItem, finishShopping, realtimeAccess, removeShoppingItem, toggleShoppingItem, type ShoppingItem } from "@/server/actions/shopping";
+import { SwipeRow } from "@/components/ui/SwipeRow";
+import { addShoppingItem, finishShopping, realtimeAccess, toggleShoppingItem, type ShoppingItem } from "@/server/actions/shopping";
 
 /** Lista de la compra compartida: cambios al instante, en directo para todos los miembros (Realtime con RLS) y con sondeo de respaldo. */
 export function ShoppingList({ spaceId, items: initial, names, currency }: { spaceId: string; items: ShoppingItem[]; names: Record<string, string>; currency: string }) {
@@ -80,11 +81,6 @@ export function ShoppingList({ spaceId, items: initial, names, currency }: { spa
     const r = await toggleShoppingItem({ spaceId, id: it.id, checked: !it.checked });
     if (!r.ok) { setItems((l) => l.map((i) => (i.id === it.id ? it : i))); setError(r.error); }
   };
-  const remove = async (it: ShoppingItem) => {
-    setItems((l) => l.filter((i) => i.id !== it.id));
-    const r = await removeShoppingItem({ spaceId, id: it.id });
-    if (!r.ok) { setItems((l) => [...l, it]); setError(r.error); }
-  };
   const finish = async () => {
     const cents = parseToCents(total);
     if (!cents) { setError(x("Pon el total de la compra.")); return; }
@@ -99,7 +95,9 @@ export function ShoppingList({ spaceId, items: initial, names, currency }: { spa
 
   const pending = items.filter((i) => !i.checked), got = items.filter((i) => i.checked);
   const row = (it: ShoppingItem) => (
-    <li key={it.id} className="flex items-center gap-2 rounded-card border border-border bg-surface px-3">
+    <li key={it.id}>
+     <SwipeRow id={it.id} name={it.text} kind={it.id.startsWith("tmp-") ? undefined : "shopping_item"}>
+     <div className="flex items-center gap-2 rounded-card border border-border bg-surface px-3">
       <label className="flex min-h-12 flex-1 items-center gap-3">
         <input type="checkbox" checked={it.checked} disabled={it.id.startsWith("tmp-")} onChange={() => void toggle(it)} className="size-5" aria-label={it.text} />
         <span className={`min-w-0 flex-1 ${it.checked ? "text-ink-3 line-through" : ""}`}>
@@ -107,7 +105,8 @@ export function ShoppingList({ spaceId, items: initial, names, currency }: { spa
           {it.addedBy && names[it.addedBy] && <span className="block text-xs text-ink-3">{names[it.addedBy]}</span>}
         </span>
       </label>
-      <button type="button" disabled={it.id.startsWith("tmp-")} onClick={() => void remove(it)} aria-label={`${x("Quitar")} ${it.text}`} className="grid min-h-11 min-w-11 place-items-center text-ink-3">✕</button>
+     </div>
+     </SwipeRow>
     </li>
   );
 

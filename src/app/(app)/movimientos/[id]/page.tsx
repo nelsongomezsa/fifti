@@ -3,7 +3,9 @@ import { displayName } from "@/lib/system-names";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { TagChips } from "@/components/expense/TagChips";
 import { DetailDelete } from "@/components/ui/DetailDelete";
+import { SwipeRow } from "@/components/ui/SwipeRow";
 import { canDeleteExpense } from "@/lib/permissions";
 import { CategoryIcon } from "@/components/ui/CategoryIcon";
 import { EditExpenseButton } from "@/components/expense/EditExpenseButton";
@@ -44,7 +46,7 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
       supabase.from("expense_comments").select("id, member_id, body, created_at").eq("expense_id", id).order("created_at"),
       supabase.from("expense_reactions").select("member_id, emoji").eq("expense_id", id),
       supabase.from("audit_log").select("id, action, at, actor").eq("row_id", id).eq("table_name", "expenses").order("at", { ascending: false }).limit(20),
-      supabase.from("expense_tags").select("tags(name)").eq("expense_id", id),
+      supabase.from("expense_tags").select("tags(id, name)").eq("expense_id", id),
       e.category_id ? supabase.from("categories").select("name, system_key, funds(name, color, system_key)").eq("id", e.category_id).maybeSingle() : Promise.resolve({ data: null }),
       supabase.from("spaces").select("kind, base_currency").eq("id", e.space_id).maybeSingle(),
     ]);
@@ -54,7 +56,8 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
   const personal = sp?.kind === "personal";
   const canEdit = me && (me.role !== "guest" || me.id === e.created_by_member);
   const title = e.is_private ? (priv?.description ?? x("Gasto privado")) : e.description;
-  const tags = ((tagRows as unknown as { tags: { name: string } | null }[]) ?? []).map((t) => t.tags?.name).filter(Boolean) as string[];
+  const tagList = ((tagRows as unknown as { tags: { id: string; name: string } | null }[]) ?? []).flatMap((t) => (t.tags ? [t.tags] : []));
+  const tags = tagList.map((t) => t.name);
   const counts = REACTIONS.map((emoji) => ({ emoji, n: reactions?.filter((r) => r.emoji === emoji).length ?? 0, mine: !!reactions?.some((r) => r.emoji === emoji && r.member_id === me?.id) }));
 
   // Ticket: bucket privado; se sirve solo con URL firmada de 5 minutos
@@ -80,7 +83,7 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
           {e.currency !== cur ? ` · ≈ ${formatMoney(e.amount_base_cents, cur, x.locale)} · ${x("cambio")} ${e.fx_rate}` : ""}
         </p>
         {e.is_private && <p className="mt-1 text-sm text-ink-2">{x("Gasto privado: los demás ven solo importe y reparto.")}</p>}
-        {tags.length > 0 && <p className="mt-2 flex flex-wrap gap-2">{tags.map((t) => <span key={t} className="rounded-full border border-border px-3 py-1 text-xs text-ink-2">#{t}</span>)}</p>}
+        {tagList.length > 0 && <TagChips expenseId={id} tags={tagList} canEdit={canDeleteExpense(e, me)} />}
       </div>
 
       {canEdit && (
@@ -138,9 +141,11 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
         <h2 className="font-semibold">{x("Comentarios")}</h2>
         {comments?.map((c) => (
           // El texto se renderiza como texto (React lo escapa); nunca como HTML.
-          <p key={c.id} className="rounded-card border border-border bg-surface px-4 py-3 text-sm">
-            <span className="block text-xs text-ink-3">{name(c.member_id)}</span>{c.body}
-          </p>
+          <SwipeRow key={c.id} id={c.id} name={`${x("Comentario")}: ${c.body.slice(0, 40)}`} kind={c.member_id === me?.id ? "comment" : undefined}>
+            <p className="rounded-card border border-border bg-surface px-4 py-3 text-sm">
+              <span className="block text-xs text-ink-3">{name(c.member_id)}</span>{c.body}
+            </p>
+          </SwipeRow>
         ))}
         <ActionForm action={addComment} optimistic submit={x("Comentar")} tone="plain">
           <input type="hidden" name="expenseId" value={id} /><input type="hidden" name="spaceId" value={e.space_id} />

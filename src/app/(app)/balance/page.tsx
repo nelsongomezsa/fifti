@@ -4,7 +4,9 @@ import { ActionForm, inputClass } from "@/components/ui/ActionForm";
 import { CopyButton } from "@/components/ui/CopyButton";
 import { addMonths, formatMoney, isMonthStart, monthStart, paymentConcept, whoPaysNext, zeroOutPayments } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
-import { confirmOffset, deleteSettlement, proposeOffsetAction, recordSettlement, rejectOffset } from "@/server/actions/balance";
+import { SwipeHint } from "@/components/ui/SwipeHint";
+import { SwipeRow } from "@/components/ui/SwipeRow";
+import { confirmOffset, proposeOffsetAction, recordSettlement, rejectOffset } from "@/server/actions/balance";
 import { loadSpaceBalance } from "@/server/balance";
 import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
 
@@ -153,16 +155,14 @@ export default async function BalancePage({ searchParams }: { searchParams: Prom
 
       <div className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold">{x("Pagos registrados")}</h2>
+        {b.settlements.some((s) => !s.offset_id && s.created_by === user.id) && <SwipeHint />}
         {b.settlements.length === 0 ? <p className="text-sm text-ink-3">{x("Todavía no hay pagos.")}</p> : b.settlements.slice(0, 20).map((s) => (
-          <p key={s.id} className="flex items-center justify-between rounded-card border border-border bg-surface px-4 py-2 text-sm">
-            <span>{name(s.from_member)} → {name(s.to_member)} <span className="text-xs text-ink-3">{s.method === "offset" ? "compensación" : s.method} · {s.settled_at}</span></span>
-            <span className="flex items-center gap-2">
+          <SwipeRow key={s.id} id={s.id} name={`${name(s.from_member)} → ${name(s.to_member)}`} kind={!s.offset_id && s.created_by === user.id ? "settlement" : undefined}>
+            <p className="flex min-h-11 items-center justify-between gap-3 rounded-card border border-border bg-surface px-4 py-2 text-sm">
+              <span>{name(s.from_member)} → {name(s.to_member)} <span className="text-xs text-ink-3">{s.method === "offset" ? "compensación" : s.method} · {s.settled_at}</span></span>
               <span className="money font-mono">{formatMoney(s.amount_cents, cur, x.locale)}</span>
-              {!s.offset_id && (s.created_by === user.id || me?.role === "owner") && (
-                <form action={deleteSettlement}><input type="hidden" name="settlementId" value={s.id} /><button aria-label={x("Borrar pago")} className="min-h-11 min-w-11 text-over-text">✕</button></form>
-              )}
-            </span>
-          </p>
+            </p>
+          </SwipeRow>
         ))}
       </div>
     </section>

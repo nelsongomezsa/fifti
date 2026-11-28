@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AccountEditor, AdjustBalance } from "@/components/accounts/AccountForms";
 import { DeleteAccountButton } from "@/components/accounts/DeleteAccount";
+import { SwipeHint } from "@/components/ui/SwipeHint";
+import { SwipeRow } from "@/components/ui/SwipeRow";
 import { getTx } from "@/i18n/tx";
 import { formatMoney } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
@@ -12,7 +14,7 @@ import { listMySpaces, requireUser } from "@/server/spaces";
 
 export const metadata: Metadata = { title: "Cuenta" };
 
-type Line = { lineId: string; date: string; label: string; cents: number; href?: string };
+type Line = { lineId: string; date: string; label: string; cents: number; href?: string; kind?: "transfer" | "adjustment"; id?: string };
 
 export default async function AccountDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -22,8 +24,8 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
     loadAccounts(supabase, user.id, true),
     supabase.from("expenses").select("id, description, spent_at, amount_base_cents, account_cents").eq("account_id", id).order("spent_at", { ascending: false }).limit(60),
     supabase.from("incomes").select("id, source, received_at, amount_cents, account_cents").eq("account_id", id).order("received_at", { ascending: false }).limit(60),
-    supabase.from("account_transfers").select("id, transfer_date, amount_cents, to_amount_cents, note, from_account").eq("to_account", id).order("transfer_date", { ascending: false }).limit(60),
-    supabase.from("account_transfers").select("id, transfer_date, amount_cents, note, to_account").eq("from_account", id).order("transfer_date", { ascending: false }).limit(60),
+    supabase.from("account_transfers").select("id, user_id, transfer_date, amount_cents, to_amount_cents, note, from_account").eq("to_account", id).order("transfer_date", { ascending: false }).limit(60),
+    supabase.from("account_transfers").select("id, user_id, transfer_date, amount_cents, note, to_account").eq("from_account", id).order("transfer_date", { ascending: false }).limit(60),
     supabase.from("account_adjustments").select("id, adjust_date, amount_cents, note").eq("account_id", id).order("adjust_date", { ascending: false }).limit(60),
   ]);
   const acc = accounts.find((a) => a.id === id);
@@ -32,9 +34,9 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
   const lines: Line[] = [
     ...(exp ?? []).map((e) => ({ lineId: `e${e.id}`, date: e.spent_at as string, label: e.description, cents: -(e.account_cents ?? e.amount_base_cents), href: `/movimientos/${e.id}` })),
     ...(inc ?? []).map((i) => ({ lineId: `i${i.id}`, date: i.received_at as string, label: i.source, cents: i.account_cents ?? i.amount_cents })),
-    ...(trIn ?? []).map((t) => ({ lineId: `ti${t.id}`, date: t.transfer_date as string, label: `${x("Traspaso desde")} ${nameOf(t.from_account)}${t.note ? ` · ${t.note}` : ""}`, cents: t.to_amount_cents ?? t.amount_cents })),
-    ...(trOut ?? []).map((t) => ({ lineId: `to${t.id}`, date: t.transfer_date as string, label: `${x("Traspaso a")} ${nameOf(t.to_account)}${t.note ? ` · ${t.note}` : ""}`, cents: -t.amount_cents })),
-    ...(adj ?? []).map((j) => ({ lineId: `a${j.id}`, date: j.adjust_date as string, label: `${x("Ajuste de saldo")}${j.note ? ` · ${j.note}` : ""}`, cents: j.amount_cents })),
+    ...(trIn ?? []).map((t) => ({ lineId: `ti${t.id}`, date: t.transfer_date as string, label: `${x("Traspaso desde")} ${nameOf(t.from_account)}${t.note ? ` · ${t.note}` : ""}`, cents: t.to_amount_cents ?? t.amount_cents, id: t.id as string, kind: t.user_id === user.id ? "transfer" as const : undefined })),
+    ...(trOut ?? []).map((t) => ({ lineId: `to${t.id}`, date: t.transfer_date as string, label: `${x("Traspaso a")} ${nameOf(t.to_account)}${t.note ? ` · ${t.note}` : ""}`, cents: -t.amount_cents, id: t.id as string, kind: t.user_id === user.id ? "transfer" as const : undefined })),
+    ...(adj ?? []).map((j) => ({ lineId: `a${j.id}`, date: j.adjust_date as string, label: `${x("Ajuste de saldo")}${j.note ? ` · ${j.note}` : ""}`, cents: j.amount_cents, id: j.id as string, kind: acc.mine ? "adjustment" as const : undefined })),
   ].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 80);
   const demo = user.app_metadata?.demo === true;
   const fmt = (c: number) => formatMoney(c, acc.currency, x.locale);
@@ -56,6 +58,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
         )}
       </div>
       <h2 className="font-semibold">{x("Movimientos")}</h2>
+      {lines.some((l) => l.kind) && <SwipeHint />}
       {lines.length === 0 ? <p className="rounded-card border border-border bg-surface p-4 text-sm text-ink-3">{x("Aún no hay movimientos en esta cuenta.")}</p> : (
         <ul className="flex flex-col gap-2">
           {lines.map((l) => {
@@ -65,7 +68,8 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
                 <span className="money shrink-0 font-mono">{l.cents > 0 ? "+" : ""}{fmt(l.cents)}</span>
               </>
             );
-            return <li key={l.lineId}>{l.href ? <Link href={l.href} className="flex min-h-14 items-center gap-3 rounded-card border border-border bg-surface px-4">{row}</Link> : <div className="flex min-h-14 items-center gap-3 rounded-card border border-border bg-surface px-4">{row}</div>}</li>;
+            const body = l.href ? <Link href={l.href} className="flex min-h-14 items-center gap-3 rounded-card border border-border bg-surface px-4">{row}</Link> : <div className="flex min-h-14 items-center gap-3 rounded-card border border-border bg-surface px-4">{row}</div>;
+            return <li key={l.lineId}>{l.kind && l.id ? <SwipeRow id={l.id} name={l.label} kind={l.kind}>{body}</SwipeRow> : body}</li>;
           })}
         </ul>
       )}

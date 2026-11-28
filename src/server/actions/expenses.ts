@@ -235,14 +235,6 @@ export async function saveIncome(_prev: FormState, fd: FormData): Promise<FormSt
   return { ok: true, message: x("Ingreso guardado.") };
 }
 
-export async function deleteIncome(fd: FormData) {
-  const id = uuidSchema.safeParse(fd.get("incomeId"));
-  if (!id.success) return;
-  const { supabase, user } = await ctx();
-  if (!user) return;
-  await supabase.rpc("delete_income", { p_id: id.data });
-  revalidatePath("/", "layout");
-}
 
 export async function addFund(_prev: FormState, fd: FormData): Promise<FormState> {
   const x = await getTx();
@@ -282,14 +274,6 @@ export async function saveFavorite(input: unknown): Promise<{ ok: boolean; error
   return error ? { ok: false, error: x("No se ha podido guardar.") } : { ok: true };
 }
 
-export async function deleteFavorite(fd: FormData) {
-  const id = uuidSchema.safeParse(fd.get("favoriteId"));
-  if (!id.success) return;
-  const { supabase, user } = await ctx();
-  if (!user) return;
-  await supabase.from("favorites").delete().eq("id", id.data).eq("user_id", user.id);
-  revalidatePath("/ajustes");
-}
 
 export async function addFavoriteForm(_prev: FormState, fd: FormData): Promise<FormState> {
   const x = await getTx();

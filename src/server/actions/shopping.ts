@@ -12,7 +12,6 @@ import { saveExpense } from "./expenses";
 
 const addSchema = z.object({ spaceId: z.uuid(), text: z.string().trim().min(1).max(120), quantity: z.number().int().min(1).max(999) }).strict();
 const toggleSchema = z.object({ spaceId: z.uuid(), id: z.uuid(), checked: z.boolean() }).strict();
-const removeSchema = z.object({ spaceId: z.uuid(), id: z.uuid() }).strict();
 const finishSchema = z.object({ spaceId: z.uuid(), totalCents: z.number().int().min(1).max(MAX_AMOUNT_CENTS) }).strict();
 
 export type ShoppingItem = { id: string; text: string; quantity: number; checked: boolean; addedBy: string | null };
@@ -47,17 +46,6 @@ export async function toggleShoppingItem(input: unknown): Promise<Res> {
   if (!user) return { ok: false, error: x("Sesión caducada.") };
   if (!(await allow(RULES.shopping, user.id))) return { ok: false, error: x("Demasiados intentos. Espera un rato.") };
   const { error } = await supabase.from("shopping_items").update({ checked: p.data.checked }).eq("id", p.data.id).eq("space_id", p.data.spaceId);
-  return error ? { ok: false, error: x(rpcMessage(error)) } : { ok: true };
-}
-
-export async function removeShoppingItem(input: unknown): Promise<Res> {
-  const x = await getTx();
-  const p = removeSchema.safeParse(input);
-  if (!p.success) return { ok: false, error: x("Datos no válidos") };
-  const { supabase, user } = await session();
-  if (!user) return { ok: false, error: x("Sesión caducada.") };
-  if (!(await allow(RULES.shopping, user.id))) return { ok: false, error: x("Demasiados intentos. Espera un rato.") };
-  const { error } = await supabase.from("shopping_items").delete().eq("id", p.data.id).eq("space_id", p.data.spaceId);
   return error ? { ok: false, error: x(rpcMessage(error)) } : { ok: true };
 }
 

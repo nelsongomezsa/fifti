@@ -18,7 +18,6 @@ const ruleSchema = z.object({
 }).strict();
 const updateSchema = ruleSchema.extend({ id: uuidSchema }).strict();
 const moveSchema = z.object({ spaceId: uuidSchema, id: uuidSchema, dir: z.enum(["up", "down"]) }).strict();
-const deleteSchema = z.object({ spaceId: uuidSchema, id: uuidSchema }).strict();
 const acceptSchema = z.object({ spaceId: uuidSchema, text: z.string().trim().min(1).max(60), categoryId: uuidSchema }).strict();
 
 async function session() {
@@ -55,14 +54,6 @@ export async function updateRule(_prev: FormState, fd: FormData): Promise<FormSt
   if (error) return { error: x(rpcMessage(error)) };
   revalidatePath("/reglas");
   return { message: x("Regla guardada.") };
-}
-
-export async function deleteRule(fd: FormData) {
-  const p = deleteSchema.safeParse(fd2obj(fd));
-  const { supabase, user } = await session();
-  if (!p.success || !user || !(await allow(RULES.rules, user.id))) return;
-  await supabase.from("category_rules").delete().eq("id", p.data.id).eq("space_id", p.data.spaceId);
-  revalidatePath("/reglas");
 }
 
 /** Sube o baja una regla: se renumeran las prioridades de la burbuja de 10 en 10. */

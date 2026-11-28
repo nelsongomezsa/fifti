@@ -72,15 +72,6 @@ export async function addContribution(_prev: FormState, fd: FormData): Promise<F
   return { ok: true, message: x("Aportación guardada.") };
 }
 
-export async function deleteContribution(fd: FormData) {
-  const id = uuidSchema.safeParse(f(fd, "contributionId"));
-  const goal = uuidSchema.safeParse(f(fd, "goalId"));
-  if (!id.success || !goal.success) return;
-  const { supabase, user } = await ctx();
-  if (!user) return;
-  await supabase.rpc("delete_goal_contribution", { p_id: id.data });
-  revalidatePath(`/ahorro/${goal.data}`);
-}
 
 export async function addMilestone(_prev: FormState, fd: FormData): Promise<FormState> {
   const x = await getTx();
@@ -108,19 +99,6 @@ export async function toggleMilestone(fd: FormData) {
   revalidatePath(`/ahorro/${goal.data}`);
 }
 
-export async function deleteGoal(fd: FormData) {
-  const id = uuidSchema.safeParse(f(fd, "goalId"));
-  if (!id.success) return;
-  const { supabase, user } = await ctx();
-  if (!user) return;
-  if (!(await allow(RULES.deletes, user.id))) return;
-  const { error } = await supabase.from("savings_goals").delete().eq("id", id.data);
-  if (error) return;
-  revalidatePath("/ahorro");
-  revalidatePath("/plan");
-  redirect("/plan?vista=ahorro", RedirectType.replace);
-}
-
 export async function saveRule(_prev: FormState, fd: FormData): Promise<FormState> {
   const x = await getTx();
   const goal = uuidSchema.safeParse(f(fd, "goalId"));
@@ -136,16 +114,6 @@ export async function saveRule(_prev: FormState, fd: FormData): Promise<FormStat
   if (error) return { error: x("No se ha podido guardar la regla.") };
   revalidatePath(`/ahorro/${goal.data}`);
   return { ok: true, message: x("Regla activada.") };
-}
-
-export async function deleteRule(fd: FormData) {
-  const id = uuidSchema.safeParse(f(fd, "ruleId"));
-  const goal = uuidSchema.safeParse(f(fd, "goalId"));
-  if (!id.success || !goal.success) return;
-  const { supabase, user } = await ctx();
-  if (!user) return;
-  await supabase.from("saving_rules").delete().eq("id", id.data);
-  revalidatePath(`/ahorro/${goal.data}`);
 }
 
 const updateGoalSchema = z.object({ goalId: z.uuid(), name: z.string().trim().min(1, "Pon un nombre").max(60), targetCents: cents, deadline: isoDate.nullable() }).strict();

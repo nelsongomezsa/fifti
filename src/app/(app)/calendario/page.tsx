@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CalendarMonth, type CalEvent } from "@/components/calendar/CalendarMonth";
+import { ChargeRow } from "@/components/calendar/ChargeRow";
 import { CategoryIcon } from "@/components/ui/CategoryIcon";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { getTx } from "@/i18n/tx";
@@ -43,7 +44,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     supabase.from("recurring_skips").select("recurring_id, skip_on"),
     proximos ? Promise.resolve(null) : Promise.all([
       supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, next_run, rotation, rotation_pos, categories(system_key, name, funds(color))").eq("space_id", active.id).eq("active", true),
-      supabase.from("space_members").select("id, display_name").eq("space_id", active.id),
+      supabase.from("space_members").select("id, user_id, display_name, role").eq("space_id", active.id),
       supabase.from("goal_milestones").select("name, due_on, amount_cents, paid").eq("space_id", active.id).eq("paid", false).gte("due_on", month).lt("due_on", monthEnd),
     ]),
   ]);
@@ -61,6 +62,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       (recAll ?? []).map((r) => ({ id: r.id, description: r.description, amountCents: r.amount_cents, frequency: r.frequency, day: r.day, nextRun: r.next_run, spaceId: r.space_id })),
       (milesAll ?? []).map((m) => ({ date: m.due_on as string, label: m.name, cents: m.amount_cents, spaceId: m.space_id })), todayIso, 30, skips);
     const bubble = (id: string) => { const s = spaces.find((q) => q.id === id); return !s ? "—" : s.kind === "personal" ? x("Personal") : s.name; };
+    const { data: roles } = await supabase.from("space_members").select("space_id, role").eq("user_id", user.id);
+    const canEditIn = new Set((roles ?? []).filter((r) => r.role !== "guest").map((r) => r.space_id));
     // Aquí se juntan cobros de todos los espacios: cada uno en su moneda y el total en la del espacio activo
     const currencyOf = (id: string) => spaces.find((q) => q.id === id)?.currency ?? active.currency;
     const total = await sumIn(active.currency, list.map((c) => ({ cents: c.cents, currency: currencyOf(c.spaceId) })));
@@ -77,11 +80,15 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
             {list.map((c, i) => {
               const cat = c.kind === "fijo" ? catOf.get(c.id ?? "") : null;
               return (
-                <li key={i} className="flex items-center gap-3 rounded-card border border-border bg-surface px-3 py-3 text-sm">
-                  <CategoryIcon systemName={cat?.system_key} color={cat?.funds?.color} />
-                  <span className="min-w-0 flex-1"><span className="block truncate font-medium">{c.label}</span>
-                    <span className="block truncate text-xs text-ink-3">{new Date(`${c.date}T00:00:00Z`).toLocaleDateString(x.locale, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })} · {bubble(c.spaceId)}{c.kind === "meta" ? ` · ${x("pago de meta")}` : ""}</span></span>
-                  <span className="money shrink-0 font-mono">{formatMoney(c.cents, currencyOf(c.spaceId), x.locale)}</span>
+                <li key={`${c.id ?? c.label}-${c.date}-${i}`}>
+                  <ChargeRow recurringId={c.kind === "fijo" ? c.id : undefined} name={c.label} canEdit={canEditIn.has(c.spaceId)}>
+                    <div className="flex items-center gap-3 rounded-card border border-border bg-surface px-3 py-3 text-sm">
+                      <CategoryIcon systemName={cat?.system_key} color={cat?.funds?.color} />
+                      <span className="min-w-0 flex-1"><span className="block truncate font-medium">{c.label}</span>
+                        <span className="block truncate text-xs text-ink-3">{new Date(`${c.date}T00:00:00Z`).toLocaleDateString(x.locale, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })} · {bubble(c.spaceId)}{c.kind === "meta" ? ` · ${x("pago de meta")}` : ""}</span></span>
+                      <span className="money shrink-0 font-mono">{formatMoney(c.cents, currencyOf(c.spaceId), x.locale)}</span>
+                    </div>
+                  </ChargeRow>
                 </li>
               );
             })}
@@ -119,7 +126,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       {(rec ?? []).length === 0 && events.length === 0 && (
         <EmptyState title={x("Aún no hay gastos fijos")} text={x("Apunta alquiler, luz o suscripciones una vez y verás aquí cuándo toca pagar cada uno, con aviso antes de que lleguen.")} actionLabel={x("Añadir gasto fijo")} href="/fijos/nuevo" />
       )}
-      <CalendarMonth key={month} currency={active.currency} label={label}offset={offset} days={days} events={events} todayDay={month === monthStart(new Date()) ? new Date().getUTCDate() : null} advanceDays={advance} />
+      <CalendarMonth key={month} currency={active.currency} label={label}offset={offset} days={days} events={events} todayDay={month === monthStart(new Date()) ? new Date().getUTCDate() : null} advanceDays={advance} canEdit={(mem ?? []).some((m) => m.user_id === user.id && m.role !== "guest")} />
     </section>
   );
 }

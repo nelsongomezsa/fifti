@@ -43,7 +43,7 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
   else if (sp.cuenta && uuid.test(sp.cuenta)) q = q.eq("account_id", sp.cuenta);
   if (sp.q && esc(sp.q)) q = q.ilike("description", `%${esc(sp.q)}%`);
   // Todas las consultas son independientes: una sola ronda de red
-  const [{ data: members }, { data: cats }, { data: fundColors }, { data: expenses }, { data: privates }, { data: mirrors }, accountList, { data: incomeRows }, { data: transferRows }, { data: contribRows }] = await Promise.all([
+  const [{ data: members }, { data: cats }, { data: fundColors }, { data: expenses }, { data: privates }, { data: mirrors }, accountList, { data: incomeRows }, { data: transferRows }, { data: contribRows }, { data: tagUse }] = await Promise.all([
     supabase.from("space_members").select("id, user_id, display_name, role").eq("space_id", active.id),
     supabase.from("categories").select("id, name, system_key, fund_id").eq("space_id", active.id),
     supabase.from("funds").select("id, name, color, system_key").eq("space_id", active.id).order("position"),
@@ -53,9 +53,10 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
       ? supabase.from("personal_mirror").select("id, label, amount_cents, spent_at").eq("enabled", true).gte("spent_at", month).lt("spent_at", next).order("spent_at", { ascending: false })
       : Promise.resolve({ data: [] as { id: string; label: string; amount_cents: number; spent_at: string }[] }),
     user.is_anonymous ? Promise.resolve([]) : loadAccounts(supabase, user.id),
-    supabase.from("incomes").select("id, source, received_at, amount_cents, account_id").eq("space_id", active.id).gte("received_at", month).lt("received_at", next),
-    user.is_anonymous ? Promise.resolve({ data: [] as { id: string; transfer_date: string; amount_cents: number; note: string | null; from_account: string; to_account: string }[] }) : supabase.from("account_transfers").select("id, transfer_date, amount_cents, note, from_account, to_account").gte("transfer_date", month).lt("transfer_date", next),
+    supabase.from("incomes").select("id, source, received_at, amount_cents, account_id, member_id").eq("space_id", active.id).gte("received_at", month).lt("received_at", next),
+    user.is_anonymous ? Promise.resolve({ data: [] as { id: string; user_id: string; transfer_date: string; amount_cents: number; note: string | null; from_account: string; to_account: string }[] }) : supabase.from("account_transfers").select("id, user_id, transfer_date, amount_cents, note, from_account, to_account").gte("transfer_date", month).lt("transfer_date", next),
     active.kind === "household" ? supabase.from("contributions").select("id, member_id, paid_cents, paid_at").eq("space_id", active.id).eq("month", month).gt("paid_cents", 0) : Promise.resolve({ data: [] as { id: string; member_id: string; paid_cents: number; paid_at: string | null }[] }),
+    supabase.from("tags").select("id, name, expense_tags(expense_id)").eq("space_id", active.id).order("name").limit(200),
   ]);
   const accountOpts = accountList.map((a) => ({ id: a.id, name: a.name }));
   const me = members?.find((m) => m.user_id === user.id);
@@ -84,11 +85,13 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
   const catInfo = new Map((cats ?? []).map((c) => [c.id, { sysName: c.system_key as string | null, color: (fundColors ?? []).find((f) => f.id === c.fund_id)?.color ?? "#9AA3AF" }]));
   const todayIso = new Date().toISOString().slice(0, 10), yesterdayIso = new Date(Date.parse(`${todayIso}T00:00:00Z`) - 86400000).toISOString().slice(0, 10);
   const dayLabel = (iso: string) => (iso === todayIso ? x("Hoy") : iso === yesterdayIso ? x("Ayer") : new Date(`${iso}T00:00:00Z`).toLocaleDateString(x.locale, { weekday: "long", day: "numeric", month: "short", timeZone: "UTC" }));
-  type Other = { id: string; kind: "income" | "transfer" | "contribution"; date: string; cents: number; currency: string; title: string; sub: string; href?: string };
+  type Other = { id: string; kind: "income" | "transfer" | "contribution"; date: string; cents: number; currency: string; title: string; sub: string; href?: string; deleteId?: string };
+  // Ingresos: los míos (o, quien administra, los de personas sin cuenta). Traspasos: los que apunté.
+  const myIncome = (memberId: string) => memberId === me?.id || (me?.role === "owner" && !members?.find((m) => m.id === memberId)?.user_id);
   const others: Other[] = [
-    ...incomes.map((i) => ({ id: `i${i.id}`, kind: "income" as const, date: i.received_at as string, cents: i.amount_cents, currency: cur, title: i.source, sub: [x("Ingreso"), accById.get(i.account_id ?? "")?.name].filter(Boolean).join(" · "), href: "/inicio/ingresos" })),
+    ...incomes.map((i) => ({ id: `i${i.id}`, kind: "income" as const, date: i.received_at as string, cents: i.amount_cents, currency: cur, title: i.source, sub: [x("Ingreso"), accById.get(i.account_id ?? "")?.name].filter(Boolean).join(" · "), href: "/inicio/ingresos", deleteId: myIncome(i.member_id) ? i.id : undefined })),
     ...contribs.map((c) => ({ id: `c${c.id}`, kind: "contribution" as const, date: (c.paid_at ?? month) as string, cents: c.paid_cents, currency: cur, title:`${x("Aportación de")} ${memberName.get(c.member_id) ?? "—"}`, sub: x("Aportación al hogar") })),
-    ...transfers.map((t) => ({ id: `t${t.id}`, kind: "transfer" as const, date: t.transfer_date as string, cents: t.amount_cents, currency: accById.get(t.from_account)?.currency ?? cur, title:`${accById.get(t.from_account)?.name ?? "—"} → ${accById.get(t.to_account)?.name ?? "—"}`, sub: [x("Traspaso"), t.note].filter(Boolean).join(" · "), href: `/cuentas/${t.from_account}` })),
+    ...transfers.map((t) => ({ id: `t${t.id}`, kind: "transfer" as const, date: t.transfer_date as string, cents: t.amount_cents, currency: accById.get(t.from_account)?.currency ?? cur, title:`${accById.get(t.from_account)?.name ?? "—"} → ${accById.get(t.to_account)?.name ?? "—"}`, sub: [x("Traspaso"), t.note].filter(Boolean).join(" · "), href: `/cuentas/${t.from_account}`, deleteId: t.user_id === user.id ? t.id : undefined })),
   ];
   const dayKeys = [...new Set([...rows.map((e) => e.spent_at as string), ...others.map((o) => o.date)])].sort((a, b) => b.localeCompare(a));
   const total = rows.length + others.length;
@@ -111,6 +114,7 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
         accounts={user.is_anonymous ? [] : accountOpts}
         funds={(fundColors ?? []).map((f) => ({ id: f.id, name: displayName(x, f.name, f.system_key) }))}
         cats={(cats ?? []).map((c) => ({ id: c.id, name: displayName(x, c.name, c.system_key) }))}
+        unusedTags={me && me.role !== "guest" ? (tagUse ?? []).filter((t) => (t.expense_tags as unknown[]).length === 0).map((t) => ({ id: t.id, name: t.name })) : []}
         members={active.kind !== "personal" ? (members ?? []).map((m) => ({ id: m.id, name: m.display_name })) : null} />
 
       <p className="grid grid-cols-2 gap-2 text-sm" aria-label={x("Resumen del mes")}>
@@ -157,7 +161,14 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
                       </>
                     );
                     const cls = "flex min-h-16 items-center gap-3 rounded-card border border-border bg-surface px-3 py-3";
-                    return <li key={o.id}>{o.href ? <Link href={o.href} className={`${cls} transition-colors hover:bg-surface-2`}>{body}</Link> : <div className={cls}>{body}</div>}</li>;
+                    const content = o.href ? <Link href={o.href} className={`${cls} transition-colors hover:bg-surface-2`}>{body}</Link> : <div className={cls}>{body}</div>;
+                    return (
+                      <li key={o.id}>
+                        {o.deleteId && o.kind !== "contribution" ? (
+                          <SwipeRow id={o.deleteId} name={o.title} kind={o.kind} secondary={o.kind === "income" ? { label: x("Editar"), href: "/inicio/ingresos" } : undefined}>{content}</SwipeRow>
+                        ) : content}
+                      </li>
+                    );
                   })}
                   {list.map((e) => {
                     const mine = (e.expense_splits as { member_id: string; amount_cents: number }[]).find((s) => s.member_id === me?.id)?.amount_cents;

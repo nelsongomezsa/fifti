@@ -9,7 +9,8 @@ import { RowLink, RowSheet, SettingsGroup } from "@/components/settings/Rows";
 import { loadLoans, loanTotals } from "@/server/loans";
 import { formatMoney } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
-import { addFavoriteForm, deleteFavorite } from "@/server/actions/expenses";
+import { SwipeRow } from "@/components/ui/SwipeRow";
+import { addFavoriteForm } from "@/server/actions/expenses";
 import { setMirrorPref } from "@/server/actions/plan";
 import { TimezoneField } from "@/components/ui/TimezoneField";
 import { PasswordForm } from "@/components/ui/PasswordForm";
@@ -165,9 +166,12 @@ export default async function SettingsPage() {
       <p className="text-sm text-ink-3">{x("Pulsación larga en el botón + para usarlos.")}</p>
       <ul className="flex flex-col gap-2">
         {favs?.map((f) => (
-          <li key={f.id} className="flex items-center justify-between rounded-card border border-border bg-surface px-4 py-2 text-sm">
-            <span>{f.label} <span className="money font-mono text-ink-3">{formatMoney(f.amount_cents, spaces.find((s) => s.id === f.space_id)?.currency ?? "EUR", x.locale)}</span></span>
-            <form action={deleteFavorite}><input type="hidden" name="favoriteId" value={f.id} /><button aria-label={`Borrar ${f.label}`} className="min-h-11 min-w-11 text-over-text">✕</button></form>
+          <li key={f.id}>
+            <SwipeRow id={f.id} name={f.label} kind="favorite">
+              <div className="flex min-h-11 items-center rounded-card border border-border bg-surface px-4 py-2 text-sm">
+                <span>{f.label} <span className="money font-mono text-ink-3">{formatMoney(f.amount_cents, spaces.find((s) => s.id === f.space_id)?.currency ?? "EUR", x.locale)}</span></span>
+              </div>
+            </SwipeRow>
           </li>
         ))}
       </ul>

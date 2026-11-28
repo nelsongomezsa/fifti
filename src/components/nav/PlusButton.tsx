@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRightLeft, HandCoins, Home, PiggyBank, Receipt, Repeat, Settings, Wallet } from "lucide-react";
 import { SheetShell } from "@/components/ui/SheetShell";
+import { SwipeRow } from "@/components/ui/SwipeRow";
 import { ExpenseSheet, type SheetPrefill } from "@/components/expense/ExpenseSheet";
 import { usePendingExpenses } from "@/components/expense/optimistic";
 import { SHEET_CONTEXT_STALE } from "@/lib/sheet-context";
@@ -234,13 +235,15 @@ export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
             {!ctx ? <div className="h-11 w-2/3 animate-pulse rounded-full bg-track" /> : ctx.favorites.length === 0 ? (
               <p className="text-sm text-ink-3">{x("Aún no tienes favoritos. Se crean desde Más.")}</p>
             ) : (
-              <ul className="flex flex-wrap gap-2">
+              <ul className="flex max-h-[50dvh] flex-col gap-2 overflow-y-auto">
                 {ctx.favorites.map((f) => (
                   <li key={f.id}>
-                    <button type="button" className="min-h-11 rounded-full border border-border px-4 text-sm"
-                      onClick={() => openSheet({ spaceId: f.spaceId, amountCents: f.amountCents, categoryId: f.categoryId, description: f.label })}>
-                      {f.label} <span className="font-mono text-ink-3">{formatMoney(f.amountCents, ctx.spaces.find((s) => s.id === f.spaceId)?.currency ?? "EUR", x.locale)}</span>
-                    </button>
+                    <SwipeRow id={f.id} name={f.label} kind="favorite">
+                      <button type="button" className="min-h-11 w-full rounded-card border border-border bg-surface px-4 text-left text-sm"
+                        onClick={() => openSheet({ spaceId: f.spaceId, amountCents: f.amountCents, categoryId: f.categoryId, description: f.label })}>
+                        {f.label} <span className="money font-mono text-ink-3">{formatMoney(f.amountCents, ctx.spaces.find((s) => s.id === f.spaceId)?.currency ?? "EUR", x.locale)}</span>
+                      </button>
+                    </SwipeRow>
                   </li>
                 ))}
               </ul>

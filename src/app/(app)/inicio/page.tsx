@@ -1,6 +1,7 @@
 import { getTx } from "@/i18n/tx";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ChargeRow } from "@/components/calendar/ChargeRow";
 import { CategoryIcon } from "@/components/ui/CategoryIcon";
 import { PartnerInvite } from "@/components/home/PartnerInvite";
 import { SetupPlanCard } from "@/components/plan/SetupPlanCard";
@@ -61,6 +62,8 @@ export default async function HomePage() {
     active.kind === "household" ? supabase.from("share_links").select("id").eq("space_id", active.id).eq("kind", "invite").eq("revoked", false).gt("expires_at", new Date().toISOString()).limit(1) : Promise.resolve({ data: [] as { id: string }[] }),
   ]);
   const loans = await loanTotals(loanRows, cur);
+  const { data: myRole } = await supabase.from("space_members").select("role").eq("space_id", active.id).eq("user_id", user.id).maybeSingle();
+  const canEditCharges = !!myRole && myRole.role !== "guest";
   const todayIso = new Date().toISOString().slice(0, 10);
   const upcoming = upcomingCharges((recRows ?? []).map((r) => ({ id: r.id, description: r.description, amountCents: r.amount_cents, frequency: r.frequency, day: r.day, nextRun: r.next_run, spaceId: active.id })), [], todayIso, 30, new Set((skipRows ?? []).map((k) => `${k.recurring_id}|${k.skip_on}`))).slice(0, 3);
   const whenLabel = (iso: string) => { const d = Math.round((Date.parse(`${iso}T00:00:00Z`) - Date.parse(`${todayIso}T00:00:00Z`)) / 86400000); return d === 0 ? x("Hoy") : d === 1 ? x("Mañana") : new Date(`${iso}T00:00:00Z`).toLocaleDateString(x.locale, { day: "numeric", month: "short", timeZone: "UTC" }); };
@@ -197,14 +200,18 @@ export default async function HomePage() {
         <div className={cardCls}>
           <div className="flex items-center justify-between"><h2 className="font-semibold">{x("Próximos cobros")}</h2>{more("/calendario", x("Calendario"))}</div>
           <ul className="mt-1 flex flex-col gap-2">
-            {upcoming.map((c, i) => {
+            {upcoming.map((c) => {
               const cat = catOf.get(c.id ?? "");
               const d = new Date(`${c.date}T00:00:00Z`).toLocaleDateString(x.locale, { day: "numeric", month: "short", timeZone: "UTC" });
               return (
-                <li key={i} className="flex items-center gap-3 text-sm">
-                  <CategoryIcon systemName={cat?.system_key} color={cat?.funds?.color} size={36} />
-                  <span className="min-w-0 flex-1"><span className="block truncate font-medium">{c.label}</span><span className="block text-xs text-ink-3">{whenLabel(c.date) === d ? d : `${whenLabel(c.date)} · ${d}`}</span></span>
-                  <span className="money shrink-0 font-mono">{formatMoney(c.cents, cur, x.locale)}</span>
+                <li key={`${c.id}-${c.date}`}>
+                  <ChargeRow recurringId={c.id} name={c.label} canEdit={canEditCharges}>
+                    <div className="flex min-h-11 items-center gap-3 bg-surface text-sm">
+                      <CategoryIcon systemName={cat?.system_key} color={cat?.funds?.color} size={36} />
+                      <span className="min-w-0 flex-1"><span className="block truncate font-medium">{c.label}</span><span className="block text-xs text-ink-3">{whenLabel(c.date) === d ? d : `${whenLabel(c.date)} · ${d}`}</span></span>
+                      <span className="money shrink-0 font-mono">{formatMoney(c.cents, cur, x.locale)}</span>
+                    </div>
+                  </ChargeRow>
                 </li>
               );
             })}

@@ -5,21 +5,26 @@ import { sumIn } from "@/server/fx";
 export type LoanRow = {
   id: string; direction: "lent" | "borrowed"; personName: string; amountCents: number; remainingCents: number; loanDate: string;
   remindOn: string | null; note: string | null; shared: boolean; mine: boolean; creatorName?: string; currency: string;
+  repayments: { id: string; cents: number; paidOn: string }[];
 };
 
 /** Préstamos visibles para esta persona (RLS): los suyos y los que otra persona ha compartido explícitamente con ella. */
 export async function loadLoans(supabase: SupabaseClient, uid: string): Promise<LoanRow[]> {
   const [{ data: loans }, { data: reps }] = await Promise.all([
     supabase.from("loans").select("id, user_id, direction, person_name, amount_cents, loan_date, remind_on, note, shared, currency").order("loan_date", { ascending: false }).limit(200),
-    supabase.from("loan_repayments").select("loan_id, amount_cents").limit(2000),
+    supabase.from("loan_repayments").select("id, loan_id, amount_cents, paid_on").order("paid_on", { ascending: false }).limit(2000),
   ]);
   const paid = new Map<string, number>();
-  for (const r of reps ?? []) paid.set(r.loan_id, (paid.get(r.loan_id) ?? 0) + r.amount_cents);
+  const history = new Map<string, LoanRow["repayments"]>();
+  for (const r of reps ?? []) {
+    paid.set(r.loan_id, (paid.get(r.loan_id) ?? 0) + r.amount_cents);
+    history.set(r.loan_id, [...(history.get(r.loan_id) ?? []), { id: r.id, cents: r.amount_cents, paidOn: r.paid_on }]);
+  }
   return (loans ?? []).map((l) => {
     const mine = l.user_id === uid;
     // Visto desde quien lo recibe, la dirección se invierte
     const direction = mine ? (l.direction as "lent" | "borrowed") : l.direction === "lent" ? "borrowed" : "lent";
-    return { id: l.id, direction, personName: l.person_name, amountCents: l.amount_cents, remainingCents: l.amount_cents - (paid.get(l.id) ?? 0), loanDate: l.loan_date, remindOn: l.remind_on, note: l.note, shared: l.shared, mine, currency: l.currency ?? "EUR" };
+    return { id: l.id, direction, personName: l.person_name, amountCents: l.amount_cents, remainingCents: l.amount_cents - (paid.get(l.id) ?? 0), loanDate: l.loan_date, remindOn: l.remind_on, note: l.note, shared: l.shared, mine, currency: l.currency ?? "EUR", repayments: history.get(l.id) ?? [] };
   });
 }
 

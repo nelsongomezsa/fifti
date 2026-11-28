@@ -13,5 +13,8 @@ export const DELETED_LABEL: Record<DeleteKind, string> = {
   settlement: "Pago borrado", comment: "Comentario borrado", favorite: "Favorito borrado", tag: "Etiqueta borrada",
 };
 
+export const GOAL_DELETE = "Se borran la meta, sus aportaciones, pagos programados y reglas. Tus gastos y el dinero de tus cuentas no se tocan.";
+export const LOAN_DELETE = "Se borran el préstamo y las devoluciones apuntadas. Tus cuentas y tus gastos no se tocan.";
+
 /** Lo que alimenta la hoja de «Nuevo gasto», que guarda una copia: al borrarlo hay que pedirla de nuevo. */
 export const CHANGES_SHEET_CONTEXT: ReadonlySet<DeleteKind> = new Set(["rule", "favorite"]);

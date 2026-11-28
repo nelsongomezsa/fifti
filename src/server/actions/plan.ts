@@ -116,15 +116,6 @@ export async function saveRecurring(_prev: FormState, fd: FormData): Promise<For
   return { ok: true, message: x("Gasto fijo guardado.") };
 }
 
-export async function deleteRecurring(fd: FormData) {
-  const id = uuidSchema.safeParse(field(fd, "recurringId"));
-  if (!id.success) return;
-  const { supabase, user } = await ctx();
-  if (!user) return;
-  await supabase.rpc("delete_recurring", { p_id: id.data });
-  revalidatePath("/plan");
-}
-
 /** Borrar desde la pantalla de edición: redirige desde el servidor, o devuelve el error sin moverse. */
 export async function deleteRecurringAndGo(id: string): Promise<{ ok: false; error: string }> {
   const x = await getTx();

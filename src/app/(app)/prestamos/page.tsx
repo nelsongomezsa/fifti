@@ -6,7 +6,12 @@ import { ActionForm, inputClass } from "@/components/ui/ActionForm";
 import { getTx } from "@/i18n/tx";
 import { formatMoney } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
-import { createLoan, deleteLoan, repayLoan } from "@/server/actions/loans";
+import { DetailDelete } from "@/components/ui/DetailDelete";
+import { SwipeHint } from "@/components/ui/SwipeHint";
+import { SwipeRow } from "@/components/ui/SwipeRow";
+import { LOAN_DELETE } from "@/lib/delete-kinds";
+import { deleteItem } from "@/server/actions/delete";
+import { createLoan, repayLoan, settleLoan } from "@/server/actions/loans";
 import { loadLoans, loanTotals } from "@/server/loans";
 import { listMySpaces, requireUser } from "@/server/spaces";
 
@@ -30,8 +35,13 @@ export default async function LoansPage() {
   const today = new Date().toISOString().slice(0, 10);
   const open = rows.filter((r) => r.remainingCents > 0), closed = rows.filter((r) => r.remainingCents === 0);
 
+  const day = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString(x.locale, { day: "numeric", month: "short", timeZone: "UTC" });
   const item = (r: (typeof rows)[number]) => (
-    <li key={r.id} className="rounded-card border border-border bg-surface p-3">
+    <li key={r.id}>
+     <SwipeRow id={r.id} name={r.personName} kind={r.mine ? "loan" : undefined}
+       confirm={r.repayments.length > 0 ? { title: x("¿Borrar este préstamo?"), description: x(LOAN_DELETE) } : undefined}
+       secondary={r.mine && r.remainingCents > 0 ? { label: x("Pagado"), run: settleLoan.bind(null, { loanId: r.id }) } : undefined}>
+     <div className="rounded-card border border-border bg-surface p-3">
       <details>
         <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-3">
           <span className="min-w-0"><span className="block truncate font-medium">{r.direction === "lent" ? x("Le dejé a") : x("Me dejó")} {r.personName}</span>
@@ -49,9 +59,25 @@ export default async function LoansPage() {
               <p className="text-xs text-ink-3">{x("Pon menos para una devolución parcial.")}</p>
             </ActionForm>
           )}
-          {r.mine && <form action={deleteLoan}><input type="hidden" name="loanId" value={r.id} /><button className="min-h-11 rounded-full border border-border px-5 font-semibold text-over-text">{x("Borrar préstamo")}</button></form>}
+          {r.repayments.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <h3 className="text-ink-3">{x("Devoluciones")}</h3>
+              <ul className="flex flex-col gap-2">
+                {r.repayments.map((p) => (
+                  <li key={p.id}>
+                    <SwipeRow id={p.id} name={`${x("Devolución")} ${day(p.paidOn)}`} kind={r.mine ? "repayment" : undefined}>
+                      <div className="flex min-h-11 items-center justify-between rounded-card border border-border bg-surface-2 px-3"><span>{day(p.paidOn)}</span><span className="money font-mono">{fmt(p.cents, r.currency)}</span></div>
+                    </SwipeRow>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {r.mine && <DetailDelete label={x("Borrar préstamo")} title={x("¿Borrar este préstamo?")} description={x(LOAN_DELETE)} action={deleteItem.bind(null, { kind: "loan", id: r.id })} />}
         </div>
       </details>
+     </div>
+     </SwipeRow>
     </li>
   );
 
@@ -62,6 +88,7 @@ export default async function LoansPage() {
       <h1 className="text-2xl font-bold">{x("Préstamos")}</h1>
       <p className="text-sm text-ink-2">{x("Lo que has dejado o te han dejado. Es privado: solo lo ves tú, salvo que lo compartas con alguien de tus burbujas.")}</p>
       <p className="money font-mono text-lg">{x("Te deben")} {fmt(t.owedToMe)} · {x("Debes")} {fmt(t.iOwe)}</p>
+      {rows.some((r) => r.mine) && <SwipeHint />}
       {open.length === 0 ? <EmptyState title={x("No hay préstamos pendientes")} text={x("Apunta lo que dejas o te dejan y Fifti te recuerda lo que falta por devolver, sin mezclarlo con tus gastos.")} actionLabel={x("Apuntar un préstamo")} href="#nuevo-prestamo" /> : <ul className="flex flex-col gap-2">{open.map(item)}</ul>}
       {closed.length > 0 && <details><summary className="min-h-11 cursor-pointer py-2 text-sm text-ink-3">{x("Devueltos")} ({closed.length})</summary><ul className="mt-2 flex flex-col gap-2">{closed.map(item)}</ul></details>}
 

@@ -47,14 +47,6 @@ export async function recordSettlement(_prev: FormState, fd: FormData): Promise<
   return { ok: true, message: x("Pago registrado.") };
 }
 
-export async function deleteSettlement(fd: FormData) {
-  const id = uuidSchema.safeParse(fd.get("settlementId"));
-  if (!id.success) return;
-  const { supabase, user } = await ctx();
-  if (!user) return;
-  await supabase.rpc("delete_settlement", { p_id: id.data });
-  revalidatePath("/balance");
-}
 
 /** Calcula en el servidor las deudas directas entre el usuario y otra persona en los grupos que comparten. */
 async function pairDebts(otherUserId: string) {

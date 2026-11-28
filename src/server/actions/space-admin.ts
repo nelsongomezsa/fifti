@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect, RedirectType } from "next/navigation";
 import { z } from "zod";
 import { getTx } from "@/i18n/tx";
 import { MAX_AMOUNT_CENTS } from "@/lib/money";
@@ -39,6 +40,45 @@ export async function clearSpace(input: unknown): Promise<SimpleResult> {
   if (r?.others?.length) await notify(r.others, "space_cleared", (t) => ({ title: r.name, body: t(clearedBody(r.accounts ?? 0)), url: "/inicio" }));
   revalidatePath("/", "layout");
   return { ok: true };
+}
+
+const deleteSpaceSchema = z.object({ spaceId: z.uuid(), confirmName: z.string().trim().min(1).max(60) }).strict();
+const leaveSchema = z.object({ spaceId: z.uuid() }).strict();
+
+/** Borra el espacio entero (nunca el Personal). Solo quien lo creó, escribiendo su nombre; se avisa a los demás. */
+export async function deleteSpace(input: unknown): Promise<SimpleResult> {
+  const x = await getTx();
+  const p = deleteSpaceSchema.safeParse(input);
+  if (!p.success) return { ok: false, error: x("Datos no válidos") };
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) return { ok: false, error: x("Sesión caducada.") };
+  if (!(await allow(RULES.planWrites, data.user.id))) return { ok: false, error: x("Demasiados intentos. Espera un rato.") };
+  const { data: sp } = await supabase.from("spaces").select("name").eq("id", p.data.spaceId).maybeSingle();
+  if (!sp || p.data.confirmName.toLowerCase() !== sp.name.trim().toLowerCase()) return { ok: false, error: x("El nombre no coincide.") };
+  const { data: res, error } = await supabase.rpc("delete_space", { p_space: p.data.spaceId });
+  if (error) return { ok: false, error: x(rpcMessage(error)) };
+  // La base ya ha comprobado el permiso y borrado los gastos: fuera también las fotos
+  await removeSpaceReceipts(p.data.spaceId);
+  const r = res as { name: string; others: string[] } | null;
+  if (r?.others?.length) await notify(r.others, "space_cleared", (t) => ({ title: r.name, body: t("Se ha borrado este espacio."), url: "/inicio" }));
+  revalidatePath("/", "layout");
+  redirect("/inicio?borrado=espacio", RedirectType.replace);
+}
+
+/** Salir de un espacio que no es tuyo: tu historial se queda con tu nombre. */
+export async function leaveSpace(input: unknown): Promise<SimpleResult> {
+  const x = await getTx();
+  const p = leaveSchema.safeParse(input);
+  if (!p.success) return { ok: false, error: x("Datos no válidos") };
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) return { ok: false, error: x("Sesión caducada.") };
+  if (!(await allow(RULES.planWrites, data.user.id))) return { ok: false, error: x("Demasiados intentos. Espera un rato.") };
+  const { error } = await supabase.rpc("leave_space", { p_space: p.data.spaceId });
+  if (error) return { ok: false, error: x(rpcMessage(error)) };
+  revalidatePath("/", "layout");
+  redirect("/inicio?borrado=salida", RedirectType.replace);
 }
 
 /** Aportar al hogar: sale de Personal (partida Aportación al hogar) y entra en el hogar a nombre de quien aporta. */

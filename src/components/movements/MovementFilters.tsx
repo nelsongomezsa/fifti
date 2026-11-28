@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { SheetShell } from "@/components/ui/SheetShell";
 import { useTx } from "@/i18n/tx-client";
+import { deleteItem } from "@/server/actions/delete";
 
 type Opt = { id: string; name: string };
 type Values = { tipo: string; cat: string; fondo: string; persona: string; pago: string; cuenta: string; tag: string };
@@ -12,9 +13,9 @@ type Values = { tipo: string; cat: string; fondo: string; persona: string; pago:
  * Buscador siempre visible y un botón «Filtros» que abre una hoja con todos los demás; los filtros activos se ven como chips
  * que se quitan con un toque. Todo se refleja en la URL (la búsqueda con una pequeña espera mientras se escribe).
  */
-export function MovementFilters({ month, q: q0, cat: cat0, fondo: fondo0, persona: persona0, pago: pago0, tag: tag0, cuenta: cuenta0, tipo: tipo0, accounts, cats, funds, members }: {
+export function MovementFilters({ month, q: q0, cat: cat0, fondo: fondo0, persona: persona0, pago: pago0, tag: tag0, cuenta: cuenta0, tipo: tipo0, accounts, cats, funds, members, unusedTags = [] }: {
   month: string; q?: string; cat?: string; fondo?: string; persona?: string; pago?: string; tag?: string; cuenta?: string; tipo?: string;
-  accounts?: Opt[]; cats: Opt[]; funds: Opt[]; members: Opt[] | null;
+  accounts?: Opt[]; cats: Opt[]; funds: Opt[]; members: Opt[] | null; unusedTags?: Opt[];
 }) {
   const x = useTx();
   const router = useRouter();
@@ -40,6 +41,17 @@ export function MovementFilters({ month, q: q0, cat: cat0, fondo: fondo0, person
     }, 300);
     return () => clearTimeout(t);
   }, [q, v, month, listPath, router]);
+
+  const [removing, startRemove] = useTransition();
+  const [tagError, setTagError] = useState<string | null>(null);
+  const removeTag = (id: string) => {
+    setTagError(null);
+    startRemove(async () => {
+      const r = await deleteItem({ kind: "tag", id }).catch(() => ({ ok: false as const, error: x("No se ha podido completar.") }));
+      if (!r.ok) setTagError(r.error ?? x("No se ha podido completar."));
+      else router.refresh();
+    });
+  };
 
   const set = (k: keyof Values, val: string) => setV((o) => ({ ...o, [k]: val }));
   const nameOf = (list: Opt[] | null | undefined, id: string) => list?.find((o) => o.id === id)?.name ?? id;
@@ -87,6 +99,21 @@ export function MovementFilters({ month, q: q0, cat: cat0, fondo: fondo0, person
             {members && field(x("Quién pagó"), <select value={v.pago} onChange={(e) => set("pago", e.target.value)} className={sel}><option value="">{x("Todos")}</option>{members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select>)}
             {members && field(x("Persona"), <select value={v.persona} onChange={(e) => set("persona", e.target.value)} className={sel}><option value="">{x("Todas")}</option>{members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select>)}
             {field(x("Etiqueta"), <input value={v.tag} onChange={(e) => set("tag", e.target.value)} placeholder={x("#etiqueta")} maxLength={31} autoComplete="off" className={sel} />)}
+            {unusedTags.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <h3 className="text-sm text-ink-3">{x("Etiquetas sin usar")}</h3>
+                <ul className="flex flex-wrap gap-2">
+                  {unusedTags.map((t) => (
+                    <li key={t.id}>
+                      <button type="button" disabled={removing} onClick={() => removeTag(t.id)} aria-label={`${x("Borrar la etiqueta")} ${t.name}`} className="flex min-h-11 items-center gap-2 rounded-full border border-border px-3 text-sm">
+                        #{t.name}<span aria-hidden className="text-ink-3">✕</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {tagError && <p role="alert" className="text-sm text-over-text">{tagError}</p>}
+              </div>
+            )}
             <div className="mt-1 flex gap-2">
               <button type="button" onClick={() => setV({ tipo: "", cat: "", fondo: "", persona: "", pago: "", cuenta: "", tag: "" })} className="min-h-12 flex-1 rounded-full border border-border font-semibold">{x("Quitar todos")}</button>
               <button type="button" onClick={() => setOpen(false)} className="min-h-12 flex-1 rounded-full bg-accent font-semibold text-on-accent">{x("Listo")}</button>

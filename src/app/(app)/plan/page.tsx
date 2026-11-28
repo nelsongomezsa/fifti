@@ -1,3 +1,4 @@
+import { FundRow } from "@/components/spaces/CategoryRows";
 import { SwipeHint } from "@/components/ui/SwipeHint";
 import { SwipeRow } from "@/components/ui/SwipeRow";
 import { getTx } from "@/i18n/tx";
@@ -15,7 +16,7 @@ import { ViewInCurrency } from "@/components/money/ViewInCurrency";
 import { detectSubscriptions } from "@/lib/detect";
 import { addMonths, currencySymbol, formatMoney,fundLeftover, isMonthStart, monthOutlook, monthStart, summarizeFund } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
-import { closePlan, copyPreviousPlan, deleteRecurring, generateContributions, markContributionPaid, reopenPlan, saveContributionRule, savePlan, saveRecurring } from "@/server/actions/plan";
+import { closePlan, copyPreviousPlan, generateContributions,markContributionPaid, reopenPlan, saveContributionRule, savePlan, saveRecurring } from "@/server/actions/plan";
 import { loadMirrorByFund, loadPlan } from "@/server/plan";
 import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
 
@@ -105,6 +106,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
               const over = row.status === "over";
               return (
                 <li key={f.id}>
+                  <FundRow id={f.id} name={f.name} canDelete={!!me && me.role !== "guest" && !f.system_key && !f.linked_space_id} others={d.funds.filter((o) => o.id !== f.id).map((o) => ({ id: o.id, name: o.name }))}>
                   <Link href={`/inicio/fondo/${f.id}`} className="block rounded-card border border-border bg-surface p-4 transition-colors hover:bg-surface-2">
                     <span className="flex items-center justify-between gap-3">
                       <span className="flex items-center gap-2 font-medium"><span aria-hidden className="size-2.5 rounded-full" style={{ background: f.color }} />{f.name}</span>
@@ -116,11 +118,13 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
                       <span className={over ? "text-over-text" : ""}>{over ? x("Te has pasado") : x("Quedan")} {formatMoney(Math.abs(row.remaining), cur, x.locale)}</span>
                     </span>
                   </Link>
+                  </FundRow>
                 </li>
               );
             })}
           </ul>
           {d.uncategorized > 0 && <p className="text-sm text-ink-3">{x("Sin categoría:")}{" "}<span className="money font-mono">{formatMoney(d.uncategorized, cur, x.locale)}</span></p>}
+          <Link href={`/espacio/${active.id}/fondos`} className="flex min-h-11 items-center self-start text-sm text-ink-2">{x("Partidas y categorías ›")}</Link>
         </>
       ) : (
         <SetupPlanCard />

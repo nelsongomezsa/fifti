@@ -18,7 +18,7 @@ export default async function NewFixedPage({ searchParams }: { searchParams: Pro
   const supabase = await createClient();
   const editing = sp.id && /^[0-9a-f-]{36}$/i.test(sp.id) ? (await supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, category_id").eq("id", sp.id).eq("space_id", active.id).maybeSingle()).data : null;
   const [{ data: cats }, { data: rules }, { data: prefs }] = await Promise.all([
-    supabase.from("categories").select("id, name, system_key").eq("space_id", active.id).order("name"),
+    supabase.from("categories").select("id, name, system_key").eq("space_id", active.id).eq("hidden", false).order("name"),
     supabase.from("category_rules").select("id, match_text, match_type, category_id, priority").eq("space_id", active.id),
     user.is_anonymous ? Promise.resolve({ data: null }) : supabase.from("notification_prefs").select("fixed_tomorrow, fixed_advance_days").maybeSingle(),
   ]);

@@ -4,7 +4,9 @@ import { ActionForm, inputClass } from "@/components/ui/ActionForm";
 import { getTx } from "@/i18n/tx";
 import { displayName } from "@/lib/system-names";
 import { createClient } from "@/lib/supabase/server";
-import { createRule, deleteRule, moveRule, updateRule } from "@/server/actions/rules";
+import { SwipeHint } from "@/components/ui/SwipeHint";
+import { SwipeRow } from "@/components/ui/SwipeRow";
+import { createRule, moveRule, updateRule } from "@/server/actions/rules";
 import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
 
 export const metadata: Metadata = { title: "Reglas" };
@@ -13,16 +15,18 @@ const TYPES = { contains: "Contiene", starts_with: "Empieza por", exact: "Es exa
 
 export default async function RulesPage() {
   const x = await getTx();
-  await requireUser();
+  const user = await requireUser();
   const active = await getActiveSpace(await listMySpaces());
   if (!active) return null;
   const supabase = await createClient();
+  const { data: me } = await supabase.from("space_members").select("role").eq("space_id", active.id).eq("user_id", user.id).maybeSingle();
+  const canEdit = !!me && me.role !== "guest";
   const [{ data: rules }, { data: cats }] = await Promise.all([
     supabase.from("category_rules").select("id, match_text, match_type, category_id, priority").eq("space_id", active.id).order("priority").order("created_at"),
-    supabase.from("categories").select("id, name, system_key").eq("space_id", active.id).order("name"),
+    supabase.from("categories").select("id, name, system_key, hidden").eq("space_id", active.id).order("name"),
   ]);
   const catName = (id: string) => { const c = cats?.find((k) => k.id === id); return c ? displayName(x, c.name, c.system_key) : "—"; };
-  const catOptions = (cats ?? []).map((c) => <option key={c.id} value={c.id}>{displayName(x, c.name, c.system_key)}</option>);
+  const catOptions = (cats ?? []).filter((c) => !c.hidden).map((c) => <option key={c.id} value={c.id}>{displayName(x, c.name, c.system_key)}</option>);
   const typeOptions = (Object.keys(TYPES) as (keyof typeof TYPES)[]).map((t) => <option key={t} value={t}>{x(TYPES[t])}</option>);
 
   return (
@@ -35,8 +39,11 @@ export default async function RulesPage() {
         <p className="rounded-card border border-border bg-surface p-4 text-ink-2">{x("Aún no hay reglas. Crea la primera abajo.")}</p>
       ) : (
         <ol className="flex flex-col gap-2">
+          {canEdit && <li><SwipeHint /></li>}
           {rules!.map((r, i) => (
-            <li key={r.id} className="rounded-card border border-border bg-surface p-3">
+            <li key={r.id}>
+             <SwipeRow id={r.id} name={r.match_text} kind={canEdit ? "rule" : undefined} secondary={canEdit ? { label: x("Editar"), expand: true } : undefined}>
+             <div className="rounded-card border border-border bg-surface p-3">
               <div className="flex items-center justify-between gap-2">
                 <p className="min-w-0 truncate"><span className="text-ink-3">{x(TYPES[r.match_type as keyof typeof TYPES])}</span> <strong>{r.match_text}</strong> → {catName(r.category_id)}</p>
                 <div className="flex shrink-0 gap-1">
@@ -54,9 +61,9 @@ export default async function RulesPage() {
                   <input name="matchText" required maxLength={60} defaultValue={r.match_text} aria-label={x("Texto")} className={inputClass} />
                   <select name="categoryId" defaultValue={r.category_id} aria-label={x("Categoría")} className={inputClass}>{catOptions}</select>
                 </ActionForm>
-                <form action={deleteRule} className="mt-2"><input type="hidden" name="spaceId" value={active.id} /><input type="hidden" name="id" value={r.id} />
-                  <button className="min-h-11 rounded-full border border-border px-5 font-semibold text-over-text">{x("Borrar regla")}</button></form>
               </details>
+             </div>
+             </SwipeRow>
             </li>
           ))}
         </ol>

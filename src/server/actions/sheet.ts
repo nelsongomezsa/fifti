@@ -33,7 +33,7 @@ export async function loadSheetContext(): Promise<SheetContext> {
     supabase.from("spaces").select("id, name, kind, base_currency, created_at").is("archived_at", null).order("created_at"),
     supabase.from("space_members").select("id, space_id, user_id, display_name, default_share_bp").order("joined_at"),
     supabase.from("funds").select("id, space_id, name, color, position, system_key").order("position"),
-    supabase.from("categories").select("id, space_id, fund_id, name, system_key"),
+    supabase.from("categories").select("id, space_id, fund_id, name, system_key").eq("hidden", false),
     supabase.from("expenses").select("space_id, category_id").not("category_id", "is", null).order("created_at", { ascending: false }).limit(300),
     supabase.from("favorites").select("id, space_id, label, amount_cents, category_id").order("label"),
     supabase.from("category_rules").select("id, space_id, match_text, match_type, category_id, priority").order("priority"),

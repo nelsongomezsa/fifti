@@ -2,6 +2,7 @@ import { getTx } from "@/i18n/tx";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { SpaceExit } from "@/components/spaces/SpaceExit";
 import { ActionForm, inputClass } from "@/components/ui/ActionForm";
 import { addVirtualMember, createClaimLink, createLink, kickMember, revokeLink, saveShares, setDailyBudget } from "@/server/actions/spaces";
 import { createClient } from "@/lib/supabase/server";
@@ -148,6 +149,8 @@ export default async function SpacePage({ params }: { params: Promise<{ id: stri
           )}
         </>
       )}
+
+      {mine && space.kind !== "personal" && <SpaceExit spaceId={id} name={space.name} owner={isOwner} />}
     </section>
   );
 }

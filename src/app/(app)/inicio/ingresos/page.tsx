@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ActionForm, inputClass } from "@/components/ui/ActionForm";
+import { DetailDelete } from "@/components/ui/DetailDelete";
+import { SwipeHint } from "@/components/ui/SwipeHint";
+import { SwipeRow } from "@/components/ui/SwipeRow";
 import { formatMoney, addMonths } from "@/lib/money";
-import { deleteIncome, saveIncome } from "@/server/actions/expenses";
+import { deleteItem } from "@/server/actions/delete";
+import { saveIncome } from "@/server/actions/expenses";
 import { detailContext } from "@/server/inicio-detail";
 import { loadPlan } from "@/server/plan";
 
@@ -51,17 +55,19 @@ export default async function IncomeDetailPage() {
         <>
           <section>
             <h2 className="mb-3 text-lg font-semibold">{x("Ingresos del mes")}</h2>
-            {entries.length === 0 ? <p className="rounded-card border border-border bg-surface p-4 text-sm text-ink-2">{x("Aún no hay ingresos este mes.")}</p> : (
+            {entries.length > 0 && <div className="mb-3"><SwipeHint /></div>}
+            {entries.length === 0 ?<p className="rounded-card border border-border bg-surface p-4 text-sm text-ink-2">{x("Aún no hay ingresos este mes.")}</p> : (
               <ul className="flex flex-col gap-3">
                 {entries.map((entry) => {
                   const member = plan.members.find((item) => item.id === entry.member_id);
-                  return <li key={entry.id} className="rounded-card border border-border bg-surface p-4">
+                  const editable = mine.some((m) => m.id === entry.member_id);
+                  const card = <div className="rounded-card border border-border bg-surface p-4">
                     <div className="flex min-w-0 items-start justify-between gap-3">
                       <div className="min-w-0"><p className="truncate font-medium">{entry.source || x("Sin origen")}</p>
                         <p className="text-xs text-ink-3">{member?.user_id === user.id ? x("Yo") : member?.display_name} · {entry.received_at}</p></div>
                       <span className="money shrink-0 font-mono">{money(entry.amount_cents)}</span>
                     </div>
-                    <details className="mt-2">
+                    {editable && <details className="mt-2">
                       <summary className="flex min-h-11 cursor-pointer items-center text-sm text-ink-2">{x("Editar")}</summary>
                       <ActionForm action={saveIncome} optimistic submit={x("Guardar ingreso")} className="flex flex-col gap-3 pt-2">
                         <input type="hidden" name="spaceId" value={active.id} />
@@ -74,11 +80,15 @@ export default async function IncomeDetailPage() {
                         <input name="receivedAt" type="date" defaultValue={entry.received_at} required aria-label={x("Fecha")} className={inputClass} />
                         <label className="flex min-h-11 items-center gap-3 text-sm text-ink-2"><input type="checkbox" name="isRecurring" defaultChecked={entry.is_recurring} /> {x("Se repite cada mes")}</label>
                       </ActionForm>
-                      <form action={deleteIncome} className="mt-2">
-                        <input type="hidden" name="incomeId" value={entry.id} />
-                        <button className="min-h-11 rounded-full border border-border px-4 text-sm text-over-text">{x("Borrar ingreso")}</button>
-                      </form>
-                    </details>
+                      <div className="mt-3">
+                        <DetailDelete label={x("Borrar ingreso")} title={x("¿Borrar este ingreso?")}
+                          description={x("Se quita de tus cuentas, con las aportaciones a metas que salieron solas de él.")} action={deleteItem.bind(null, { kind: "income", id: entry.id })} />
+                      </div>
+                    </details>}
+                  </div>;
+                  return <li key={entry.id}>
+                    <SwipeRow id={entry.id} name={entry.source || x("Sin origen")} kind={editable ? "income" : undefined}
+                      secondary={editable ? { label: x("Editar"), expand: true } : undefined}>{card}</SwipeRow>
                   </li>;
                 })}
               </ul>

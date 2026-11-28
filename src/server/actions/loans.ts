@@ -63,10 +63,23 @@ export async function repayLoan(_prev: FormState, fd: FormData): Promise<FormSta
   return { message: x("Devolución apuntada.") };
 }
 
-export async function deleteLoan(fd: FormData) {
-  const p = idSchema.safeParse({ loanId: f(fd, "loanId") });
+/** «Pagado»: apunta de una vez lo que queda. El importe lo calcula el servidor, no llega de la pantalla. */
+export async function settleLoan(input: unknown): Promise<{ ok: boolean; error?: string }> {
+  const x = await getTx();
+  const p = idSchema.safeParse(input);
+  if (!p.success) return { ok: false, error: x("Datos no válidos") };
   const { supabase, user } = await session();
-  if (!p.success || !user || !(await allow(RULES.loans, user.id))) return;
-  await supabase.from("loans").delete().eq("id", p.data.loanId).eq("user_id", user.id);
+  if (!user) return { ok: false, error: x("Sesión caducada.") };
+  if (!(await allow(RULES.loans, user.id))) return { ok: false, error: x("Demasiados intentos. Espera un rato.") };
+  const [{ data: loan }, { data: reps }] = await Promise.all([
+    supabase.from("loans").select("amount_cents").eq("id", p.data.loanId).eq("user_id", user.id).maybeSingle(),
+    supabase.from("loan_repayments").select("amount_cents").eq("loan_id", p.data.loanId),
+  ]);
+  if (!loan) return { ok: false, error: x("No se ha podido completar.") };
+  const left = loan.amount_cents - (reps ?? []).reduce((a, r) => a + r.amount_cents, 0);
+  if (left <= 0) return { ok: true };
+  const { error } = await supabase.from("loan_repayments").insert({ loan_id: p.data.loanId, amount_cents: left });
+  if (error) return { ok: false, error: x(rpcMessage(error)) };
   revalidatePath("/", "layout");
+  return { ok: true };
 }

@@ -126,17 +126,6 @@ export async function createTransfer(input: unknown): Promise<AccountResult> {
   return { ok: true, id: data as string };
 }
 
-export async function deleteTransfer(input: unknown): Promise<AccountResult> {
-  const p = idSchema.safeParse(input);
-  const { x, supabase, user, limited } = await session();
-  if (!p.success) return { ok: false, error: x("Datos no válidos") };
-  if (!user) return { ok: false, error: x("Sesión caducada.") };
-  if (limited) return { ok: false, error: x("Demasiados intentos. Espera un rato.") };
-  const { error } = await supabase.rpc("delete_transfer", { p_id: p.data.id });
-  if (error) return { ok: false, error: x(rpcMessage(error)) };
-  done();
-  return { ok: true };
-}
 
 export async function adjustBalance(input: unknown): Promise<AccountResult> {
   const p = adjustSchema.safeParse(input);

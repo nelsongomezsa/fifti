@@ -4,6 +4,7 @@ import { Flag } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createElement, useState, useTransition } from "react";
+import { ChargeRow } from "@/components/calendar/ChargeRow";
 import { categoryIcon } from "@/components/ui/CategoryIcon";
 import { useTx } from "@/i18n/tx-client";
 import { formatMoney } from "@/lib/money";
@@ -17,7 +18,7 @@ export type CalEvent = {
 const addDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 
 /** Mes en cuadrícula: cada día con su número, el punto del color de la partida y el importe corto; el día elegido (borde lila) enseña sus cobros con Editar y Saltar este mes. */
-export function CalendarMonth({ label, currency, offset, days, events: serverEvents, todayDay, advanceDays }: { currency: string; label: string;offset: number; days: number; events: CalEvent[]; todayDay: number | null; advanceDays: number }) {
+export function CalendarMonth({ label, currency, offset, days, events: serverEvents, todayDay, advanceDays, canEdit = false }: { currency: string; label: string;offset: number; days: number; events: CalEvent[]; todayDay: number | null; advanceDays: number; canEdit?: boolean }) {
   const x = useTx();
   const router = useRouter();
   const [, start] = useTransition();
@@ -78,8 +79,9 @@ export function CalendarMonth({ label, currency, offset, days, events: serverEve
 
       <section aria-live="polite" className="flex flex-col gap-2">
         <h2 className="text-sm text-ink-3">{sel === null ? x("Elige un día") : new Date(`${events[0]?.date.slice(0, 8) ?? "2026-01-"}${String(sel).padStart(2, "0")}T00:00:00Z`).toLocaleDateString(x.locale, { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })}</h2>
-        {shown.length === 0 ? <p className="rounded-card border border-border bg-surface p-4 text-sm text-ink-3">{x("No hay cobros este día.")}</p> : shown.map((e, i) => (
-          <article key={i} className={`rounded-card border border-border bg-surface p-4 ${e.skipped ? "opacity-70" : ""}`}>
+        {shown.length === 0 ? <p className="rounded-card border border-border bg-surface p-4 text-sm text-ink-3">{x("No hay cobros este día.")}</p> : shown.map((e) => (
+          <ChargeRow key={`${e.recurringId ?? e.label}-${e.date}`} recurringId={e.recurringId} name={e.label} canEdit={canEdit}>
+          <article className={`rounded-card border border-border bg-surface p-4 ${e.skipped ? "opacity-70" : ""}`}>
             <div className="flex items-center gap-3">
               <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-full" style={{ background: `${e.color ?? "#9AA3AF"}2e`, color: e.color ?? "var(--accent)" }}>{icon(e, 20)}</span>
               <div className="min-w-0 flex-1">
@@ -97,6 +99,7 @@ export function CalendarMonth({ label, currency, offset, days, events: serverEve
               </div>
             )}
           </article>
+          </ChargeRow>
         ))}
         {error && <p role="alert" className="text-sm text-over-text">{error}</p>}
       </section>

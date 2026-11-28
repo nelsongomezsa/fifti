@@ -55,7 +55,7 @@ export async function previewCsv(fd: FormData): Promise<BankPreview> {
 
   const [{ data: space }, { data: cats }, { data: rules }] = await Promise.all([
     supabase.from("spaces").select("base_currency").eq("id", spaceId.data).maybeSingle(),
-    supabase.from("categories").select("id, name, system_key").eq("space_id", spaceId.data),
+    supabase.from("categories").select("id, name, system_key").eq("space_id", spaceId.data).eq("hidden", false),
     supabase.from("category_rules").select("id, match_text, match_type, category_id, priority").eq("space_id", spaceId.data),
   ]);
   if (!space) return fail("No autorizado.");

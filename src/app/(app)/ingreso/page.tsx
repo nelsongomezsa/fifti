@@ -3,7 +3,8 @@ import type { Metadata } from "next";
 import { ActionForm, inputClass } from "@/components/ui/ActionForm";
 import { createClient } from "@/lib/supabase/server";
 import { formatMoney } from "@/lib/money";
-import { deleteIncome, saveIncome } from "@/server/actions/expenses";
+import { SwipeRow } from "@/components/ui/SwipeRow";
+import { saveIncome } from "@/server/actions/expenses";
 import { loadAccounts } from "@/server/accounts";
 import { getActiveSpace, listMySpaces, requireUser } from "@/server/spaces";
 
@@ -43,12 +44,13 @@ export default async function IncomePage() {
       </ActionForm>
       <ul className="flex flex-col gap-2">
         {incomes?.map((i) => (
-          <li key={i.id} className="flex items-center justify-between rounded-card border border-border bg-surface px-4 py-3 text-sm">
-            <span>{i.source}<span className="block text-xs text-ink-3">{members?.find((m) => m.id === i.member_id)?.display_name} · {i.received_at}</span></span>
-            <span className="flex items-center gap-3">
-              <span className="money font-mono">{formatMoney(i.amount_cents, active.currency, x.locale)}</span>
-              <form action={deleteIncome}><input type="hidden" name="incomeId" value={i.id} /><button aria-label={x("Borrar ingreso")} className="min-h-11 min-w-11 text-over-text">✕</button></form>
-            </span>
+          <li key={i.id}>
+            <SwipeRow id={i.id} name={i.source} kind={mine.some((m) => m.id === i.member_id) ? "income" : undefined}>
+              <div className="flex min-h-14 items-center justify-between gap-3 rounded-card border border-border bg-surface px-4 py-3 text-sm">
+                <span>{i.source}<span className="block text-xs text-ink-3">{members?.find((m) => m.id === i.member_id)?.display_name} · {i.received_at}</span></span>
+                <span className="money font-mono">{formatMoney(i.amount_cents, active.currency, x.locale)}</span>
+              </div>
+            </SwipeRow>
           </li>
         ))}
       </ul>

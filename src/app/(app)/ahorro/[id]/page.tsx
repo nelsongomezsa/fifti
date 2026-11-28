@@ -7,7 +7,11 @@ import { challenge52, formatMoney, goalProgress, monthlyNeeded } from "@/lib/mon
 import { createClient } from "@/lib/supabase/server";
 import { uuidSchema } from "@/lib/validation/spaces";
 import { goalPace } from "@/lib/goal-pace";
-import { addContribution, addMilestone, deleteContribution, deleteGoal, deleteRule, saveRule, toggleMilestone, updateGoal } from "@/server/actions/savings";
+import { DetailDelete } from "@/components/ui/DetailDelete";
+import { SwipeRow } from "@/components/ui/SwipeRow";
+import { GOAL_DELETE } from "@/lib/delete-kinds";
+import { deleteGoalAndGo } from "@/server/actions/delete";
+import { addContribution, addMilestone, saveRule, toggleMilestone, updateGoal } from "@/server/actions/savings";
 import { requireUser } from "@/server/spaces";
 
 export const metadata: Metadata = { title: "Meta de ahorro" };
@@ -132,12 +136,16 @@ export default async function GoalPage({ params }: { params: Promise<{ id: strin
         <div className="flex flex-col gap-3">
           <h2 className="text-lg font-semibold">{x("Reglas automáticas")}</h2>
           <ul className="flex flex-col gap-2">
-            {rules?.filter((r) => r.kind !== "weekly_challenge").map((r) => (
-              <li key={r.id} className="flex items-center justify-between rounded-card border border-border bg-surface px-4 py-2 text-sm">
-                <span>{r.kind === "roundup" ? `${x("Redondeo al siguiente")} ${formatMoney(r.value, cur, x.locale)}` : `${(r.value / 100).toFixed(2).replace(".", ",")} % de cada ingreso`}</span>
-                <form action={deleteRule}><input type="hidden" name="ruleId" value={r.id} /><input type="hidden" name="goalId" value={id} /><button aria-label={x("Quitar regla")} className="min-h-11 min-w-11 text-over-text">✕</button></form>
-              </li>
-            ))}
+            {rules?.filter((r) => r.kind !== "weekly_challenge").map((r) => {
+              const label = r.kind === "roundup" ? `${x("Redondeo al siguiente")} ${formatMoney(r.value, cur, x.locale)}` : `${(r.value / 100).toFixed(2).replace(".", ",")} % de cada ingreso`;
+              return (
+                <li key={r.id}>
+                  <SwipeRow id={r.id} name={label} kind="saving_rule">
+                    <div className="flex min-h-12 items-center rounded-card border border-border bg-surface px-4 py-2 text-sm">{label}</div>
+                  </SwipeRow>
+                </li>
+              );
+            })}
           </ul>
           <ActionForm action={saveRule} optimistic submit={x("Activar redondeo")} tone="plain" className="flex gap-2">
             <input type="hidden" name="goalId" value={id} /><input type="hidden" name="spaceId" value={g.space_id} /><input type="hidden" name="kind" value="roundup" />
@@ -154,17 +162,20 @@ export default async function GoalPage({ params }: { params: Promise<{ id: strin
       <div>
         <h2 className="mb-2 text-lg font-semibold">{x("Aportaciones")}</h2>
         <ul className="flex flex-col gap-2">
-          {contribs?.map((c) => (
-            <li key={c.id} className="flex items-center justify-between rounded-card border border-border bg-surface px-4 py-2 text-sm">
-              <span>{x(SOURCE[c.source as keyof typeof SOURCE])}<span className="block text-xs text-ink-3">{new Date(`${c.contributed_at}T00:00:00Z`).toLocaleDateString(x.locale, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}{shared ? ` · ${memberName(c.member_id)}` : ""}</span></span>
-              <span className="flex items-center gap-2">
-                <span className="money font-mono">{formatMoney(c.amount_cents, cur, x.locale)}</span>
-                {(c.source === "manual" || c.source === "challenge") && c.member_id === me?.id && (
-                  <form action={deleteContribution}><input type="hidden" name="contributionId" value={c.id} /><input type="hidden" name="goalId" value={id} /><button aria-label={x("Borrar aportación")} className="min-h-11 min-w-11 text-over-text">✕</button></form>
-                )}
-              </span>
-            </li>
-          ))}
+          {contribs?.map((c) => {
+            const when = new Date(`${c.contributed_at}T00:00:00Z`).toLocaleDateString(x.locale, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+            const mine = (c.source === "manual" || c.source === "challenge") && (c.member_id === me?.id || me?.role === "owner");
+            return (
+              <li key={c.id}>
+                <SwipeRow id={c.id} name={`${x(SOURCE[c.source as keyof typeof SOURCE])} ${when}`} kind={mine ? "contribution" : undefined}>
+                  <div className="flex min-h-14 items-center justify-between gap-3 rounded-card border border-border bg-surface px-4 py-2 text-sm">
+                    <span>{x(SOURCE[c.source as keyof typeof SOURCE])}<span className="block text-xs text-ink-3">{when}{shared ? ` · ${memberName(c.member_id)}` : ""}</span></span>
+                    <span className="money font-mono">{formatMoney(c.amount_cents, cur, x.locale)}</span>
+                  </div>
+                </SwipeRow>
+              </li>
+            );
+          })}
         </ul>
       </div>
       {canEdit && (
@@ -178,7 +189,7 @@ export default async function GoalPage({ params }: { params: Promise<{ id: strin
           </ActionForm>
         </details>
       )}
-      {canEdit && <form action={deleteGoal}><input type="hidden" name="goalId" value={id} /><button className="min-h-11 w-full rounded-full border border-border font-semibold text-over-text">{x("Borrar meta")}</button></form>}
+      {canEdit && <DetailDelete label={x("Borrar meta")} title={x("¿Borrar esta meta?")} description={x(GOAL_DELETE)} action={deleteGoalAndGo.bind(null, id)} />}
     </section>
   );
 }
