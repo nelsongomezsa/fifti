@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { unstable_rethrow, useRouter } from "next/navigation";
 import { startTransition, useActionState, useEffect, useState } from "react";
 import { useTx } from "@/i18n/tx-client";
 import { nextOccurrence, type NewFrequency } from "@/lib/calendar";
 import { formatMoney, parseToCents } from "@/lib/money";
 import { suggestCategory } from "@/lib/nl/parse";
 import { matchRule, type CategoryRule } from "@/lib/rules/match";
-import { deleteRecurring, saveRecurring } from "@/server/actions/plan";
+import { deleteRecurringAndGo, saveRecurring } from "@/server/actions/plan";
 
 const FREQS: { id: NewFrequency; label: string; every: string }[] = [
   { id: "monthly", label: "Mensual", every: "Cada mes" }, { id: "weekly", label: "Semanal", every: "Cada semana" },
@@ -30,6 +30,8 @@ export function NewFixedExpense({ spaceId, categories, rules, notify, initial, a
   const [category, setCategory] = useState(initial?.category ?? "");
   const [touched, setTouched] = useState(!!initial);
   const [confirmDel, setConfirmDel] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [delError, setDelError] = useState<string | null>(null);
   const [accountId, setAccountId] = useState(() => accounts.find((a) => a.isDefault)?.id ?? "");
   const [state, formAction, pending] = useActionState(saveRecurring, {});
 
@@ -48,6 +50,19 @@ export function NewFixedExpense({ spaceId, categories, rules, notify, initial, a
   const changeFreq = (f: NewFrequency) => { setFreq(f); if (f === "weekly") setDay(((new Date().getUTCDay() + 6) % 7) + 1); else if (freq === "weekly") setDay(Math.min(28, new Date().getUTCDate())); };
 
   useEffect(() => { if (state.ok) router.replace("/plan?vista=fijos"); }, [state.ok, router]);
+
+  const remove = (id: string) => {
+    setDeleting(true); setDelError(null);
+    startTransition(async () => {
+      try {
+        const r = await deleteRecurringAndGo(id);
+        setDelError(r.error); setDeleting(false);
+      } catch (err) {
+        unstable_rethrow(err); // la redirección la gestiona el router
+        setDelError(x("No se ha podido completar.")); setDeleting(false);
+      }
+    });
+  };
 
   const submit = () => {
     const fd = new FormData();
@@ -130,9 +145,10 @@ export function NewFixedExpense({ spaceId, categories, rules, notify, initial, a
           ) : (
             <div role="alertdialog" aria-label={x("¿Borrar este gasto fijo?")} className="flex flex-col gap-3">
               <p className="text-sm text-ink-2">{x("¿Borrar este gasto fijo?")} {x("Dejará de apuntarse cada mes. Los gastos ya apuntados se conservan.")}</p>
+              {delError && <p role="alert" className="text-sm text-over-text">{delError}</p>}
               <div className="flex gap-2">
-                <button type="button" onClick={() => setConfirmDel(false)} className="min-h-12 flex-1 rounded-full border border-border font-semibold">{x("Cancelar")}</button>
-                <button type="button" onClick={() => { const fd = new FormData(); fd.set("recurringId", initial.id); router.replace("/plan?vista=fijos"); void deleteRecurring(fd).then(() => router.refresh()); }} className="min-h-12 flex-1 rounded-full bg-over font-semibold text-on-accent">{x("Borrar")}</button>
+                <button type="button" disabled={deleting} onClick={() => setConfirmDel(false)} className="min-h-12 flex-1 rounded-full border border-border font-semibold">{x("Cancelar")}</button>
+                <button type="button" disabled={deleting} onClick={() => remove(initial.id)} className="min-h-12 flex-1 rounded-full bg-over font-semibold text-on-accent disabled:opacity-60">{deleting ? x("Borrando…") : x("Borrar")}</button>
               </div>
             </div>
           )}

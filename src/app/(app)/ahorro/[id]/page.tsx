@@ -1,7 +1,7 @@
 import { getTx } from "@/i18n/tx";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ActionForm, inputClass } from "@/components/ui/ActionForm";
 import { challenge52, formatMoney, goalProgress, monthlyNeeded } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
@@ -21,7 +21,7 @@ export default async function GoalPage({ params }: { params: Promise<{ id: strin
   const user = await requireUser();
   const supabase = await createClient();
   const { data: g } = await supabase.from("savings_goals").select("*").eq("id", id).maybeSingle();
-  if (!g) notFound();
+  if (!g) redirect("/plan?vista=ahorro"); // borrada o sin acceso
   const [{ data: contribs }, { data: miles }, { data: rules }, { data: me }, { data: members }, { data: sp }] = await Promise.all([
     supabase.from("goal_contributions").select("id, amount_cents, source, contributed_at, member_id").eq("goal_id", id).order("contributed_at", { ascending: false }).limit(100),
     supabase.from("goal_milestones").select("id, name, due_on, amount_cents, paid").eq("goal_id", id).order("due_on", { ascending: true, nullsFirst: false }),

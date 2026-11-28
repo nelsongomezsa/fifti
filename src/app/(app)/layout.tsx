@@ -8,6 +8,7 @@ import { toggleDiscreet } from "@/server/actions/prefs";
 import { Logo } from "@/components/brand/Logo";
 import { BottomNav } from "@/components/nav/BottomNav";
 import { PendingIndicator } from "@/components/pwa/PendingIndicator";
+import { DeletedNotice } from "@/components/ui/DeletedNotice";
 import { BubbleSwitcher } from "@/components/nav/BubbleSwitcher";
 import { SwUpdateListener } from "@/components/pwa/SwUpdateListener";
 import { RefreshOnNav } from "@/components/nav/RefreshOnNav";
@@ -61,6 +62,7 @@ export default async function AppLayout({ children, sheet }: { children: React.R
       </header>
       {active && <HideOn prefixes={["/ajustes"]}><BubbleSwitcher spaces={spaces} activeId={active.id} canCreate={!user.is_anonymous} /></HideOn>}
       <PendingIndicator />
+      <DeletedNotice />
       <main id="main" className="px-4">{children}</main>
       {sheet}
       <RefreshOnNav />

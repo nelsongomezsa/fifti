@@ -3,6 +3,7 @@
 import { getTx } from "@/i18n/tx";
 
 import { revalidatePath } from "next/cache";
+import { redirect, RedirectType } from "next/navigation";
 import { z } from "zod";
 import { MAX_AMOUNT_CENTS, addMonths, contributionTargets, isMonthStart, parseToCents, plannedFor } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
@@ -121,6 +122,20 @@ export async function deleteRecurring(fd: FormData) {
   if (!user) return;
   await supabase.rpc("delete_recurring", { p_id: id.data });
   revalidatePath("/plan");
+}
+
+/** Borrar desde la pantalla de edición: redirige desde el servidor, o devuelve el error sin moverse. */
+export async function deleteRecurringAndGo(id: string): Promise<{ ok: false; error: string }> {
+  const x = await getTx();
+  if (!uuidSchema.safeParse(id).success) return { ok: false, error: x("Datos no válidos") };
+  const { supabase, user } = await ctx();
+  if (!user) return { ok: false, error: x("Sesión caducada.") };
+  if (!(await allow(RULES.deletes, user.id))) return { ok: false, error: x("Demasiados intentos. Espera un rato.") };
+  const { error } = await supabase.rpc("delete_recurring", { p_id: id });
+  if (error) return { ok: false, error: x(rpcMessage(error)) };
+  revalidatePath("/plan");
+  revalidatePath("/calendario");
+  redirect("/plan?vista=fijos&borrado=1", RedirectType.replace);
 }
 
 export async function saveContributionRule(_prev: FormState, fd: FormData): Promise<FormState> {

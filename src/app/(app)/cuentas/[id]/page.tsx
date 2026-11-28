@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { AccountEditor, AdjustBalance } from "@/components/accounts/AccountForms";
 import { getTx } from "@/i18n/tx";
 import { formatMoney } from "@/lib/money";
@@ -26,7 +26,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
     supabase.from("account_adjustments").select("id, adjust_date, amount_cents, note").eq("account_id", id).order("adjust_date", { ascending: false }).limit(60),
   ]);
   const acc = accounts.find((a) => a.id === id);
-  if (!acc) notFound();
+  if (!acc) redirect("/cuentas"); // borrada (al vaciar el espacio) o sin acceso
   const nameOf = (aid: string) => accounts.find((a) => a.id === aid)?.name ?? "—";
   const lines: Line[] = [
     ...(exp ?? []).map((e) => ({ lineId: `e${e.id}`, date: e.spent_at as string, label: e.description, cents: -e.amount_base_cents, href: `/movimientos/${e.id}` })),

@@ -1244,5 +1244,8 @@
   "Informes": "Reports",
   "Utilidades": "Utilities",
   "Tu parte de los espacios en tu plan": "Your share of spaces in your plan",
-  "Aquí eliges, para cada espacio, si su parte cuenta en tu plan y en qué partida.": "Here you choose, for each space, whether its share counts in your plan and in which budget line."
+  "Aquí eliges, para cada espacio, si su parte cuenta en tu plan y en qué partida.": "Here you choose, for each space, whether its share counts in your plan and in which budget line.",
+  "Este gasto ya no existe": "This expense no longer exists",
+  "Puede que se haya borrado o que no tengas acceso.": "It may have been deleted, or you may not have access.",
+  "Volver a Movimientos": "Back to Activity"
 }

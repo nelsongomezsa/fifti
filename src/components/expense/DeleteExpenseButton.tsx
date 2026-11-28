@@ -1,14 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { startTransition, useEffect, useRef, useState } from "react";
+import { unstable_rethrow } from "next/navigation";
 import { useTx } from "@/i18n/tx-client";
-import { deleteExpense } from "@/server/actions/expenses";
+import { deleteExpenseAndGo } from "@/server/actions/expenses";
 
 /** Borrar con confirmación propia de la app (nada de window.confirm). */
 export function DeleteExpenseButton({ expenseId }: { expenseId: string }) {
   const x = useTx();
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,14 +21,18 @@ export function DeleteExpenseButton({ expenseId }: { expenseId: string }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open]);
 
-  const confirm = async () => {
-    // Respuesta optimista: se vuelve a la lista al instante y el borrado se confirma por detrás; si falla, se regresa al gasto con el aviso
+  const confirm = () => {
     setBusy(true); setError(null);
-    const job = deleteExpense(expenseId).catch(() => ({ ok: false as const, error: "No se ha podido completar." }));
-    router.replace("/movimientos");
-    const r = await job;
-    if (!r.ok) { router.replace(`/movimientos/${expenseId}?error=borrar`); return; }
-    router.refresh();
+    startTransition(async () => {
+      try {
+        // Si sale bien, el servidor redirige y este diálogo desaparece con la pantalla; solo vuelve con respuesta si falla
+        const r = await deleteExpenseAndGo(expenseId);
+        setError(r.error); setBusy(false);
+      } catch (err) {
+        unstable_rethrow(err); // la redirección la gestiona el router
+        setError(x("No se ha podido completar.")); setBusy(false);
+      }
+    });
   };
 
   return (

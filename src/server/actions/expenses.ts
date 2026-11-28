@@ -3,6 +3,7 @@
 import { getTx } from "@/i18n/tx";
 
 import { revalidatePath } from "next/cache";
+import { redirect, RedirectType } from "next/navigation";
 import { RULES } from "@/lib/security/rate-limit";
 import { allow } from "@/lib/security/user-limit";
 import { createClient } from "@/lib/supabase/server";
@@ -128,15 +129,29 @@ function scaleToBase(list: { memberId: string; amountCents: number }[], original
   });
 }
 
-export async function deleteExpense(id: string): Promise<{ ok: boolean; error?: string }> {
+async function removeExpense(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const x = await getTx();
   if (!uuidSchema.safeParse(id).success) return { ok: false, error: x("Datos no válidos") };
   const { supabase, user } = await ctx();
   if (!user) return { ok: false, error: x("Sesión caducada.") };
+  if (!(await allow(RULES.deletes, user.id))) return { ok: false, error: x("Demasiados intentos. Espera un rato.") };
   const { error } = await supabase.rpc("delete_expense", { p_id: id });
   if (error) return { ok: false, error: x(rpcMessage(error)) };
-  // Sin revalidatePath: quien borra navega y refresca él mismo (si no, la hoja del gasto borrado se vuelve a pintar y da 404 un instante)
   return { ok: true };
+}
+
+/** Borrar sin moverse de pantalla (deslizar en la lista, «Deshacer»). */
+export async function deleteExpense(id: string): Promise<{ ok: boolean; error?: string }> {
+  // Sin revalidatePath: quien borra refresca él mismo
+  return removeExpense(id);
+}
+
+/** Borrar desde el detalle: la redirección viaja en la propia respuesta, así el gasto borrado no se vuelve a pintar. */
+export async function deleteExpenseAndGo(id: string): Promise<{ ok: false; error: string }> {
+  const r = await removeExpense(id);
+  if (!r.ok) return r;
+  revalidatePath("/movimientos");
+  redirect("/movimientos?borrado=1", RedirectType.replace);
 }
 
 export async function addComment(_prev: FormState, fd: FormData): Promise<FormState> {

@@ -18,7 +18,7 @@ import { redirect } from "next/navigation";
 
 export const metadata: Metadata = { title: "Detalle del gasto" };
 
-export default async function ExpensePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ editar?: string; error?: string }> }) {
+export default async function ExpensePage({ params }: { params: Promise<{ id: string }> }) {
   const x = await getTx();
   const { id } = await params;
   if (!uuidSchema.safeParse(id).success) notFound();
@@ -26,7 +26,14 @@ export default async function ExpensePage({ params, searchParams }: { params: Pr
   const supabase = await createClient();
 
   const { data: e } = await supabase.from("expenses").select("*").eq("id", id).maybeSingle();
-  if (!e) notFound(); // RLS: si no eres miembro, es como si no existiera
+  // Borrado, o RLS no deja verlo: la misma pantalla en ambos casos, sin 404
+  if (!e) return (
+    <section className="flex flex-col items-center gap-3 py-8 text-center">
+      <h1 className="text-xl font-bold">{x("Este gasto ya no existe")}</h1>
+      <p className="text-sm text-ink-2">{x("Puede que se haya borrado o que no tengas acceso.")}</p>
+      <Link href="/movimientos" replace className="inline-flex min-h-12 items-center rounded-full bg-accent px-6 font-semibold text-on-accent">{x("Volver a Movimientos")}</Link>
+    </section>
+  );
   const [{ data: members }, { data: splits }, { data: payers }, { data: priv }, { data: comments }, { data: reactions }, { data: history }, { data: tagRows }, { data: cat }, { data: sp }] =
     await Promise.all([
       supabase.from("space_members").select("id, user_id, display_name, role").eq("space_id", e.space_id),
@@ -63,7 +70,6 @@ export default async function ExpensePage({ params, searchParams }: { params: Pr
             <span>{displayName(x, cat.name, cat.system_key)}{cat.funds ? <span className="text-ink-3"> · {x("Fondo")} {displayName(x, (cat.funds as unknown as { name: string }).name, (cat.funds as unknown as { system_key: string | null }).system_key)}</span> : null}</span>
           </p>
         )}
-        {(await searchParams).error === "borrar" && <p role="alert" className="text-sm text-over-text">{x("No se ha podido borrar el gasto. Inténtalo de nuevo.")}</p>}
         <h1 className="text-2xl font-bold">{title}</h1>
         <p className="money mt-1 font-mono text-3xl">{formatMoney(e.amount_cents, e.currency, x.locale)}</p>
         <p className="mt-1 text-sm text-ink-3">

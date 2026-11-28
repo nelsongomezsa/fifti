@@ -15,6 +15,7 @@ export const RULES = {
   invite: { action: "invite", limit: 20, windowSeconds: 3600 },
   guestJoin: { action: "guest-join", limit: 15, windowSeconds: 3600 },
   claim: { action: "claim", limit: 10, windowSeconds: 3600 },
+  deletes: { action: "deletes", limit: 300, windowSeconds: 3600 },
   comment: { action: "comment", limit: 30, windowSeconds: 600 },
   importCsv: { action: "import-csv", limit: 15, windowSeconds: 3600 },
   publicSummary: { action: "public-summary", limit: 60, windowSeconds: 600 },

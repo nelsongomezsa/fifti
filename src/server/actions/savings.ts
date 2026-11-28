@@ -3,9 +3,11 @@
 import { getTx } from "@/i18n/tx";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { redirect, RedirectType } from "next/navigation";
 import { z } from "zod";
 import { MAX_AMOUNT_CENTS, parseToCents } from "@/lib/money";
+import { RULES } from "@/lib/security/rate-limit";
+import { allow } from "@/lib/security/user-limit";
 import { createClient } from "@/lib/supabase/server";
 import { parsePercentToBp, uuidSchema } from "@/lib/validation/spaces";
 import { notify } from "@/server/push";
@@ -111,9 +113,12 @@ export async function deleteGoal(fd: FormData) {
   if (!id.success) return;
   const { supabase, user } = await ctx();
   if (!user) return;
-  await supabase.from("savings_goals").delete().eq("id", id.data);
+  if (!(await allow(RULES.deletes, user.id))) return;
+  const { error } = await supabase.from("savings_goals").delete().eq("id", id.data);
+  if (error) return;
   revalidatePath("/ahorro");
-  redirect("/ahorro");
+  revalidatePath("/plan");
+  redirect("/plan?vista=ahorro", RedirectType.replace);
 }
 
 export async function saveRule(_prev: FormState, fd: FormData): Promise<FormState> {

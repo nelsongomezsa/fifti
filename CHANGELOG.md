@@ -2,6 +2,10 @@
 
 Historial de Fifti por fechas. Formato libre, del más reciente al más antiguo.
 
+## 2026-11-28
+
+- **404 al borrar un gasto**: la hoja del detalle seguía viva en el router después de volver a Movimientos y, al refrescar, pedía un gasto que ya no existía. Ahora el borrado redirige desde el servidor (con aviso «Gasto borrado»), la hoja se cierra al cambiar de ruta y un gasto que ya no existe muestra una pantalla propia en vez de un 404. Lo mismo para gastos fijos; metas y cuentas que ya no existen llevan a su lista.
+
 ## 2026-11-26
 
 - **Incidente de producción**: durante un rato todas las rutas devolvieron 500. La causa era que la exclusión de `@swc` en `outputFileTracingExcludes` también quitaba `@swc/helpers`, que Next necesita al arrancar cada función. Se restauró el despliegue anterior y se corrigió excluyendo solo `@swc/core*`, `@swc/counter` y `@swc/types`. Para que no se repita: `npm run check:runtime` arranca la app compilada sin los paquetes excluidos (lista en `scripts/trace-excludes.json`) y exige 200 en las pantallas clave; corre en `npm run check`, en el CI y antes de cada despliegue. Además, `npm run smoke` comprueba producción con GET a `/`, `/login`, `/registro`, `/api/ping` y `/inicio`, y se ejecuta al terminar `npm run deploy`.
