@@ -41,6 +41,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={locale} data-theme={theme === "light" || theme === "dark" ? theme : undefined} className={`${grotesk.variable} ${plexMono.variable}`}>
       <body className="min-h-dvh antialiased">
+        {/* Franja bajo la hora y la batería (app instalada en iPhone). Oscura en los dos temas porque iOS pinta esos iconos en blanco; fuera de la app mide 0 */}
+        <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-[75] h-[env(safe-area-inset-top)] bg-[#0B0D10]" />
         <NextIntlClientProvider>
           {children}
           <ServiceWorker />

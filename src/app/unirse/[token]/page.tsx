@@ -23,7 +23,7 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   const next = encodeURIComponent(`/unirse/${token}`);
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 px-4 py-10">
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 px-4 pb-10 pt-[calc(2.5rem+env(safe-area-inset-top))]">
       <Logo height={30} />
       <div>
         <p className="text-sm text-ink-3">{x("Te han invitado a")}</p>

@@ -33,7 +33,7 @@ export default async function SummaryPage({ params }: { params: Promise<{ token:
   const text = `${d.space_name}: total ${fmt(d.total_cents)}. ` + (transfers.length ? transfers.map((t) => `${name(t.from)} paga ${fmt(t.amountCents)} a ${name(t.to)}`).join(". ") + "." : x("Todo saldado."));
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-5 px-4 py-8">
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-5 px-4 pb-8 pt-[calc(2rem+env(safe-area-inset-top))]">
       <Logo height={26} />
       <div>
         <p className="text-sm text-ink-3">{x("Resumen")}</p>

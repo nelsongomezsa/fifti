@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRightLeft, HandCoins, Home, PiggyBank, Receipt, Repeat, Wallet } from "lucide-react";
+import { ArrowRightLeft, HandCoins, Home, PiggyBank, Receipt, Repeat, Settings, Wallet } from "lucide-react";
 import { SheetShell } from "@/components/ui/SheetShell";
 import { ExpenseSheet, type SheetPrefill } from "@/components/expense/ExpenseSheet";
 import { usePendingExpenses } from "@/components/expense/optimistic";
@@ -211,6 +211,10 @@ export function PlusButton({ activeSpaceId }: { activeSpaceId: string }) {
               className="min-h-12 min-w-0 flex-1 rounded-card border border-border bg-surface px-4 text-sm text-ink placeholder:text-ink-3" />
             <button type="submit" disabled={!phraseText.trim()} className="min-h-12 shrink-0 rounded-full border border-border px-4 text-sm font-semibold disabled:opacity-50">{x("Rellenar")}</button>
           </form>
+          {/* Ajustes también aquí abajo: el engranaje de la cabecera queda lejos del pulgar */}
+          <Link href="/ajustes" prefetch={false} onClick={() => setChooser(false)} className="mt-3 flex min-h-12 items-center gap-3 rounded-card border border-border bg-surface px-4 text-sm font-semibold">
+            <Settings size={20} aria-hidden className="text-ink-2" />{x("Ajustes")}
+          </Link>
         </SheetShell>
       )}
 

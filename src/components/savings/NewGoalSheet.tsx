@@ -25,7 +25,7 @@ export function NewGoalSheet({ spaceId }: { spaceId: string }) {
       {open && (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/60" onClick={() => setOpen(false)}>
           <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={x("Nueva meta")} onClick={(e) => e.stopPropagation()}
-            className="anim-sheet flex max-h-[92dvh] w-full max-w-md flex-col overflow-y-auto rounded-t-[24px] border border-border bg-surface-2 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] outline-none">
+            className="anim-sheet flex max-h-[calc(92dvh-env(safe-area-inset-top))] w-full max-w-md flex-col overflow-y-auto rounded-t-[24px] border border-border bg-surface-2 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] outline-none">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-lg font-bold">{x("Nueva meta")}</h2>
               <button type="button" onClick={() => setOpen(false)} aria-label={x("Cerrar")} className="grid min-h-11 min-w-11 place-items-center text-ink-2">✕</button>

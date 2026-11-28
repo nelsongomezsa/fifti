@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Sin conexión" };
 export default async function OfflinePage() {
   const x = await getTx();
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-4 px-4">
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-4 px-4 pt-[env(safe-area-inset-top)]">
       <Logo height={34} />
       <h1 className="text-2xl font-bold">{x("Sin conexión")}</h1>
       <p className="text-ink-2">

@@ -19,7 +19,7 @@ export default async function ClaimPage({ params }: { params: Promise<{ token: s
   const valid = isValidToken(token);
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 px-4 py-10">
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 px-4 pb-10 pt-[calc(2.5rem+env(safe-area-inset-top))]">
       <Logo height={30} />
       <h1 className="text-2xl font-bold">{x("Reclamar tu perfil")}</h1>
       <p className="text-ink-2">{x("Te quedarás con este perfil y todo su historial en la cuenta con la que estás.")}</p>

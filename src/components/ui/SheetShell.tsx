@@ -31,7 +31,7 @@ export function SheetShell({ children, onClose, label }: { children: React.React
     <div className="fixed inset-0 z-50 flex items-end justify-center">
       <button type="button" aria-label={x("Cerrar")} tabIndex={-1} onClick={close} className="absolute inset-0 bg-black/60" />
       <div ref={panel} role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}
-        className="anim-sheet relative flex max-h-[92dvh] w-full max-w-md flex-col rounded-t-[24px] border border-b-0 border-border bg-bg outline-none"
+        className="anim-sheet relative flex max-h-[calc(92dvh-env(safe-area-inset-top))] w-full max-w-md flex-col rounded-t-[24px] border border-b-0 border-border bg-bg outline-none"
         style={{ transform: `translateY(${dy}px)`, transition: drag ? "none" : "transform 180ms ease-out", boxShadow: "var(--elev-2)" }}>
         <div className="flex shrink-0 touch-none items-center justify-between px-3 pt-2"
           onTouchStart={(e) => { startY.current = e.touches[0]!.clientY; setDrag(true); }}

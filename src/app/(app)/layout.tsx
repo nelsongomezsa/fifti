@@ -27,8 +27,8 @@ export default async function AppLayout({ children, sheet }: { children: React.R
   const demo = user.app_metadata?.demo === true;
 
   return (
-    <div data-bubble={active?.kind ?? "personal"} data-discreet={discreet ? "true" : "false"} className="mx-auto min-h-dvh max-w-md pb-[calc(8rem+env(safe-area-inset-bottom))]">
-      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[80] focus:rounded-full focus:bg-lime focus:px-4 focus:py-3 focus:text-on-accent">{t("skip")}</a>
+    <div data-bubble={active?.kind ?? "personal"} data-discreet={discreet ? "true" : "false"} className="mx-auto min-h-dvh max-w-md pb-[calc(8rem+env(safe-area-inset-bottom))] pt-[env(safe-area-inset-top)]">
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-[calc(1rem+env(safe-area-inset-top))] focus:z-[80] focus:rounded-full focus:bg-lime focus:px-4 focus:py-3 focus:text-on-accent">{t("skip")}</a>
       {demo && (
         <div role="note" className="flex items-center justify-between gap-3 bg-surface-2 px-4 py-1 text-xs text-ink-2">
           <span className="min-w-0">{x("Modo demo · datos ficticios")}</span>
@@ -40,9 +40,9 @@ export default async function AppLayout({ children, sheet }: { children: React.R
       )}
       <AppLock>
       <PendingExpensesProvider>
-      <header className="flex items-center justify-between px-4 pt-4">
+      <header className="flex items-center justify-between pl-4 pr-5 pt-4">
         <Logo height={24} />
-        <div className="flex gap-2">
+        <div className="flex gap-3">
         {!user.is_anonymous && (
           <form action={toggleDiscreet}>
             <button aria-pressed={discreet} aria-label="Modo discreto" className="grid min-h-11 min-w-11 place-items-center rounded-full border border-border text-ink-2">

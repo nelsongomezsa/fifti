@@ -55,7 +55,7 @@ export function AppLock({ children }: { children: React.ReactNode }) {
     <>
       <div ref={content}>{children}</div>
       {locked && (
-        <div role="dialog" aria-modal="true" aria-label={t("title")} className="fixed inset-0 z-[70] grid place-items-center bg-bg px-6">
+        <div role="dialog" aria-modal="true" aria-label={t("title")} className="fixed inset-0 z-[70] grid place-items-center bg-bg px-6 pt-[env(safe-area-inset-top)]">
           <form onSubmit={submit} className="flex w-full max-w-xs flex-col items-stretch gap-4 text-center">
             <h2 className="text-xl font-bold">{t("title")}</h2>
             {lock?.pin && (

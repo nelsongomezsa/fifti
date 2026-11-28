@@ -240,7 +240,7 @@ export function ExpenseSheet({
         aria-label={x("Nuevo gasto")}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="anim-sheet flex max-h-[94dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[24px] border border-border bg-surface-2 outline-none"
+        className="anim-sheet flex max-h-[calc(94dvh-env(safe-area-inset-top))] w-full max-w-md flex-col overflow-hidden rounded-t-[24px] border border-border bg-surface-2 outline-none"
       >
         {/* Zona central: es lo único que se desplaza */}
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-3">

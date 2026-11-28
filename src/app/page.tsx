@@ -28,7 +28,7 @@ export default async function Home() {
   const x = await getTx();
   return (
     <main>
-      <header className="mx-auto flex max-w-5xl items-center justify-between px-4 py-5">
+      <header className="mx-auto flex max-w-5xl items-center justify-between px-4 pb-5 pt-[calc(1.25rem+env(safe-area-inset-top))]">
         <Logo height={30} />
         <nav aria-label={x("Cuenta")} className="flex gap-2">
           <Link href="/login" prefetch={false} className="min-h-11 rounded-full px-4 py-2.5 text-sm font-semibold text-ink-2">{x("Entrar")}</Link>

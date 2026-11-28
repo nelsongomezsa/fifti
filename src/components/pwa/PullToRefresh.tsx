@@ -37,7 +37,7 @@ export function PullToRefresh() {
 
   if (!active || (pull === 0 && !busy)) return null;
   return (
-    <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-0 top-0 z-30 flex justify-center" style={{ transform: `translateY(${busy ? 16 : pull / 2}px)` }}>
+    <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-0 top-[env(safe-area-inset-top)] z-30 flex justify-center" style={{ transform: `translateY(${busy ? 16 : pull / 2}px)` }}>
       <span className="grid size-10 place-items-center rounded-full border border-border bg-surface-2 shadow-lg">
         <svg viewBox="0 0 24 24" width="18" height="18" className={busy ? "animate-spin" : ""} style={{ transform: busy ? undefined : `rotate(${pull * 3}deg)` }} aria-hidden>
           <path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
