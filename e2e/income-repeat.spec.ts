@@ -87,6 +87,30 @@ test("saltar el próximo cobro, pausar, reanudar y borrar la serie sin perder lo
   expect((await admin().from("incomes").select("id").eq("space_id", home.spaceId)).data).toHaveLength(1);
 });
 
+test("dos veces al mes: eligiendo los dos días, en ingresos y en gastos fijos", async ({ page }) => {
+  await open(page, "/inicio/ingresos");
+  const form = page.locator("form").filter({ has: page.getByRole("combobox", { name: "Frecuencia" }) }).last();
+  await form.getByRole("textbox", { name: "Importe" }).fill("100");
+  await form.getByRole("combobox", { name: "Frecuencia" }).selectOption("semimonthly");
+  await expect(form.getByLabel("Primer día")).toHaveValue("1");
+  await form.getByLabel("Primer día").fill("31"); // se ordenan solos
+  await form.getByLabel("Segundo día").fill("10");
+  await form.getByRole("button", { name: "Guardar ingreso" }).click();
+  await expect(page.getByText(/Dos veces al mes · Próximo cobro/)).toBeVisible({ timeout: 20_000 });
+  expect((await admin().from("income_rules").select("frequency, day, day2").eq("space_id", home.spaceId)).data).toEqual([{ frequency: "semimonthly", day: 10, day2: 31 }]);
+
+  await page.goto("/fijos/nuevo");
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("textbox", { name: /Importe/ }).first().fill("12");
+  await page.getByRole("textbox", { name: /Concepto/ }).fill("Seguro de Ana");
+  await page.getByRole("button", { name: "2 al mes" }).click();
+  await page.getByLabel("Segundo día").selectOption("20");
+  await page.getByRole("button", { name: /^Guardar/ }).click();
+  await expect(page).toHaveURL(/\/plan\?vista=fijos/);
+  await expect(page.getByText(/Dos veces al mes · próximo/)).toBeVisible();
+  expect((await admin().from("recurring_expenses").select("frequency, day, day2").eq("space_id", home.spaceId)).data).toEqual([{ frequency: "semimonthly", day: 1, day2: 20 }]);
+});
+
 test("préstamo en otra moneda", async ({ page }) => {
   await open(page, "/prestamos");
   const form = page.locator("#nuevo-prestamo");

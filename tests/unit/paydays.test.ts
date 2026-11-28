@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nextOccurrence } from "@/lib/calendar";
+import { nextOccurrence, occurrenceNumber } from "@/lib/calendar";
 import { isoWeekday, monthIncome, pendingPaydays, type IncomeRule, type PayFrequency } from "@/lib/paydays";
 
 const rule = (frequency: PayFrequency, nextRun: string, extra: Partial<IncomeRule> = {}): IncomeRule => ({
@@ -17,6 +17,25 @@ describe("cuántos cobros caen en cada mes", () => {
   });
   it("cada dos semanas: 2 o 3", () => {
     expect(months(rule("biweekly", "2027-01-01"), ["2027-01-01", "2027-02-01", "2027-04-01", "2027-07-01"])).toEqual([3, 2, 2, 3]);
+  });
+  it("dos veces al mes: siempre dos, y los días que el mes no tiene pasan al último", () => {
+    const r = rule("semimonthly", "2027-01-01", { day: 1, day2: 15 });
+    expect(months(r, ["2027-01-01", "2027-02-01", "2027-04-01", "2027-07-01"])).toEqual([2, 2, 2, 2]);
+    expect(pendingPaydays(r, "2027-02-01")).toEqual(["2027-02-01", "2027-02-15"]);
+    const late = rule("semimonthly", "2027-01-15", { day: 15, day2: 31 });
+    expect(["2027-02-01", "2027-04-01", "2028-02-01"].map((m) => pendingPaydays(late, m))).toEqual([
+      ["2027-02-15", "2027-02-28"], ["2027-04-15", "2027-04-30"], ["2028-02-15", "2028-02-29"],
+    ]);
+    // el día 27 con el 30: ni en febrero se juntan
+    expect(pendingPaydays(rule("semimonthly", "2027-01-27", { day: 27, day2: 30 }), "2027-02-01")).toEqual(["2027-02-27", "2027-02-28"]);
+    // a mitad de mes solo queda el segundo
+    expect(pendingPaydays(rule("semimonthly", "2027-01-15", { day: 1, day2: 15 }), "2027-01-01")).toEqual(["2027-01-15"]);
+  });
+  it("dos veces al mes: la próxima fecha y el número de cada una", () => {
+    expect(["2027-01-01", "2027-01-02", "2027-01-16"].map((t) => nextOccurrence("semimonthly", 1, t, undefined, 15))).toEqual(["2027-01-01", "2027-01-15", "2027-02-01"]);
+    expect(nextOccurrence("semimonthly", 15, "2027-02-16", undefined, 31)).toBe("2027-02-28");
+    const r = { frequency: "semimonthly" as const, nextRun: "2027-01-15", day: 15, day2: 31 };
+    expect(["2027-01-15", "2027-01-31", "2027-02-15", "2027-02-28", "2027-03-15"].map((d) => occurrenceNumber(r, d))).toEqual([0, 1, 2, 3, 4]);
   });
   it("mensual el 31: los meses cortos usan el último día; anual solo en su mes", () => {
     const r = rule("monthly", "2027-01-31", { day: 31 });

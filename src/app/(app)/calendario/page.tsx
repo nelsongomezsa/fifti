@@ -45,7 +45,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
     user.is_anonymous ? Promise.resolve({ data: null }) : supabase.from("notification_prefs").select("fixed_tomorrow, fixed_advance_days").maybeSingle(),
     supabase.from("recurring_skips").select("recurring_id, skip_on"),
     proximos ? Promise.resolve(null) : Promise.all([
-      supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, next_run, rotation, rotation_pos, categories(system_key, name, funds(color))").eq("space_id", active.id).eq("active", true),
+      supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, day2, next_run, rotation, rotation_pos, categories(system_key, name, funds(color))").eq("space_id", active.id).eq("active", true),
       supabase.from("space_members").select("id, user_id, display_name, role").eq("space_id", active.id),
       supabase.from("goal_milestones").select("name, due_on, amount_cents, paid").eq("space_id", active.id).eq("paid", false).gte("due_on", month).lt("due_on", monthEnd),
     ]),
@@ -56,25 +56,25 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   if (proximos) {
     const end = new Date(Date.parse(`${todayIso}T00:00:00Z`) + 30 * 86400000).toISOString().slice(0, 10);
     const [{ data: recAll }, { data: milesAll }] = await Promise.all([
-      supabase.from("recurring_expenses").select("id, space_id, description, amount_cents, frequency, day, next_run, categories(name, system_key, funds(color))").eq("active", true),
+      supabase.from("recurring_expenses").select("id, space_id, description, amount_cents, frequency, day, day2, next_run, categories(name, system_key, funds(color))").eq("active", true),
       supabase.from("goal_milestones").select("space_id, name, due_on, amount_cents").eq("paid", false).gte("due_on", todayIso).lte("due_on", end),
     ]);
     const catOf = new Map((recAll ?? []).map((r) => [r.id, r.categories as unknown as Cat]));
     const list = upcomingCharges(
-      (recAll ?? []).map((r) => ({ id: r.id, description: r.description, amountCents: r.amount_cents, frequency: r.frequency, day: r.day, nextRun: r.next_run, spaceId: r.space_id })),
+      (recAll ?? []).map((r) => ({ id: r.id, description: r.description, amountCents: r.amount_cents, frequency: r.frequency, day: r.day, day2: r.day2, nextRun: r.next_run, spaceId: r.space_id })),
       (milesAll ?? []).map((m) => ({ date: m.due_on as string, label: m.name, cents: m.amount_cents, spaceId: m.space_id })), todayIso, 30, skips);
     const bubble = (id: string) => { const s = spaces.find((q) => q.id === id); return !s ? "—" : s.kind === "personal" ? x("Personal") : s.name; };
     const { data: roles } = await supabase.from("space_members").select("space_id, role").eq("user_id", user.id);
     const canEditIn = new Set((roles ?? []).filter((r) => r.role !== "guest").map((r) => r.space_id));
     // Los cobros de los ingresos que se repiten, de todos los espacios que se ven
     const [{ data: payRules }, { data: paySkips }] = await Promise.all([
-      supabase.from("income_rules").select("id, space_id, source, amount_cents, currency, frequency, day, next_run").eq("active", true),
+      supabase.from("income_rules").select("id, space_id, source, amount_cents, currency, frequency, day, day2, next_run").eq("active", true),
       supabase.from("income_skips").select("rule_id, skip_on"),
     ]);
     const skippedPay = new Set((paySkips ?? []).map((s) => `${s.rule_id}|${s.skip_on}`));
     const nextMonth = addMonths(monthStart(new Date()), 1);
     const coming = (payRules ?? []).flatMap((r) => {
-      const rule = { id: r.id, memberId: "", source: r.source, amountCents: r.amount_cents, currency: r.currency, accountId: null, frequency: r.frequency as PayFrequency, day: r.day, nextRun: r.next_run, active: true };
+      const rule = { id: r.id, memberId: "", source: r.source, amountCents: r.amount_cents, currency: r.currency, accountId: null, frequency: r.frequency as PayFrequency, day: r.day, day2: r.day2, nextRun: r.next_run, active: true };
       return [monthStart(new Date()), nextMonth, addMonths(nextMonth, 1)].flatMap((m) => pendingPaydays(rule, m, skippedPay))
         .filter((date) => date >= todayIso && date <= end)
         .map((date) => ({ id: r.id as string, date, label: r.source as string, cents: r.amount_cents as number, currency: r.currency as string, spaceId: r.space_id as string }));
@@ -132,9 +132,9 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const [{ data: rec }, { data: mem }, { data: miles }] = monthData!;
   const incomes = await loadIncomeRules(supabase, active.id);
   const events: CalEvent[] = [
-    ...(rec ?? []).flatMap((r) => projectRecurring({ id: r.id, description: r.description, amountCents: r.amount_cents, frequency: r.frequency, day: r.day, nextRun: r.next_run }, month)
+    ...(rec ?? []).flatMap((r) => projectRecurring({ id: r.id, description: r.description, amountCents: r.amount_cents, frequency: r.frequency, day: r.day, day2: r.day2, nextRun: r.next_run }, month)
       .map((date) => {
-        const who = rotationPayer(r.rotation ?? [], r.rotation_pos, occurrenceNumber({ frequency: r.frequency, nextRun: r.next_run }, date));
+        const who = rotationPayer(r.rotation ?? [], r.rotation_pos, occurrenceNumber({ frequency: r.frequency, nextRun: r.next_run, day: r.day, day2: r.day2 }, date));
         const cat = r.categories as unknown as Cat;
         return { date, label: r.description, cents: r.amount_cents, kind: "fijo" as const, payer: who ? mem?.find((m) => m.id === who)?.display_name : undefined, sysName: cat?.system_key ?? null, color: cat?.funds?.color,
           recurringId: r.id, categoryName: cat ? displayName(x, cat.name, cat.system_key) : undefined, skipped: skips.has(`${r.id}|${date}`) };

@@ -13,13 +13,14 @@ import { deleteRecurringAndGo, saveRecurring } from "@/server/actions/plan";
 const FREQS: { id: NewFrequency; label: string; every: string }[] = [
   { id: "monthly", label: "Mensual", every: "Cada mes" }, { id: "weekly", label: "Semanal", every: "Cada semana" },
   { id: "biweekly", label: "Quincenal", every: "Cada dos semanas" },
+  { id: "semimonthly", label: "2 al mes", every: "Dos veces al mes" },
   { id: "quarterly", label: "Trimestral", every: "Cada trimestre" }, { id: "yearly", label: "Anual", every: "Cada año" },
 ];
 const WEEKDAYS = ["L", "M", "X", "J", "V", "S", "D"];
 const FIELD = "min-h-12 w-full rounded-card border border-border bg-surface px-4 text-base text-ink placeholder:text-ink-3";
 
 /** Nuevo gasto fijo: importe grande, concepto con categoría sugerida, frecuencia, día de cobro tocando un número y próximo cobro calculado. */
-export function NewFixedExpense({ spaceId, currency, categories, rules, notify, initial, accounts = [] }: { currency: string; accounts?:{ id: string; name: string; isDefault: boolean }[]; spaceId: string; categories: { id: string; name: string }[]; rules: CategoryRule[]; notify: { on: boolean; days: number }; initial?: { id: string; description: string; cents: number; freq: NewFrequency; day: number; category: string } }) {
+export function NewFixedExpense({ spaceId, currency, categories, rules, notify, initial, accounts = [] }: { currency: string; accounts?:{ id: string; name: string; isDefault: boolean }[]; spaceId: string; categories: { id: string; name: string }[]; rules: CategoryRule[]; notify: { on: boolean; days: number }; initial?: { id: string; description: string; cents: number; freq: NewFrequency; day: number; day2?: number; category: string } }) {
   const x = useTx();
   const router = useRouter();
   const today = new Date().toISOString().slice(0, 10);
@@ -27,6 +28,7 @@ export function NewFixedExpense({ spaceId, currency, categories, rules, notify, 
   const [description, setDescription] = useState(initial?.description ?? "");
   const [freq, setFreq] = useState<NewFrequency>(initial?.freq ?? "monthly");
   const [day, setDay] = useState(() => initial?.day ?? Math.min(28, new Date().getUTCDate()));
+  const [day2, setDay2] = useState(initial?.day2 ?? 15);
   const [month, setMonth] = useState(new Date().getUTCMonth() + 1);
   const [category, setCategory] = useState(initial?.category ?? "");
   const [touched, setTouched] = useState(!!initial);
@@ -37,10 +39,13 @@ export function NewFixedExpense({ spaceId, currency, categories, rules, notify, 
   const [state, formAction, pending] = useActionState(saveRecurring, {});
 
   const cents = parseToCents(amount) ?? 0;
-  const next = nextOccurrence(freq, day, today, month);
+  // «Dos veces al mes»: los dos días en orden, y el primero como mucho el 27 para que siempre haya dos fechas
+  const first = Math.min(day, day2), second = Math.max(day, day2);
+  const twiceOk = freq !== "semimonthly" || (first !== second && first <= 27);
+  const next = freq === "semimonthly" ? nextOccurrence(freq, first, today, month, second) : nextOccurrence(freq, day, today, month);
   const nextLabel = new Date(`${next}T00:00:00Z`).toLocaleDateString(x.locale, { weekday: "long", day: "numeric", month: "short", timeZone: "UTC" });
   const every = FREQS.find((f) => f.id === freq)!.every;
-  const valid = cents > 0 && description.trim().length > 0;
+  const valid = cents > 0 && description.trim().length > 0 && twiceOk;
 
   const onDescription = (text: string) => {
     setDescription(text);
@@ -49,7 +54,12 @@ export function NewFixedExpense({ spaceId, currency, categories, rules, notify, 
     setCategory((byRule && categories.some((c) => c.id === byRule) ? byRule : suggestCategory(text, categories)) ?? "");
   };
   const byWeekday = (f: NewFrequency) => f === "weekly" || f === "biweekly";
-  const changeFreq = (f: NewFrequency) => { setFreq(f); if (byWeekday(f)) setDay(((new Date().getUTCDay() + 6) % 7) + 1); else if (byWeekday(freq)) setDay(Math.min(28, new Date().getUTCDate())); };
+  const changeFreq = (f: NewFrequency) => {
+    setFreq(f);
+    if (f === "semimonthly") { setDay(1); setDay2(15); }
+    else if (byWeekday(f)) setDay(((new Date().getUTCDay() + 6) % 7) + 1);
+    else if (byWeekday(freq)) setDay(Math.min(28, new Date().getUTCDate()));
+  };
 
   useEffect(() => { if (state.ok) router.replace("/plan?vista=fijos"); }, [state.ok, router]);
 
@@ -71,7 +81,8 @@ export function NewFixedExpense({ spaceId, currency, categories, rules, notify, 
     if (initial) fd.set("id", initial.id);
     if (accounts.length > 0) fd.set("accountId", accountId);
     fd.set("spaceId", spaceId); fd.set("description", description.trim()); fd.set("amount", amount); fd.set("frequency", freq);
-    fd.set("day", String(day)); fd.set("nextRun", next); if (category) fd.set("categoryId", category);
+    fd.set("day", String(day)); if (freq === "semimonthly") fd.set("day2", String(day2));
+    fd.set("nextRun", next); if (category) fd.set("categoryId", category);
     startTransition(() => formAction(fd));
   };
 
@@ -114,7 +125,21 @@ export function NewFixedExpense({ spaceId, currency, categories, rules, notify, 
             {Array.from({ length: 12 }, (_, i) => <option key={i} value={i + 1}>{new Date(Date.UTC(2026, i, 1)).toLocaleDateString(x.locale, { month: "long", timeZone: "UTC" })}</option>)}
           </select>
         )}
-        {byWeekday(freq) ? (
+        {freq === "semimonthly" ? (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              {([[x("Primer día"), day, setDay], [x("Segundo día"), day2, setDay2]] as const).map(([name, value, set]) => (
+                <label key={name} className="flex flex-col gap-1 text-xs text-ink-3">{name}
+                  <select value={value} onChange={(e) => set(Number(e.target.value))} className={FIELD}>
+                    {Array.from({ length: 31 }, (_, i) => <option key={i} value={i + 1}>{i + 1}</option>)}
+                  </select>
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-ink-3">{x("Si el mes no tiene ese día, se usa el último.")}</p>
+            {!twiceOk && <p role="alert" className="text-sm text-over-text">{x("Elige dos días distintos; el primero, como mucho el 27")}</p>}
+          </>
+        ) : byWeekday(freq) ? (
           <div className="grid grid-cols-7 gap-1.5" role="group" aria-label={x("Día de la semana")}>
             {WEEKDAYS.map((w, i) => <button key={w} type="button" aria-pressed={day === i + 1} onClick={() => setDay(i + 1)} className={`min-h-11 rounded-card border font-mono text-sm ${day === i + 1 ? "border-accent bg-accent text-on-accent" : "border-border text-ink-2"}`}>{x(w)}</button>)}
           </div>

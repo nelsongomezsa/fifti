@@ -2,6 +2,7 @@ import { z } from "zod";
 import { currencySchema } from "./spaces";
 import { MAX_AMOUNT_CENTS } from "@/lib/money";
 import { CURRENCIES } from "@/lib/fx";
+import { TWO_DAYS } from "@/lib/two-days";
 
 const cents = z.number().int().min(1, "El importe debe ser mayor que 0").max(MAX_AMOUNT_CENTS, "Importe demasiado alto");
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((v) => !Number.isNaN(Date.parse(`${v}T00:00:00Z`)), "Fecha no válida");
@@ -48,13 +49,15 @@ export const incomeInputSchema = z
     accountId: z.uuid().nullable().optional(),
     /** Moneda en la que se cobra; sin ella, la del espacio */
     currency: z.enum(CURRENCIES).optional(),
-    frequency: z.enum(["once", "weekly", "biweekly", "monthly", "yearly"]).default("once"),
-    /** Día del mes de un ingreso mensual */
+    frequency: z.enum(["once", "weekly", "biweekly", "semimonthly", "monthly", "yearly"]).default("once"),
+    /** Día del mes de un ingreso mensual, o el primero de los dos de «dos veces al mes» */
     day: z.number().int().min(1).max(31).optional(),
+    day2: z.number().int().min(1).max(31).optional(),
     /** Presente al editar la serie, no un cobro */
     ruleId: z.uuid().optional(),
   })
-  .strict();
+  .strict()
+  .refine((v) => v.frequency !== "semimonthly" || (v.day !== undefined && v.day2 !== undefined && v.day <= 27 && v.day2 > v.day), { message: TWO_DAYS });
 
 export const commentSchema = z.object({ expenseId: z.uuid(), spaceId: z.uuid(), body: z.string().trim().min(1).max(500) }).strict();
 export const REACTIONS = ["👍", "😂", "😮", "❤️", "🙏", "🔥"] as const;

@@ -19,6 +19,7 @@ import type { FormState } from "./auth";
 import { resolveFx, warmRates } from "@/server/fx";
 import { nextOccurrence } from "@/lib/calendar";
 import { isoWeekday } from "@/lib/paydays";
+import { twoDays } from "@/lib/two-days";
 import { receiptsOf, removeUnusedReceipts } from "@/server/receipts";
 import { warmMovement } from "@/server/currency-warm";
 import { notify } from "@/server/push";
@@ -215,7 +216,7 @@ export async function saveIncome(_prev: FormState, fd: FormData): Promise<FormSt
     source: String(fd.get("source") ?? "Nómina") || "Nómina", receivedAt: fd.get("receivedAt"), isRecurring: fd.get("isRecurring") === "on",
     accountId: fd.has("accountId") ? (String(fd.get("accountId")) || null) : undefined,
     currency: fd.get("currency") || undefined, frequency: fd.get("frequency") || undefined,
-    day: fd.get("day") ? Number(fd.get("day")) : undefined, ruleId: fd.get("ruleId") || undefined,
+    ...(fd.get("day") ? twoDays(String(fd.get("frequency")), Number(fd.get("day")), String(fd.get("day2") ?? "")) : {}), ruleId: fd.get("ruleId") || undefined,
   });
   if (!parsed.success) return { error: x(parsed.error.issues[0]?.message ?? "Datos no válidos") };
   const { supabase, user } = await ctx();
@@ -244,14 +245,14 @@ export async function saveIncome(_prev: FormState, fd: FormData): Promise<FormSt
   if (repeats) {
     if (v.frequency === "once") return { error: x("Datos no válidos") };
     const today = new Date().toISOString().slice(0, 10);
-    const monthly = v.frequency === "monthly";
-    const day = monthly ? v.day ?? Number(v.receivedAt.slice(8)) : v.frequency === "yearly" ? Number(v.receivedAt.slice(8)) : isoWeekday(v.receivedAt);
-    // Mensual: la próxima vez que toque ese día; al editar la serie, sin volver a un mes ya cobrado
+    const byMonthDay = v.frequency === "monthly" || v.frequency === "semimonthly";
+    const day = byMonthDay ? v.day ?? Number(v.receivedAt.slice(8)) : v.frequency === "yearly" ? Number(v.receivedAt.slice(8)) : isoWeekday(v.receivedAt);
+    // Por días del mes: la próxima vez que toque; al editar la serie, sin volver a un mes ya cobrado
     const from = v.ruleId && v.receivedAt.slice(0, 7) > today.slice(0, 7) ? `${v.receivedAt.slice(0, 7)}-01` : today;
-    const nextRun = monthly ? nextOccurrence("monthly", day, from) : v.receivedAt;
+    const nextRun = v.frequency === "monthly" || v.frequency === "semimonthly" ? nextOccurrence(v.frequency, day, from, undefined, v.day2) : v.receivedAt;
     const { error } = await supabase.rpc("save_income_rule", {
       p: { id: v.ruleId ?? null, from_income: v.ruleId ? null : incomeId ?? null, space_id: v.spaceId, member_id: v.memberId, amount_cents: v.amountCents,
-        currency, source: v.source, account_id: v.accountId ?? null, frequency: v.frequency, day, next_run: nextRun },
+        currency, source: v.source, account_id: v.accountId ?? null, frequency: v.frequency, day, day2: v.day2 ?? null, next_run: nextRun },
     });
     if (error) return { error: x(rpcMessage(error)) };
     revalidatePath("/", "layout");

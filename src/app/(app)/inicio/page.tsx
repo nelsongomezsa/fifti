@@ -53,7 +53,7 @@ export default async function HomePage() {
       return dailyBudgetLeft(sp.daily_budget_cents, count ?? 1, (ex ?? []).reduce((a, e) => a + e.amount_base_cents, 0));
     })(),
     active.kind === "personal" && !user.is_anonymous ? loadLoans(supabase, user.id) : Promise.resolve([]),
-    supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, next_run, categories(system_key, funds(color))").eq("space_id", active.id).eq("active", true),
+    supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, day2, next_run, categories(system_key, funds(color))").eq("space_id", active.id).eq("active", true),
     supabase.from("recurring_skips").select("recurring_id, skip_on"),
     supabase.from("expenses").select("id, description, spent_at, amount_cents, currency, categories(system_key, funds(color))").eq("space_id", active.id).order("spent_at", { ascending: false }).order("created_at", { ascending: false }).limit(3),
     user.is_anonymous ? Promise.resolve([]) : loadAccounts(supabase, user.id),
@@ -66,7 +66,7 @@ export default async function HomePage() {
   const { data: myRole } = await supabase.from("space_members").select("role").eq("space_id", active.id).eq("user_id", user.id).maybeSingle();
   const canEditCharges = !!myRole && myRole.role !== "guest";
   const todayIso = new Date().toISOString().slice(0, 10);
-  const upcoming = upcomingCharges((recRows ?? []).map((r) => ({ id: r.id, description: r.description, amountCents: r.amount_cents, frequency: r.frequency, day: r.day, nextRun: r.next_run, spaceId: active.id })), [], todayIso, 30, new Set((skipRows ?? []).map((k) => `${k.recurring_id}|${k.skip_on}`))).slice(0, 3);
+  const upcoming = upcomingCharges((recRows ?? []).map((r) => ({ id: r.id, description: r.description, amountCents: r.amount_cents, frequency: r.frequency, day: r.day, day2: r.day2, nextRun: r.next_run, spaceId: active.id })), [], todayIso, 30, new Set((skipRows ?? []).map((k) => `${k.recurring_id}|${k.skip_on}`))).slice(0, 3);
   const whenLabel = (iso: string) => { const d = Math.round((Date.parse(`${iso}T00:00:00Z`) - Date.parse(`${todayIso}T00:00:00Z`)) / 86400000); return d === 0 ? x("Hoy") : d === 1 ? x("Mañana") : new Date(`${iso}T00:00:00Z`).toLocaleDateString(x.locale, { day: "numeric", month: "short", timeZone: "UTC" }); };
   const monthName = new Date(`${o.month}T00:00:00Z`).toLocaleDateString(locale, { month: "long", timeZone: "UTC" });
   const pctText = (bp: number) => `${(bp / 100).toFixed(0)} %`;

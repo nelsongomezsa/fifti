@@ -14,7 +14,7 @@ export default async function ForecastPage() {
 
   const [o, { data: rec }] = await Promise.all([
     loadOverview(supabase, active.id, active.kind, month, today, x.locale, true),
-    supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, next_run").eq("space_id", active.id).eq("active", true),
+    supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, day2, next_run").eq("space_id", active.id).eq("active", true),
   ]);
   const b = o.outlook;
   const plannedFixed = o.funds.filter((f) => f.kind === "fixed").reduce((a2, f) => a2 + f.planned, 0);
@@ -23,7 +23,7 @@ export default async function ForecastPage() {
 
   // Cobros fijos programados que aún faltan este mes (hoy incluido)
   const pending = (rec ?? [])
-    .flatMap((r) => projectRecurring({ id: r.id, description: r.description, amountCents: r.amount_cents, frequency: r.frequency, day: r.day, nextRun: r.next_run }, month).map((date) => ({ date, label: r.description, cents: r.amount_cents })))
+    .flatMap((r) => projectRecurring({ id: r.id, description: r.description, amountCents: r.amount_cents, frequency: r.frequency, day: r.day, day2: r.day2, nextRun: r.next_run }, month).map((date) => ({ date, label: r.description, cents: r.amount_cents })))
     .filter((c) => c.date >= today).sort((a, b2) => a.date.localeCompare(b2.date) || a.label.localeCompare(b2.label));
   const pendingTotal = pending.reduce((a, c) => a + c.cents, 0);
 

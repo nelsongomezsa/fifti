@@ -4,18 +4,19 @@ import { projectRecurring, type Frequency } from "@/lib/calendar";
 export type PayFrequency = Exclude<Frequency, "quarterly">;
 
 export const PAY_FREQUENCIES: { id: PayFrequency; label: string }[] = [
-  { id: "weekly", label: "Cada semana" }, { id: "biweekly", label: "Cada dos semanas" }, { id: "monthly", label: "Cada mes" }, { id: "yearly", label: "Cada año" },
+  { id: "weekly", label: "Cada semana" }, { id: "biweekly", label: "Cada dos semanas" }, { id: "semimonthly", label: "Dos veces al mes" },
+  { id: "monthly", label: "Cada mes" }, { id: "yearly", label: "Cada año" },
 ];
 
 export type IncomeRule = {
   id: string; memberId: string; source: string; amountCents: number; currency: string; accountId: string | null;
-  frequency: PayFrequency; day: number; nextRun: string; active: boolean;
+  frequency: PayFrequency; day: number; day2?: number | null; nextRun: string; active: boolean;
 };
 
 /** Cobros de una regla que aún no se han apuntado y caen en el mes (YYYY-MM-01), sin los saltados. */
 export function pendingPaydays(rule: IncomeRule, month: string, skips: ReadonlySet<string> = new Set()): string[] {
   if (!rule.active) return [];
-  return projectRecurring({ id: rule.id, description: rule.source, amountCents: rule.amountCents, frequency: rule.frequency, day: rule.day, nextRun: rule.nextRun }, month)
+  return projectRecurring({ id: rule.id, description: rule.source, amountCents: rule.amountCents, frequency: rule.frequency, day: rule.day, day2: rule.day2, nextRun: rule.nextRun }, month)
     .filter((date) => date >= rule.nextRun && !skips.has(`${rule.id}|${date}`));
 }
 

@@ -16,7 +16,7 @@ export default async function NewFixedPage({ searchParams }: { searchParams: Pro
   if (!active) return null;
   const sp = await searchParams;
   const supabase = await createClient();
-  const editing = sp.id && /^[0-9a-f-]{36}$/i.test(sp.id) ? (await supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, category_id").eq("id", sp.id).eq("space_id", active.id).maybeSingle()).data : null;
+  const editing = sp.id && /^[0-9a-f-]{36}$/i.test(sp.id) ? (await supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, day2, category_id").eq("id", sp.id).eq("space_id", active.id).maybeSingle()).data : null;
   const [{ data: cats }, { data: rules }, { data: prefs }] = await Promise.all([
     supabase.from("categories").select("id, name, system_key").eq("space_id", active.id).eq("hidden", false).order("name"),
     supabase.from("category_rules").select("id, match_text, match_type, category_id, priority").eq("space_id", active.id),
@@ -32,7 +32,7 @@ export default async function NewFixedPage({ searchParams }: { searchParams: Pro
         accounts={(await loadAccounts(supabase, user.id)).filter((a) => a.spaceId === active.id).map((a) => ({ id: a.id, name: a.name, isDefault: a.mine && a.isDefault }))}
         categories={(cats ?? []).map((c) => ({ id: c.id, name: displayName(x, c.name, c.system_key) }))}
         rules={(rules ?? []).map((r) => ({ id: r.id, matchText: r.match_text, matchType: r.match_type as "contains" | "starts_with" | "exact", categoryId: r.category_id, priority: r.priority }))}
-        initial={editing ? { id: editing.id, description: editing.description, cents: editing.amount_cents, freq: editing.frequency as "weekly" | "biweekly" | "monthly" | "quarterly" | "yearly", day: editing.day, category: editing.category_id ?? "" } : undefined}
+        initial={editing ? { id: editing.id, description: editing.description, cents: editing.amount_cents, freq: editing.frequency as "weekly" | "biweekly" | "semimonthly" | "monthly" | "quarterly" | "yearly", day: editing.day, day2: editing.day2 ?? undefined, category: editing.category_id ?? "" } : undefined}
         notify={{ on: prefs?.fixed_tomorrow ?? true, days: prefs?.fixed_advance_days ?? 1 }}
       />
     </section>

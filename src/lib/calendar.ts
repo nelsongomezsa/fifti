@@ -1,5 +1,8 @@
-export type Frequency = "weekly" | "biweekly" | "monthly" | "quarterly" | "yearly";
-export type RecurringLite = { id: string; description: string; amountCents: number; frequency: Frequency; day: number; nextRun: string };
+export type Frequency = "weekly" | "biweekly" | "semimonthly" | "monthly" | "quarterly" | "yearly";
+export type RecurringLite = { id: string; description: string; amountCents: number; frequency: Frequency; day: number; day2?: number | null; nextRun: string };
+
+/** Las dos fechas de «dos veces al mes»; un día que el mes no tiene pasa a su último día. */
+const twice = (y: number, m0: number, day: number, day2: number) => [day, day2].map((d) => Date.UTC(y, m0, Math.min(d, dim(y, m0))));
 
 // Todo son fechas de calendario en UTC: los cambios de hora no mueven ningún cobro
 const STEP_DAYS: Partial<Record<Frequency, number>> = { weekly: 7, biweekly: 14 };
@@ -20,6 +23,8 @@ export function projectRecurring(r: RecurringLite, monthIso: string): string[] {
     if (t > end) return [];
     if (t < start) t += Math.ceil((start - t) / step) * step;
     for (; t <= end; t += step) out.push(iso(new Date(t)));
+  } else if (r.frequency === "semimonthly") {
+    for (const date of twice(y, m - 1, r.day, r.day2 ?? r.day)) if (date >= next) out.push(iso(new Date(date)));
   } else if (r.frequency === "quarterly") {
     const n = new Date(next);
     const diff = (y - n.getUTCFullYear()) * 12 + (m - 1 - n.getUTCMonth());
@@ -38,8 +43,14 @@ export function projectRecurring(r: RecurringLite, monthIso: string): string[] {
 }
 
 /** Nº de cobro (0 = el próximo) al que corresponde una fecha proyectada; sirve para saber a quién le toca en un gasto fijo con turnos. */
-export function occurrenceNumber(r: Pick<RecurringLite, "frequency" | "nextRun">, dateIso: string): number {
+export function occurrenceNumber(r: Pick<RecurringLite, "frequency" | "nextRun" | "day" | "day2"> | Pick<RecurringLite, "frequency" | "nextRun">, dateIso: string): number {
   const a = new Date(`${r.nextRun}T00:00:00Z`), b = new Date(`${dateIso}T00:00:00Z`);
+  if (r.frequency === "semimonthly") {
+    const { day = 1, day2 = 15 } = r as { day?: number; day2?: number | null };
+    // Dos por mes: se cuenta cuál de los dos es cada fecha
+    const index = (d: Date) => (d.getUTCFullYear() * 12 + d.getUTCMonth()) * 2 + (d.getTime() >= twice(d.getUTCFullYear(), d.getUTCMonth(), day, day2 ?? 15)[1]! ? 1 : 0);
+    return Math.max(0, index(b) - index(a));
+  }
   const every = STEP_DAYS[r.frequency];
   if (every) return Math.max(0, Math.round((b.getTime() - a.getTime()) / (every * 86400000)));
   if (r.frequency === "monthly") return Math.max(0, (b.getUTCFullYear() - a.getUTCFullYear()) * 12 + b.getUTCMonth() - a.getUTCMonth());
@@ -70,9 +81,13 @@ export function upcomingCharges(recurring: (RecurringLite & { spaceId: string })
 export type NewFrequency = Frequency;
 
 /** Próximo cobro de un gasto fijo que se está creando: `day` es el día del mes (o 1-7 si es semanal o cada dos semanas: lunes = 1); `month` (1-12) solo para anual. */
-export function nextOccurrence(freq: NewFrequency, day: number, todayIso: string, month?: number): string {
+export function nextOccurrence(freq: NewFrequency, day: number, todayIso: string, month?: number, day2?: number): string {
   const t = new Date(`${todayIso}T00:00:00Z`);
   const y = t.getUTCFullYear(), m0 = t.getUTCMonth();
+  if (freq === "semimonthly") {
+    const upcoming = [...twice(y, m0, day, day2 ?? day), ...twice(y, m0 + 1, day, day2 ?? day)].find((d) => d >= t.getTime())!;
+    return iso(new Date(upcoming));
+  }
   if (freq === "weekly" || freq === "biweekly") {
     const isoDow = ((t.getUTCDay() + 6) % 7) + 1;
     const add = (day - isoDow + 7) % 7;

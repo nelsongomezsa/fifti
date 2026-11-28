@@ -44,7 +44,7 @@ export function RepeatingIncomes({ x, spaceId, rules, skips, members, accounts, 
                           <input type="hidden" name="spaceId" value={spaceId} />
                           <input type="hidden" name="ruleId" value={r.id} />
                           <IncomeFields kind="rule" members={members} accounts={accounts}
-                            initial={{ amount: (r.amountCents / 100).toFixed(2).replace(".", ","), currency: r.currency, source: r.source, date: r.nextRun, frequency: r.frequency, day: r.day, accountId: r.accountId, memberId: r.memberId }} />
+                            initial={{ amount: (r.amountCents / 100).toFixed(2).replace(".", ","), currency: r.currency, source: r.source, date: r.nextRun, frequency: r.frequency, day: r.day, day2: r.day2, accountId: r.accountId, memberId: r.memberId }} />
                         </ActionForm>
                       </details>
                     </>

@@ -9,7 +9,7 @@ const FIELD = "min-h-12 w-full rounded-card border border-border bg-surface px-4
 const WEEKDAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
 type Frequency = "once" | PayFrequency;
-export type IncomeInitial = { amount: string; currency: string; source: string; date: string; frequency: Frequency; day: number; accountId: string | null; memberId: string };
+export type IncomeInitial = { amount: string; currency: string; source: string; date: string; frequency: Frequency; day: number; day2?: number | null; accountId: string | null; memberId: string };
 
 /**
  * Campos de un ingreso. `payment` es un cobro concreto de una serie (sin frecuencia: se cambia solo ese) y
@@ -25,6 +25,7 @@ export function IncomeFields({ members, accounts, initial, kind = "new" }: {
   const [frequency, setFrequency] = useState<Frequency>(initial.frequency);
   const [date, setDate] = useState(initial.date);
   const [day, setDay] = useState(String(initial.day));
+  const [day2, setDay2] = useState(String(initial.day2 ?? 15));
   const [accountId, setAccountId] = useState(initial.accountId ?? "");
   const [currency, setCurrency] = useState(initial.currency);
   const [chosen, setChosen] = useState(kind !== "new");
@@ -34,7 +35,7 @@ export function IncomeFields({ members, accounts, initial, kind = "new" }: {
   useEffect(() => {
     const form = root.current?.closest("form");
     if (!form || kind !== "new") return;
-    const reset = () => { setFrequency(initial.frequency); setDate(initial.date); setDay(String(initial.day)); setAccountId(initial.accountId ?? ""); setCurrency(initial.currency); setChosen(false); };
+    const reset = () => { setFrequency(initial.frequency); setDate(initial.date); setDay(String(initial.day)); setDay2(String(initial.day2 ?? 15)); setAccountId(initial.accountId ?? ""); setCurrency(initial.currency); setChosen(false); };
     form.addEventListener("reset", reset);
     return () => form.removeEventListener("reset", reset);
   }, [initial, kind]);
@@ -71,7 +72,8 @@ export function IncomeFields({ members, accounts, initial, kind = "new" }: {
       {kind === "payment" ? (
         <p className="text-xs text-ink-3">{x("Cambias solo este cobro. La serie se edita en «Ingresos que se repiten».")}</p>
       ) : (
-        <select name="frequency" aria-label={x("Frecuencia")} className={FIELD} value={frequency} onChange={(e) => setFrequency(e.target.value as Frequency)}>
+        <select name="frequency" aria-label={x("Frecuencia")} className={FIELD} value={frequency}
+          onChange={(e) => { const f = e.target.value as Frequency; setFrequency(f); if (f === "semimonthly" && initial.frequency !== "semimonthly") { setDay("1"); setDay2("15"); } }}>
           {kind !== "rule" && <option value="once">{x("Solo una vez")}</option>}
           {PAY_FREQUENCIES.map((f) => <option key={f.id} value={f.id}>{x(f.label)}</option>)}
         </select>
@@ -83,7 +85,20 @@ export function IncomeFields({ members, accounts, initial, kind = "new" }: {
           </select>
         </label>
       )}
-      {frequency === "monthly" ? (
+      {frequency === "semimonthly" ? (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <label className={label}>{x("Primer día")}
+              <input name="day" type="number" inputMode="numeric" min={1} max={31} required value={day} onChange={(e) => setDay(e.target.value)} className={FIELD} />
+            </label>
+            <label className={label}>{x("Segundo día")}
+              <input name="day2" type="number" inputMode="numeric" min={1} max={31} required value={day2} onChange={(e) => setDay2(e.target.value)} className={FIELD} />
+            </label>
+          </div>
+          <p className="text-xs text-ink-3">{x("Si el mes no tiene ese día, se usa el último.")}</p>
+          <input type="hidden" name="receivedAt" value={date} />
+        </>
+      ) : frequency === "monthly" ? (
         <>
           <label className={label}>{x("Día del mes")}
             <input name="day" type="number" inputMode="numeric" min={1} max={31} required value={day} onChange={(e) => setDay(e.target.value)} className={FIELD} />

@@ -12,6 +12,7 @@ import { RULES } from "@/lib/security/rate-limit";
 import { allow } from "@/lib/security/user-limit";
 import { rpcMessage } from "@/server/rpc-error";
 import { warmContribution } from "@/server/currency-warm";
+import { TWO_DAYS, twoDays } from "@/lib/two-days";
 import type { FormState } from "./auth";
 
 const month = z.string().refine(isMonthStart, "Mes no válido");
@@ -80,11 +81,12 @@ export async function copyPreviousPlan(_prev: FormState, fd: FormData): Promise<
 const recurringSchema = z
   .object({
     spaceId: z.uuid(), id: z.uuid().optional(), description: z.string().trim().min(1).max(120),
-    amountCents: z.number().int().min(1).max(MAX_AMOUNT_CENTS), frequency: z.enum(["weekly", "biweekly", "monthly", "quarterly", "yearly"]),
-    day: z.number().int().min(1).max(31), nextRun: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), categoryId: z.uuid().nullable(),
+    amountCents: z.number().int().min(1).max(MAX_AMOUNT_CENTS), frequency: z.enum(["weekly", "biweekly", "semimonthly", "monthly", "quarterly", "yearly"]),
+    day: z.number().int().min(1).max(31), day2: z.number().int().min(1).max(31).optional(), nextRun: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), categoryId: z.uuid().nullable(),
     paidFrom: z.enum(["member", "pot"]), detected: z.boolean().default(false), rotation: z.array(z.uuid()).max(8).default([]), accountId: z.uuid().nullable().optional(),
   })
-  .strict();
+  .strict()
+  .refine((v) => v.frequency !== "semimonthly" || (v.day2 !== undefined && v.day <= 27 && v.day2 > v.day), { message: TWO_DAYS });
 
 export async function saveRecurring(_prev: FormState, fd: FormData): Promise<FormState> {
   const x = await getTx();
@@ -92,7 +94,7 @@ export async function saveRecurring(_prev: FormState, fd: FormData): Promise<For
     spaceId: field(fd, "spaceId"), id: field(fd, "id") || undefined, description: field(fd, "description"),
     accountId: fd.has("accountId") ? (field(fd, "accountId") || null) : undefined,
     amountCents: parseToCents(field(fd, "amount")) ?? 0, frequency: field(fd, "frequency") || "monthly",
-    day: Number(field(fd, "day") || "1"), nextRun: field(fd, "nextRun"), categoryId: field(fd, "categoryId") || null,
+    ...twoDays(field(fd, "frequency"), Number(field(fd, "day") || "1"), field(fd, "day2")), nextRun: field(fd, "nextRun"), categoryId: field(fd, "categoryId") || null,
     paidFrom: field(fd, "paidFrom") === "pot" ? "pot" : "member", detected: field(fd, "detected") === "1",
     rotation: field(fd, "turns") === "1"
       ? [...fd.entries()].filter(([k, v]) => k.startsWith("turn_") && typeof v === "string" && /^[1-8]$/.test(v)).sort((a, b) => Number(a[1]) - Number(b[1])).map(([k]) => k.slice(5))
@@ -104,7 +106,7 @@ export async function saveRecurring(_prev: FormState, fd: FormData): Promise<For
   if (!(await allow(RULES.planWrites, user.id))) return { error: x("Demasiados intentos. Espera un rato.") };
   const v = parsed.data;
   const { data: recId, error } = await supabase.rpc("save_recurring", {
-    p: { id: v.id ?? null, space_id: v.spaceId, description: v.description, amount_cents: v.amountCents, frequency: v.frequency, day: v.day, next_run: v.nextRun, category_id: v.categoryId, paid_from: v.paidFrom, detected: v.detected, rotation: v.rotation },
+    p: { id: v.id ?? null, space_id: v.spaceId, description: v.description, amount_cents: v.amountCents, frequency: v.frequency, day: v.day, day2: v.day2 ?? null, next_run: v.nextRun, category_id: v.categoryId, paid_from: v.paidFrom, detected: v.detected, rotation: v.rotation },
   });
   if (error) return { error: x(rpcMessage(error)) };
   if (v.accountId !== undefined) {

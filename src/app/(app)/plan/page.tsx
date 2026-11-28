@@ -25,7 +25,7 @@ export const metadata: Metadata = { title: "Plan" };
 
 const pctText = (bp: number) => (bp / 100).toFixed(2).replace(".", ",");
 const centsText = (c: number) => (c / 100).toFixed(2).replace(".", ",");
-const FREQ = { weekly: "Semanal", biweekly: "Quincenal", monthly: "Mensual", quarterly: "Trimestral", yearly: "Anual" } as const;
+const FREQ = { weekly: "Semanal", biweekly: "Quincenal", semimonthly: "Dos veces al mes", monthly: "Mensual", quarterly: "Trimestral", yearly: "Anual" } as const;
 
 export default async function PlanPage({ searchParams }: { searchParams: Promise<{ mes?: string; vista?: string }> }) {
   const [x, sp, user, spaces] = await Promise.all([getTx(), searchParams, requireUser(), listMySpaces()]);
@@ -36,7 +36,7 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
   const month =sp.mes && isMonthStart(sp.mes) ? sp.mes : monthStart(new Date());
   // Todas las consultas de la página en una sola ronda de red
   const sideQueries = Promise.all([
-    supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, next_run, active, category_id, paid_from, rotation, rotation_pos").eq("space_id", active.id).order("next_run"),
+    supabase.from("recurring_expenses").select("id, description, amount_cents, frequency, day, day2, next_run, active, category_id, paid_from, rotation, rotation_pos").eq("space_id", active.id).order("next_run"),
     supabase.from("categories").select("id, name, system_key, fund_id").eq("space_id", active.id).order("name"),
     supabase.from("category_rules").select("id, match_text, match_type, category_id, priority").eq("space_id", active.id),
     active.kind === "household" ? supabase.from("contribution_rules").select("mode, monthly_target_cents, values").eq("space_id", active.id).maybeSingle() : Promise.resolve({ data: null }),

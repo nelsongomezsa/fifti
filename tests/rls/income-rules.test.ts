@@ -44,6 +44,31 @@ describe.skipIf(!rlsConfigured)("ingresos que se repiten", () => {
     expect(await rows("incomes", "rule_id", rule)).toHaveLength(3);
   });
 
+  it("dos veces al mes: el cron apunta cada fecha una sola vez, en ingresos y en gastos fijos", async () => {
+    const { space, member } = await personal(eva);
+    // el 1 y el 15 desde hace dos meses
+    const d = new Date();
+    const at = (monthsAgo: number, dayOfMonth: number) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - monthsAgo, dayOfMonth)).toISOString().slice(0, 10);
+    const expected = [at(2, 1), at(2, 15), at(1, 1), at(1, 15), at(0, 1), at(0, 15)].filter((date) => date <= day(0));
+    const rule = ok(await save(eva, space, member, { source: "Quincena", frequency: "semimonthly", day: 1, day2: 15, next_run: at(2, 1) })) as string;
+    const fixed = ok(await eva.client.rpc("save_recurring", { p: { space_id: space, description: "Seguro", amount_cents: 500, frequency: "semimonthly", day: 1, day2: 15, next_run: at(2, 1), paid_from: "member" } })) as string;
+    for (let i = 0; i < 2; i++) { ok(await admin().rpc("process_incomes")); ok(await admin().rpc("process_recurring")); }
+    expect((await rows("incomes", "rule_id", rule)).map((i) => i.received_at)).toEqual(expected);
+    expect(((await admin().from("expenses").select("spent_at").eq("recurring_id", fixed).order("spent_at")).data ?? []).map((e) => e.spent_at)).toEqual(expected);
+
+    // días que no existen en un mes corto, y combinaciones que no valen
+    const next = async (from: string, a: number, b: number) => {
+      const r = ok(await save(eva, space, member, { source: `F${a}-${b}-${from}`, frequency: "semimonthly", day: a, day2: b, next_run: from })) as string;
+      return (await rows("income_rules", "id", r))[0]!.next_run as string;
+    };
+    expect(await next(day(30), 15, 31)).toBe(day(30));
+    for (const [a, b] of [[15, 15], [28, 30], [20, 10], [1, null]]) {
+      expect((await save(eva, space, member, { frequency: "semimonthly", day: a, day2: b, next_run: day(3) })).error?.message).toMatch(/dos días distintos/);
+    }
+    expect((await eva.client.rpc("save_recurring", { p: { space_id: space, description: "Mal", amount_cents: 1, frequency: "semimonthly", day: 5, next_run: day(3), paid_from: "member" } })).error?.message).toMatch(/dos días distintos/);
+    ok(await eva.client.rpc("clear_space", { p_space: space }));
+  });
+
   it("saltar un cobro: no se apunta y se puede recuperar antes de que llegue", async () => {
     const { space, member } = await personal(leo);
     const rule = ok(await save(leo, space, member, { next_run: day(7), frequency: "biweekly" })) as string;
