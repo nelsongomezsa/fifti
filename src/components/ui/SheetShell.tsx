@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useTx } from "@/i18n/tx-client";
+import { useSheetFocus } from "@/components/ui/useSheetFocus";
 
 /**
  * Hoja inferior para los detalles cortos (ingresos, tasa de ahorro, previsión, fondo, gasto).
@@ -17,15 +18,12 @@ export function SheetShell({ children, onClose, label }: { children: React.React
   const startY = useRef<number | null>(null);
   const panel = useRef<HTMLDivElement>(null);
   const close = () => (onClose ? onClose() : router.back());
-
+  useSheetFocus(panel, close);
   useEffect(() => {
-    panel.current?.focus();
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const onKeyDown = ({ key }: KeyboardEvent) => { if (key === "Escape") (onClose ? onClose() : router.back()); };
-    window.addEventListener("keydown", onKeyDown);
-    return () => { document.body.style.overflow = prev; window.removeEventListener("keydown", onKeyDown); };
-  }, [router, onClose]);
+    return () => { document.body.style.overflow = prev; };
+  }, []);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">

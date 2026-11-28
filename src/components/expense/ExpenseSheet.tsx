@@ -14,6 +14,7 @@ import { CURRENCIES } from "@/lib/fx";
 import { getFxPreview } from "@/server/actions/fx";
 import { scanReceipt } from "@/lib/ocr";
 import { uploadReceipt } from "@/lib/upload-receipt";
+import { useSheetFocus } from "@/components/ui/useSheetFocus";
 import type { ExpenseInput } from "@/lib/validation/expense";
 import type { SheetContext, SheetSpace } from "@/server/actions/sheet";
 import type { SaveResult } from "@/server/actions/expenses";
@@ -133,12 +134,7 @@ export function ExpenseSheet({
     setPhraseBusy(false);
   };
 
-  useEffect(() => {
-    dialogRef.current?.focus();
-    const onKeyDown = ({ key }: KeyboardEvent) => { if (key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  useSheetFocus(dialogRef, onClose);
 
   useEffect(() => {
     if (currency === space.currency) return;
