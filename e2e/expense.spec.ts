@@ -74,7 +74,7 @@ test("editar un gasto y borrarlo con la confirmación de la app", async ({ page 
   await page.getByLabel("Concepto").fill("Cena con amigas");
   await page.getByRole("button", { name: /^Guardar/ }).last().click();
   await expect(page.getByRole("heading", { name: "Cena con amigas" })).toBeVisible();
-  await page.getByRole("button", { name: "Borrar", exact: true }).click();
+  await page.getByRole("button", { name: "Borrar gasto", exact: true }).click();
   const confirm = page.getByRole("alertdialog");
   await expect(confirm).toBeVisible(); // confirmación propia, no window.confirm
   await confirm.getByRole("button", { name: "Borrar" }).click();

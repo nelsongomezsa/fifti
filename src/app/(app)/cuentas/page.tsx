@@ -4,6 +4,7 @@ import { AccountEditor } from "@/components/accounts/AccountForms";
 import { AccountSwipeRow } from "@/components/accounts/AccountSwipeRow";
 import { ArchivedAccounts } from "@/components/accounts/ArchivedAccounts";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { SwipeHint } from "@/components/ui/SwipeHint";
 import { getTx } from "@/i18n/tx";
 import { formatMoney } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
@@ -42,6 +43,7 @@ export default async function AccountsPage() {
             {total.approximate && <p className="text-xs text-ink-3">{x("Total aproximado, con el cambio de hoy.")}</p>}
             {total.missing && <p className="text-xs text-ink-3">{x("Falta alguna cuenta: no hay tipo de cambio.")}</p>}
           </div>
+          <SwipeHint />
           <ul className="flex flex-col gap-2">
             {accounts.map((a) => {
               const row = (

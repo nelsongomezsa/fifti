@@ -1,5 +1,6 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { admin, e2eConfigured, login, newUser, personalOf, removeUsers, seedExpense, seedPlan, type TestUser } from "./helpers";
+import { options, rowAction, swipe, swipeRow } from "./swipe-helpers";
 
 test.skip(!e2eConfigured, "Faltan las claves de pruebas");
 test.use({ serviceWorkers: "block" });
@@ -24,20 +25,8 @@ async function openAccounts(page: Page) {
   await page.waitForLoadState("networkidle");
 }
 const row = (page: Page, name: string) => page.getByRole("link", { name: new RegExp(name) });
-/** La fila entera (con sus dos botones escondidos detrás). */
-const item = (page: Page, name: string) => page.getByRole("listitem").filter({ has: row(page, name) });
 
-/** Arrastra la fila con el puntero (el mismo camino que el dedo: eventos de puntero). */
-async function swipe(page: Page, target: Locator, dx: number, dy = 0) {
-  const box = (await target.boundingBox())!;
-  const x = box.x + box.width / 2, y = box.y + box.height / 2;
-  await page.mouse.move(x, y);
-  await page.mouse.down();
-  await page.mouse.move(x + dx, y + dy, { steps: 8 });
-  await page.mouse.up();
-}
-
-test("deslizar a la izquierda y borrar, con confirmación", async ({ page }) => {
+test("borrar una cuenta desde la lista, con confirmación", async ({ page, isMobile }) => {
   const first = await account("Cuenta de Ana");
   const second = await account("Cuenta de Leo");
   await seedExpense(ana, spaceId, memberId, "Viernes noche", 500);
@@ -45,16 +34,14 @@ test("deslizar a la izquierda y borrar, con confirmación", async ({ page }) => 
   await ana.client.rpc("set_movement_account", { p_kind: "expense", p_id: expense, p_account: first });
   await openAccounts(page);
 
-  await swipe(page, row(page, "Cuenta de Ana"), -150);
+  await rowAction(page, isMobile, "Cuenta de Ana", "Borrar");
   await expect(page).toHaveURL(/\/cuentas$/); // deslizar no abre la cuenta
-  await item(page, "Cuenta de Ana").getByRole("button", { name: "Borrar" }).click();
   const dialog = page.getByRole("alertdialog");
   await expect(dialog).toContainText(SENTENCE);
   await dialog.getByRole("button", { name: "Cancelar" }).click();
   expect(await find(first)).toBeDefined();
 
-  await swipe(page, row(page, "Cuenta de Ana"), -150);
-  await item(page, "Cuenta de Ana").getByRole("button", { name: "Borrar" }).click();
+  await rowAction(page, isMobile, "Cuenta de Ana", "Borrar");
   await page.getByRole("alertdialog").getByRole("button", { name: "Borrar" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Cuenta borrada" })).toBeVisible();
   await expect(row(page, "Cuenta de Ana")).toHaveCount(0);
@@ -64,51 +51,51 @@ test("deslizar a la izquierda y borrar, con confirmación", async ({ page }) => 
   expect((await admin().from("expenses").select("account_id").eq("id", expense).single()).data).toEqual({ account_id: null });
 });
 
-test("deslizar a la derecha y archivar", async ({ page }) => {
+test("archivar desde la lista", async ({ page, isMobile }) => {
   const id = await account("Cuenta de Ana");
   await openAccounts(page);
-  await swipe(page, row(page, "Cuenta de Ana"), 150);
-  await expect(page).toHaveURL(/\/cuentas$/);
-  await item(page, "Cuenta de Ana").getByRole("button", { name: "Archivar" }).click();
+  await rowAction(page, isMobile, "Cuenta de Ana", "Archivar");
   await expect(row(page, "Cuenta de Ana")).toHaveCount(0);
   expect((await find(id))!.archived_at).not.toBeNull();
 });
 
-test("un arrastre corto, vertical o en diagonal no descubre nada, y un toque sigue abriendo la cuenta", async ({ page }) => {
-  const id = await account("Cuenta de Ana");
+test("«⋯» se usa con el teclado y se cierra con Escape o tocando fuera", async ({ page }) => {
+  await account("Cuenta de Ana");
+  await account("Cuenta de Leo");
   await openAccounts(page);
-  const link = row(page, "Cuenta de Ana");
-  const x = async () => Math.round((await link.boundingBox())!.x);
-  const start = await x();
-  for (const [dx, dy] of [[-20, 0], [0, -120], [-60, -90]] as const) {
-    await swipe(page, link, dx, dy);
-    await expect.poll(x).toBe(start);
-  }
-  await expect(page).toHaveURL(/\/cuentas$/);
-  await link.click();
-  await expect(page).toHaveURL(new RegExp(`/cuentas/${id}`));
+  const ana_ = options(page, "Cuenta de Ana"), leo = options(page, "Cuenta de Leo");
+  await ana_.focus();
+  await page.keyboard.press("Enter");
+  await expect(ana_).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("Escape");
+  await expect(ana_).toHaveAttribute("aria-expanded", "false");
+  await ana_.click();
+  await leo.click(); // solo una abierta a la vez
+  await expect(ana_).toHaveAttribute("aria-expanded", "false");
+  await expect(leo).toHaveAttribute("aria-expanded", "true");
+  await page.getByRole("heading", { name: "Mis cuentas" }).click();
+  await expect(leo).toHaveAttribute("aria-expanded", "false");
 });
 
-test("con el dedo: deslizar de lado descubre el botón y desplazar en vertical no", async ({ page, isMobile }) => {
+test("con el dedo: el scroll vertical y las diagonales no descubren nada y un toque sigue abriendo", async ({ page, isMobile }) => {
   test.skip(!isMobile, "Solo con pantalla táctil");
-  await account("Cuenta de Ana");
+  const id = await account("Cuenta de Ana");
+  await account("Cuenta de Leo");
   await openAccounts(page);
-  const link = row(page, "Cuenta de Ana");
-  const cdp = await page.context().newCDPSession(page);
-  const touch = async (dx: number, dy: number) => {
-    const box = (await link.boundingBox())!;
-    const from = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [from] });
-    for (let i = 1; i <= 8; i++) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: from.x + (dx * i) / 8, y: from.y + (dy * i) / 8 }] });
-    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-  };
-  const x = async () => Math.round((await link.boundingBox())!.x);
+  const content = swipeRow(page, "Cuenta de Ana").locator("[data-swipe-content]");
+  const x = async () => Math.round((await content.boundingBox())!.x);
   const start = await x();
-  await touch(-20, -160);
+  for (const [dx, dy] of [[-20, 0], [-20, -160], [-60, -90]] as const) {
+    await swipe(page, content, dx, dy);
+    await expect.poll(x).toBe(start);
+  }
+  await swipe(page, content, -120, 10);
+  await expect.poll(x).toBe(start - 96);
+  // abrir otra cierra la primera
+  await swipe(page, swipeRow(page, "Cuenta de Leo").locator("[data-swipe-content]"), -120);
   await expect.poll(x).toBe(start);
-  await touch(-170, 10);
-  await expect.poll(x).toBe(start - 112);
-  await expect(item(page, "Cuenta de Ana").getByRole("button", { name: "Borrar" })).toBeVisible();
+  await row(page, "Cuenta de Ana").click();
+  await expect(page).toHaveURL(new RegExp(`/cuentas/${id}`));
 });
 
 test("borrar desde el detalle de la cuenta", async ({ page }) => {

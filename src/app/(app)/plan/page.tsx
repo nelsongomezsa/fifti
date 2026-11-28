@@ -1,4 +1,5 @@
-import { SwipeRow } from "@/components/movements/SwipeRow";
+import { SwipeHint } from "@/components/ui/SwipeHint";
+import { SwipeRow } from "@/components/ui/SwipeRow";
 import { getTx } from "@/i18n/tx";
 import { displayName } from "@/lib/system-names";
 import type { Metadata } from "next";
@@ -251,9 +252,11 @@ export default async function PlanPage({ searchParams }: { searchParams: Promise
       <div id="gastos-fijos" className="flex scroll-mt-4 flex-col gap-3">
         {myRecurring.length === 0 ? <p className="text-sm text-ink-3">{x("Aún no hay gastos fijos.")}</p> : (
           <ul className="flex flex-col gap-2">
+            <li><SwipeHint /></li>
             {myRecurring.map((r) => (
               <li key={r.id}>
-                <SwipeRow id={r.id} kind="recurring">
+                <SwipeRow id={r.id} name={r.description} kind={me && me.role !== "guest" ? "recurring" : undefined}
+                  secondary={me && me.role !== "guest" ? { label: x("Editar"), href: `/fijos/nuevo?id=${r.id}` } : undefined}>
                   <Link prefetch href={`/fijos/nuevo?id=${r.id}`} className="flex min-h-16 items-center justify-between gap-3 rounded-card border border-border bg-surface px-3 py-3 text-sm transition-colors hover:bg-surface-2">
                     <CategoryIcon systemName={cats?.find((c) => c.id === r.category_id)?.system_key} color={d.funds.find((f) => f.id === cats?.find((c) => c.id === r.category_id)?.fund_id)?.color} />
                     <span className="min-w-0 flex-1"><span className="block truncate font-medium">{r.description}</span><span className="block truncate text-sm text-ink-3">{x(FREQ[r.frequency as keyof typeof FREQ])} {x("· próximo")}{" "}{new Date(`${r.next_run}T00:00:00Z`).toLocaleDateString(x.locale, { day: "numeric", month: "short", timeZone: "UTC" }).replace(".", "")}{r.paid_from === "pot" ? ` · ${x("del bote")}` : ""}</span></span>

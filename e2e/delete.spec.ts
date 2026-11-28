@@ -42,7 +42,7 @@ async function expireSession(page: Page) {
 }
 
 async function deleteAndCheck(page: Page) {
-  await page.getByRole("button", { name: "Borrar", exact: true }).click();
+  await page.getByRole("button", { name: "Borrar gasto", exact: true }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Borrar" }).click();
   await expect(page).toHaveURL(/\/movimientos$/);
   await expect(page.getByRole("status").filter({ hasText: "Gasto borrado" })).toBeVisible();

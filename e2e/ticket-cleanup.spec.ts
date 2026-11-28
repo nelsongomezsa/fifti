@@ -58,7 +58,7 @@ test("borrar el gasto borra su foto y deja las de los demás", async ({ page }) 
   await upload(page, other, "#7DD3FC");
   const kept = (await pathOf(other))!;
   await page.goto(`/movimientos/${id}`);
-  await page.getByRole("button", { name: "Borrar", exact: true }).click();
+  await page.getByRole("button", { name: "Borrar gasto", exact: true }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Borrar" }).click();
   await expect(page).toHaveURL(/\/movimientos$/);
   expect(await stored()).toEqual([kept]);

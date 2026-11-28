@@ -21,7 +21,7 @@ export function buildDemoDb(now: Date = new Date()): Db {
   const add = (t: string, row: Row) => { (db[t] ??= []).push(row); return row; };
   for (const t of ["accounts", "account_transfers", "account_adjustments", "spaces", "space_members", "profiles", "funds", "categories", "expenses", "expense_splits", "expense_payers", "expense_tags", "tags", "expense_comments", "expense_reactions", "expense_private_details", "audit_log", "incomes", "monthly_plans", "plan_incomes", "plan_allocations", "recurring_expenses", "recurring_skips", "savings_goals", "goal_contributions", "goal_milestones", "saving_rules", "personal_mirror", "mirror_prefs", "favorites", "category_rules", "loans", "loan_repayments", "shopping_lists", "shopping_items", "settlements", "cross_offsets", "cross_offset_lines", "contributions", "contribution_rules", "notification_prefs", "notification_log", "push_subscriptions", "share_links", "fx_rates"]) db[t] = [];
 
-  add("profiles", { id: DEMO_USER_ID, display_name: "Ana", locale: "es", discreet_mode: false, ai_phrases: false, avatar_color: "#A78BFA" });
+  add("profiles", { id: DEMO_USER_ID, display_name: "Ana", locale: "es", discreet_mode: false, ai_phrases: false, avatar_color: "#A78BFA", swipe_hint_at: "2026-01-01T00:00:00Z" });
   add("notification_prefs", { user_id: DEMO_USER_ID, new_expense: true, fixed_tomorrow: true, fund_threshold: true, goal_reached: true, monthly_summary: true, contribution_pending: true, offset_proposal: true, daily_reminder: false, reminder_hour: 21, timezone: "Europe/Madrid", fixed_advance_days: 1 });
 
   // ───── Burbujas y miembros
@@ -46,7 +46,7 @@ export function buildDemoDb(now: Date = new Date()): Db {
   const fundsOf: Record<string, Record<string, string>> = { [P]: {}, [H]: {}, [G]: {} };
   const catsOf: Record<string, Record<string, string>> = { [P]: {}, [H]: {}, [G]: {} };
   const mkFunds = (space: string, keys: FundKey[]) => keys.forEach((k, i) => { fundsOf[space]![k] = add("funds", { id: id(), space_id: space, name: FUND[k][0], kind: FUND[k][1], color: FUND[k][2], icon: null, rollover: false, linked_space_id: null, position: i, system_key: `fund.${k === "general" ? "general" : k}` }).id as string; });
-  const mkCats = (space: string, fund: FundKey, list: [string, string][]) => list.forEach(([key, name]) => { catsOf[space]![key] = add("categories", { id: id(), space_id: space, fund_id: fundsOf[space]![fund], name, system_key: `cat.${key}` }).id as string; });
+  const mkCats = (space: string, fund: FundKey, list: [string, string][]) => list.forEach(([key, name]) => { catsOf[space]![key] = add("categories", { id: id(), space_id: space, fund_id: fundsOf[space]![fund], name, system_key: `cat.${key}`, hidden: false }).id as string; });
   mkFunds(P, ["fixed", "daily", "leisure", "savings"]); mkFunds(H, ["fixed", "daily", "leisure", "savings"]); mkFunds(G, ["general"]);
   for (const s of [P, H]) {
     mkCats(s, "fixed", [["rent", "Alquiler"], ["electricity", "Luz"], ["water", "Agua"], ["internet", "Internet"], ["subscriptions", "Suscripciones"]]);

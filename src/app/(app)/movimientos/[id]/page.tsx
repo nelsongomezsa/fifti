@@ -3,7 +3,8 @@ import { displayName } from "@/lib/system-names";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { DeleteExpenseButton } from "@/components/expense/DeleteExpenseButton";
+import { DetailDelete } from "@/components/ui/DetailDelete";
+import { canDeleteExpense } from "@/lib/permissions";
 import { CategoryIcon } from "@/components/ui/CategoryIcon";
 import { EditExpenseButton } from "@/components/expense/EditExpenseButton";
 import { ReceiptUploader } from "@/components/expense/ReceiptUploader";
@@ -12,7 +13,7 @@ import { formatMoney } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 import { REACTIONS } from "@/lib/validation/expense";
 import { uuidSchema } from "@/lib/validation/spaces";
-import { addComment, deleteExpense, toggleReaction } from "@/server/actions/expenses";
+import { addComment, deleteExpenseAndGo, toggleReaction } from "@/server/actions/expenses";
 import { requireUser } from "@/server/spaces";
 import { redirect } from "next/navigation";
 
@@ -93,7 +94,6 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
             spaceId: e.space_id, amountCents: e.amount_cents, currency: e.currency, categoryId: e.category_id ?? priv?.category_id ?? null, description: title,
             participants: splits?.map((s) => s.member_id), payerId: payers?.[0]?.member_id, tags: tags.join(" "),
           }} />
-          <DeleteExpenseButton expenseId={id} />
         </div>
       )}
 
@@ -160,6 +160,11 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
           ))}
         </ul>
       </div>
+
+      {canDeleteExpense(e, me) && (
+        <DetailDelete label={x("Borrar gasto")} title={x("¿Borrar este gasto?")}
+          description={x("Se quitará de la lista y de tus cuentas. Esta acción no se puede deshacer.")} action={deleteExpenseAndGo.bind(null, id)} />
+      )}
     </section>
   );
 }

@@ -4,7 +4,9 @@ import { displayName } from "@/lib/system-names";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CategoryIcon } from "@/components/ui/CategoryIcon";
-import { SwipeRow } from "@/components/movements/SwipeRow";
+import { SwipeHint } from "@/components/ui/SwipeHint";
+import { SwipeRow } from "@/components/ui/SwipeRow";
+import { canDeleteExpense } from "@/lib/permissions";
 import { MovementFilters } from "@/components/movements/MovementFilters";
 import { PendingExpenseRows } from "@/components/expense/optimistic";
 import { ArrowRightLeft, Users, Wallet } from "lucide-react";
@@ -42,7 +44,7 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
   if (sp.q && esc(sp.q)) q = q.ilike("description", `%${esc(sp.q)}%`);
   // Todas las consultas son independientes: una sola ronda de red
   const [{ data: members }, { data: cats }, { data: fundColors }, { data: expenses }, { data: privates }, { data: mirrors }, accountList, { data: incomeRows }, { data: transferRows }, { data: contribRows }] = await Promise.all([
-    supabase.from("space_members").select("id, user_id, display_name").eq("space_id", active.id),
+    supabase.from("space_members").select("id, user_id, display_name, role").eq("space_id", active.id),
     supabase.from("categories").select("id, name, system_key, fund_id").eq("space_id", active.id),
     supabase.from("funds").select("id, name, color, system_key").eq("space_id", active.id).order("position"),
     q,
@@ -135,6 +137,7 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
         </div>
       ) : (
         <div className="flex flex-col gap-4">
+          <SwipeHint />
           {dayKeys.map((day) => {
             const list = rows.filter((e) => e.spent_at === day);
             const rest = others.filter((o) => o.date === day);
@@ -162,7 +165,9 @@ export default async function MovementsPage({ searchParams }: { searchParams: Pr
                     const info = e.category_id ? catInfo.get(e.category_id) : undefined;
                     return (
                       <li key={e.id}>
-                        <SwipeRow id={e.id}>
+                        <SwipeRow id={e.id} name={title}
+                          kind={canDeleteExpense(e, me) ? "expense" : undefined}
+                          secondary={canDeleteExpense(e, me) ? { label: x("Editar"), href: `/movimientos/${e.id}?editar=1` } : undefined}>
                         <Link href={`/movimientos/${e.id}`} className="flex min-h-16 items-center gap-3 rounded-card border border-border bg-surface px-3 py-3 transition-colors hover:bg-surface-2">
                           <CategoryIcon systemName={info?.sysName} color={info?.color} />
                           <span className="min-w-0 flex-1">

@@ -4,6 +4,7 @@ Historial de Fifti por fechas. Formato libre, del más reciente al más antiguo.
 
 ## 2026-11-28
 
+- **Un solo patrón para borrar**: deslizar con el dedo (izquierda «Borrar», derecha la acción de esa lista; hasta el final actúa al soltar) y botón «⋯» para ratón, teclado y lector de pantalla. El «Borrar…» de las pantallas de detalle va abajo del todo y pista de la primera vez. Deshacer: durante 5 s no se envía nada; si se cierra la app antes, el borrado se cancela. Requiere la migración `20261128000031_delete_everywhere.sql`.
 - **Cuentas, lo que faltaba**: apartado «Archivadas» (ver, recuperar y borrar); la confirmación de borrado dice qué saldos cambiarán; vaciar un hogar ya no toca los traspasos propios ni los ajustes de otros miembros, y el aviso a los demás dice si se borraron cuentas. Requiere la migración `20261128000030_clear_space_others.sql`.
 - Al abrir un gasto desde Movimientos, los filtros de la lista reescribían la URL del detalle; al borrarlo, a veces se perdía el aviso.
 - **Borrar cuentas**: en Mis cuentas las filas se deslizan (Borrar a la izquierda, Archivar a la derecha) y el detalle tiene «Borrar cuenta», siempre con confirmación. Se van sus traspasos y ajustes; los gastos, ingresos, gastos fijos y partidas se quedan sin cuenta. «Vaciar este espacio» puede borrar también tus cuentas de ese espacio (marcado por defecto). Requiere la migración `20261128000029_delete_accounts.sql`.

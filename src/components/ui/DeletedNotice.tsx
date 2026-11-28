@@ -10,13 +10,16 @@ export function DeletedNotice() {
   const x = useTx();
   const path = usePathname();
   const params = useSearchParams();
-  const flag = params.get("borrado") === "1";
+  const value = params.get("borrado");
+  // «1» según la pantalla; los demás borrados dicen qué eran
+  const named = value === "meta" ? "Meta borrada" : value === "espacio" ? "Espacio borrado" : value === "salida" ? "Has salido del espacio" : null;
+  const flag = value === "1" || named !== null;
   const [seen, setSeen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   if (flag !== seen) {
     setSeen(flag);
-    if (flag) setMessage(path === "/plan" ? "Gasto fijo borrado" : path === "/cuentas" ? "Cuenta borrada" : "Gasto borrado");
+    if (flag) setMessage(named ?? (path === "/plan" ? "Gasto fijo borrado" : path === "/cuentas" ? "Cuenta borrada" : "Gasto borrado"));
   }
 
   useEffect(() => {
