@@ -66,6 +66,9 @@ test("editar un gasto y borrarlo con la confirmación de la app", async ({ page 
   await page.goto("/movimientos");
   await page.getByRole("link", { name: /Cena/ }).click();
   await expect(page.getByRole("heading", { name: "Cena" })).toBeVisible();
+  // Los filtros de la lista, que sigue montada debajo, no deben reescribir la URL del detalle
+  await page.waitForTimeout(600);
+  expect(new URL(page.url()).search).toBe("");
   await page.getByRole("button", { name: "Editar", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Nuevo gasto" })).toBeVisible();
   await page.getByLabel("Concepto").fill("Cena con amigas");

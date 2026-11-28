@@ -23,18 +23,23 @@ export function MovementFilters({ month, q: q0, cat: cat0, fondo: fondo0, person
   const [q, setQ] = useState(q0 ?? "");
   const [open, setOpen] = useState(false);
   const [v, setV] = useState<Values>({ tipo: tipo0 ?? "", cat: cat0 ?? "", fondo: fondo0 ?? "", persona: persona0 ?? "", pago: pago0 ?? "", cuenta: cuenta0 ?? "", tag: tag0 ?? "" });
-  const first = useRef(true);
+  // La ruta de la lista, fijada al montar: al abrir un gasto en la hoja, la lista sigue montada y la ruta es la del detalle
+  const [listPath] = useState(path);
+  const applied = useRef(JSON.stringify([month, q, v]));
 
+  // Solo se toca la URL cuando cambian los filtros, no cuando cambia la ruta
   useEffect(() => {
-    if (first.current) { first.current = false; return; }
+    const next = JSON.stringify([month, q, v]);
+    if (next === applied.current) return;
     const t = setTimeout(() => {
+      applied.current = next;
       const p = new URLSearchParams({ mes: month });
       if (q.trim()) p.set("q", q.trim());
       for (const [k, val] of Object.entries(v)) if (val.trim()) p.set(k, val.trim());
-      start(() => router.replace(`${path}?${p.toString()}`, { scroll: false }));
+      start(() => router.replace(`${listPath}?${p.toString()}`, { scroll: false }));
     }, 300);
     return () => clearTimeout(t);
-  }, [q, v, month, path, router]);
+  }, [q, v, month, listPath, router]);
 
   const set = (k: keyof Values, val: string) => setV((o) => ({ ...o, [k]: val }));
   const nameOf = (list: Opt[] | null | undefined, id: string) => list?.find((o) => o.id === id)?.name ?? id;
